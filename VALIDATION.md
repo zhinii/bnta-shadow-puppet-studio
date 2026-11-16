@@ -10,6 +10,8 @@ The first still-puppet test failed because the provider returned correct advice 
 
 A nine-branch synthetic outline exposed threshold dependence: the same branch represented 25.95% of the original figure but 35.05% after an earlier cut, triggering the 35% broad-cut guard. Batch construction now evaluates the same finite cut against the immutable source contour. Current-fragment validity, minimum area, pin spacing, locks and the 90 mm cap still apply. No all-pairs trial loop was added; the existing 80-dense-contour performance regression remained below one second locally.
 
+A further live check exposed irrelevant image-cleanup controls beside a blank drawing; drawing now uses the full canvas with its existing Finish, Cancel and Undo point controls, and the inspector returns after finishing. The existing drawing workflow regression covers this change.
+
 UI fixes let blank joint artwork scroll vertically, reserve touch dragging for dots, recompute marker hit areas after layout/resizing, and provide an Add your first movement point action when no dots exist. Creation now waits for a confirmed service capability and allowance instead of offering a transient text-draft route. Connection responses are scoped to their endpoint and session. Phone/tablet touch, physical assembly and independent student use remain outstanding.
 
 ## Previous v0.7.3 automatic joint planning

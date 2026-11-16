@@ -437,6 +437,8 @@ html[lang=zh] .empty-canvas h2 { font-size: 30px; }
 .workspace.step-refine.reviewing { grid-template-columns: minmax(0, 1fr); }
 .workspace.step-refine.reviewing .canvas-panel { grid-column: 1 / -1; }
 .workspace.step-refine.reviewing > .inspector { display: none; }
+.workspace.step-refine.focused-drawing { grid-template-columns: minmax(0, 1fr); }
+.workspace.step-refine.focused-drawing .canvas-panel { grid-column: 1 / -1; }
 .workspace.step-make .canvas-panel { position: relative; top: auto; grid-column: 1 / -1; }
 .step-make .task-next { position: static; }
 .make-controls { display: grid; grid-template-columns: minmax(160px, 240px) minmax(0, 1fr); gap: 12px 24px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }

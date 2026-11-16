@@ -10,6 +10,7 @@
 | An early Create click could start a text draft before image capability resolved | Show connecting/allowance feedback and wait for capabilities; keep uploads and starters available | Delayed-response, submission and endpoint/session regressions |
 | Swiping blank joint artwork could block page scrolling | Permit vertical pan on blank artwork; reserve dragging for dots | CSS/event checks; real touch remains unverified |
 | Resizing could shrink dot hit targets | Recompute targets after layout and resize while retaining focus and trial state | 44 CSS-pixel targets at 366, 820 and 320 px test widths |
+| Drawing a blank shape displayed unrelated image-cleanup controls | Hide the inspector during drawing and use the full canvas; restore editing controls after Finish | Drawing, Cancel and Finish regression |
 | Empty plans told students to drag nonexistent dots | Explain the empty state and prioritize Add your first movement point; still-puppet output remains available | Workflow regression |
 | A valid branch could fail after another valid cut | Evaluate broad-cut eligibility against the same cut in the original outline | Six geometry regressions, unchanged safety/validity guards |
 | A still-puppet response arrived as prose and triggered joint fallback | Add an explicit structured zero-joint example; keep rejecting non-structured advice | Final live synthetic relay run: 3/3 expected selections |
