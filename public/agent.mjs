@@ -26,3 +26,17 @@ export async function askAssistant(args,{signal,fetcher=fetch,endpoint=RELAY}={}
  if(!response.ok){const hints={400:'The relay does not accept this puppet request yet.',401:'The protected connection needs authorization.',403:'This app origin is not allowed by the protected relay.',404:'The relay route is unavailable.',429:'The AI connection is busy. Wait a moment and retry.',503:'The server AI connection is not configured.'};throw Error(hints[response.status]||`AI connection failed (${response.status}). Your design is saved.`);}
  return parseResponse(await response.json());
 }
+// Reference images and pattern tiles via the relay's image route. The relay
+// returns a data URL so downloads keep working after the provider URL expires.
+export async function generateStudioImage({kind,prompt},{signal,fetcher=fetch,endpoint=RELAY}={}){
+ const response=await fetcher(endpoint+'/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({application:'shadow-puppet-studio',kind,prompt}),signal});
+ if(!response.ok){
+  let code='';try{code=(await response.json())?.error||'';}catch{}
+  const byCode={image_model_unavailable:'Image generation is not enabled on this AI plan. Chat still works. / 当前接口未开通图像生成，文本功能不受影响。',rate_limit:'The image service is busy. Wait a moment and retry. / 图像服务繁忙，请稍候再试。',server_configuration:'The server AI connection is not configured. / 服务器未配置 AI 连接。',provider:'The image provider rejected the request. / 图像服务拒绝了请求。',prompt:'Describe what you want in fewer words. / 请用更少的文字描述。',image_too_large:'The generated image was too large to keep. Please retry. / 生成的图像过大，请重试。',size:'The request was too large. / 请求过大。'};
+  const byStatus={403:'This app origin is not allowed by the protected relay. / 当前来源未被接口允许。',404:'The relay does not have an image route yet. / 接口尚未提供图像功能。',429:'The image service is busy. Wait a moment and retry. / 图像服务繁忙，请稍候再试。',503:'The server AI connection is not configured. / 服务器未配置 AI 连接。'};
+  throw Error(byCode[code]||byStatus[response.status]||`Image generation failed (${response.status}). / 图像生成失败（${response.status}）。`);
+ }
+ const data=await response.json();
+ if(typeof data?.dataUrl!=='string'||!data.dataUrl.startsWith('data:image/'))throw Error('The relay returned an unexpected image response. / 服务返回格式异常。');
+ return data;
+}
