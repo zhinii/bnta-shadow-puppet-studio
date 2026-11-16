@@ -1,6 +1,18 @@
-# Validation · 16 November 2026
+# Validation · 17 November 2026
 
-## v0.7.3 automatic joint planning
+## v0.7.4 continuation checks
+
+**Automated:** 241 tests pass, including 41 workflow tests. Six new geometry regressions cover selected subsets and reversed branch order, original-torso rejection, unchanged manual placement, a long-robed figure, a footballer with an unlocked separate ball, and a six-tentacle silhouette. Four new workflow regressions cover delayed capability checks, endpoint/session races, empty-plan recovery, and 44 CSS-pixel marker targets at 366/820/320 px widths. These are event/geometry checks, not real touch-device observations.
+
+**Live synthetic relay:** [the recorded run](validation/synthetic-joint-relay-2026-11-17.jsonl) passed 3/3 cases: one lower bend (6.299 s), one left bend (3.106 s), and no joints for an explicitly still puppet (2.229 s). Only newly authored literal rectangles and generic test instructions were sent; no uploaded image or user project was used. The earlier blocked project-data request was not repeated. These checks establish the structured selection contract for simple shapes, not real-character anatomy or a general success rate.
+
+The first still-puppet test failed because the provider returned correct advice in prose without selectedIds; the client correctly refused to treat prose as a machine selection, then offered geometry fallback. Adding an explicit empty-selection JSON example produced a valid zero-joint response in the targeted retest and the final three-case run. Prose is still never converted into guessed joints.
+
+A nine-branch synthetic outline exposed threshold dependence: the same branch represented 25.95% of the original figure but 35.05% after an earlier cut, triggering the 35% broad-cut guard. Batch construction now evaluates the same finite cut against the immutable source contour. Current-fragment validity, minimum area, pin spacing, locks and the 90 mm cap still apply. No all-pairs trial loop was added; the existing 80-dense-contour performance regression remained below one second locally.
+
+UI fixes let blank joint artwork scroll vertically, reserve touch dragging for dots, recompute marker hit areas after layout/resizing, and provide an Add your first movement point action when no dots exist. Creation now waits for a confirmed service capability and allowance instead of offering a transient text-draft route. Connection responses are scoped to their endpoint and session. Phone/tablet touch, physical assembly and independent student use remain outstanding.
+
+## Previous v0.7.3 automatic joint planning
 
 The new default chain is generated-image acceptance or first artwork upload → cleanup review → cleanup acceptance → automatic joint-plan review. Existing pieces are not silently rebuilt when a new image arrives. Each cleanup and plan still requires its own explicit acceptance; automatic progression prepares the next proposal rather than committing it.
 

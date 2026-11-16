@@ -1,7 +1,22 @@
 # UI/UX re-audit — simplicity first
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
-## Current v0.7.3 audit and verdict
+## Current v0.7.4 continuation audit · 17 November 2026
+
+**Verdict:** the three-process workflow is suitable for a supervised trial. This pass fixes concrete failure/recovery and small-screen interaction issues; it does not establish automatic anatomical accuracy or independent student usability.
+
+| Finding | Correction | Evidence |
+| --- | --- | --- |
+| An early Create click could start a text draft before image capability resolved | Show connecting/allowance feedback and wait for capabilities; keep uploads and starters available | Delayed-response, submission and endpoint/session regressions |
+| Swiping blank joint artwork could block page scrolling | Permit vertical pan on blank artwork; reserve dragging for dots | CSS/event checks; real touch remains unverified |
+| Resizing could shrink dot hit targets | Recompute targets after layout and resize while retaining focus and trial state | 44 CSS-pixel targets at 366, 820 and 320 px test widths |
+| Empty plans told students to drag nonexistent dots | Explain the empty state and prioritize Add your first movement point; still-puppet output remains available | Workflow regression |
+| A valid branch could fail after another valid cut | Evaluate broad-cut eligibility against the same cut in the original outline | Six geometry regressions, unchanged safety/validity guards |
+| A still-puppet response arrived as prose and triggered joint fallback | Add an explicit structured zero-joint example; keep rejecting non-structured advice | Final live synthetic relay run: 3/3 expected selections |
+
+241 automated tests pass. Live synthetic outcomes are scoped to simple authored strips; realistic character recognition, phone/tablet touch and physical prototypes still require validation. See [VALIDATION.md](VALIDATION.md) for exact evidence and [FUNCTIONALITY.md](FUNCTIONALITY.md) for the inventory.
+
+## Previous v0.7.3 audit and verdict
 
 **Verification:** 231 automated tests pass, including 37 workflow tests; syntax, production build and Worker smoke checks pass.
 

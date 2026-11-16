@@ -1,5 +1,5 @@
 import {normalizeStudioProject,partTransforms,transformPoint,inverseMatrix,unitsPerMm,boundsOf,polygonArea,pointInPolygon,validateStudio} from './studio-model.mjs';
-import {suggestJointAt,JOINT_SECTION_MAX_MM} from './studio-construction.mjs?v=0.7.3';
+import {suggestJointAt,JOINT_SECTION_MAX_MM} from './studio-construction.mjs?v=0.7.4';
 
 const EPS=1e-7,MAX_MARKERS=12,MAX_PARTS_TO_SCAN=12,MAX_TRIALS=24;
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
@@ -84,7 +84,8 @@ export function suggestJointMarkers(project,{maxMarkers=6}={}){
   if(!part)continue;
   trials++;
   try{
-   const result=suggestJointAt(sketch,part.id,candidate.point,{angleDegrees:candidate.angleDegrees});
+   const sourcePolygon=p.parts.find(part=>part.id===candidate.partId).polygon;
+   const result=suggestJointAt(sketch,part.id,candidate.point,{angleDegrees:candidate.angleDegrees,sourcePolygon});
    if(result.partIds.some(id=>Math.abs(polygonArea(result.project.parts.find(part=>part.id===id).polygon))<candidate.minMovingArea))continue;
    sketches.set(candidate.partId,result.project);
    markers.push({id:markerId(candidate.partId,result.pivot,candidate.angleDegrees),partId:candidate.partId,point:[...result.pivot],label:text(p,'Bend '+(markers.length+1),'关节 '+(markers.length+1)),angleDegrees:candidate.angleDegrees});
@@ -126,7 +127,9 @@ export function buildJointPlan(project,markers){
     const radians=angleDegrees*Math.PI/180,originalDirection=[marker.point[0]+Math.cos(radians),marker.point[1]+Math.sin(radians)],currentEnd=transformPoint(inverseMatrix(currentTransforms[target.id]),transformPoint(originalTransforms[marker.partId],originalDirection));
     angleDegrees=Math.atan2(currentEnd[1]-point[1],currentEnd[0]-point[0])*180/Math.PI;
    }
-   const result=suggestJointAt(working,target.id,point,{angleDegrees});
+   // Splitting retains each fragment's original coordinate system. Keep broad
+   // section heuristics tied to the source contour, rather than earlier cuts.
+   const result=suggestJointAt(working,target.id,point,{angleDegrees,sourcePolygon:originalPart.polygon});
    const errors=validateStudio(result.project).filter(issue=>issue.level==='error');if(errors.length)throw new Error(errors.map(issue=>issue.message).join(' '));
    working=result.project;for(const id of result.partIds){lineages.get(marker.partId).add(id);artworkIds.set(id,originalPart.assetId);}
    jointIds.push(result.jointId);

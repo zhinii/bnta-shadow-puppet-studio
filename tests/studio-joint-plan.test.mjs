@@ -149,3 +149,55 @@ test('batch geometry restores distinct artwork mappings and saved revisions exac
  for(const report of result.markers){const joint=result.project.joints.find(j=>j.id===report.jointId),expected=report.partId==='other'?'other-art':'art';for(const id of [joint.parentId,joint.childId])assert.equal(result.project.parts.find(part=>part.id===id).assetId,expected);}
  assert.equal(validateStudio(result.project).filter(i=>i.level==='error').length,0);
 });
+
+test('a branching creature keeps broad-section eligibility when AI selects only two source branches in either order',()=>{
+ const outline=Array.from({length:18},(_,i)=>{const angle=Math.PI*2*i/18,radius=i%2?45:150;return [180+radius*Math.cos(angle),180+radius*Math.sin(angle)];});
+ const p=character(outline);p.heightMm=280;const original=JSON.stringify(p),scale=unitsPerMm(p),candidates=suggestJointMarkers(p,{maxMarkers:12});
+ const lower=candidates.find(m=>Math.hypot(m.point[0]-190.12535249560096,m.point[1]-209.54423259036622)<1e-6);
+ const upper=candidates.find(m=>Math.hypot(m.point[0]-190.12535249560096,m.point[1]-150.45576740963372)<1e-6);
+ assert.ok(lower&&upper,'Both independently suitable source branches must remain candidates.');assert.ok(candidates.length<=12);
+ // Either branch is 25.95% of the original. After its sibling is removed, the
+ // other becomes 35.05% of the remainder: this must not change its eligibility.
+ for(const markers of [[lower],[upper],[lower,upper],[upper,lower],candidates,[...candidates].reverse()]){
+  const result=buildJointPlan(p,markers);assert.ok(result.markers.every(m=>m.status==='ready'),JSON.stringify(result.markers));
+  assert.equal(result.jointIds.length,markers.length);assert.equal(validateStudio(result.project).filter(i=>i.level==='error').length,0);
+  near(result.project.parts.reduce((sum,part)=>sum+Math.abs(polygonArea(part.polygon)),0),Math.abs(polygonArea(outline)));near(unitsPerMm(result.project),scale);
+  for(const point of outline)assert.ok(result.project.parts.some(part=>pointInPolygon(point,part.polygon)));
+ }
+ assert.equal(JSON.stringify(p),original);
+});
+
+test('a batch still rejects a source torso division even when previous cuts make it a small fragment',()=>{
+ const p=character(rect(0,0,80,300));p.heightMm=300;
+ const result=buildJointPlan(p,[marker('branch',[40,100]),marker('torso',[40,150])]);
+ assert.deepEqual(result.markers.map(m=>m.status),['ready','needs-review']);assert.match(result.markers[1].message,/too broad/);
+ assert.equal(result.jointIds.length,1);near(result.project.parts.reduce((sum,part)=>sum+Math.abs(polygonArea(part.polygon)),0),24000);
+});
+
+const diverseOutlines={
+ robe:[[70,0],[100,0],[100,35],[120,35],[155,65],[195,120],[175,140],[130,100],[120,80],[115,120],[145,280],[25,280],[55,120],[50,80],[40,100],[-5,140],[-25,120],[15,65],[50,35],[70,35]],
+ footballer:[[70,0],[100,0],[110,25],[100,40],[100,50],[140,60],[180,110],[160,125],[125,90],[120,140],[145,175],[125,220],[145,270],[120,285],[100,225],[115,180],[90,160],[70,180],[60,230],[40,280],[15,270],[35,220],[40,170],[60,140],[55,90],[20,120],[0,100],[45,60],[70,50],[70,40],[60,25]],
+ tentacles:[[0,0],[220,0],[220,60],[210,60],[210,200],[190,200],[190,60],[170,60],[170,200],[150,200],[150,60],[130,60],[130,200],[110,200],[110,60],[90,60],[90,200],[70,200],[70,60],[50,60],[50,200],[30,200],[30,60],[10,60],[10,200],[-10,200],[-10,60],[0,60]]
+};
+for(const [name,outline] of Object.entries(diverseOutlines))test(`automatic plans preserve the ${name} silhouette and its separate prop`,()=>{
+ const p=character(outline);p.heightMm=280;
+ const ball=Array.from({length:16},(_,i)=>[250+15*Math.cos(i*Math.PI/8),245+15*Math.sin(i*Math.PI/8)]);
+ p.parts.push({...makePart('Separate prop',ball,'art'),id:'prop',locked:name!=='footballer'});
+ const original=JSON.stringify(p),prop=structuredClone(p.parts[1]),scale=unitsPerMm(p),candidates=suggestJointMarkers(p,{maxMarkers:12});
+ assert.ok(candidates.length>=3&&candidates.length<=12);assert.ok(candidates.every(m=>m.partId==='character'));
+ if(name==='robe'){
+  assert.ok(candidates.some(m=>m.point[1]<40),'The head/neck remains available.');
+  assert.ok(candidates.some(m=>m.point[0]<40&&m.point[1]>60));assert.ok(candidates.some(m=>m.point[0]>130&&m.point[1]>60));
+ }
+ if(name==='footballer'){
+  assert.ok(candidates.some(m=>m.point[0]<60&&m.point[1]>160));assert.ok(candidates.some(m=>m.point[0]>100&&m.point[1]>160));
+ }
+ if(name==='tentacles')for(const x of [0,40,80,120,160,200])assert.ok(candidates.some(m=>Math.abs(m.point[0]-x)<5&&m.point[1]>80),`Branch near ${x} needs a candidate.`);
+ for(const selected of [candidates,[...candidates].reverse()]){
+  const result=buildJointPlan(p,selected);assert.ok(result.markers.every(m=>m.status==='ready'));assert.equal(validateStudio(result.project).filter(i=>i.level==='error').length,0);
+  assert.deepEqual(result.project.parts.find(part=>part.id==='prop'),prop);assert.ok(result.project.joints.every(j=>j.parentId!=='prop'&&j.childId!=='prop'));
+  near(result.project.parts.filter(part=>part.id!=='prop').reduce((sum,part)=>sum+Math.abs(polygonArea(part.polygon)),0),Math.abs(polygonArea(outline)));near(unitsPerMm(result.project),scale);
+  for(const point of outline)assert.ok(result.project.parts.some(part=>part.id!=='prop'&&pointInPolygon(point,part.polygon)));
+ }
+ assert.equal(JSON.stringify(p),original);
+});

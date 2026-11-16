@@ -77,7 +77,8 @@ function browserHarness() {
   const root = {_html:'',get innerHTML(){return this._html;},set innerHTML(value){this._html=value;canvas.innerHTML=value.match(/<div id="puppet-canvas">([\s\S]*?)<\/div>/)?.[1]||'';planCanvas.innerHTML=value.match(/<div\b[^>]*\bid="plan-canvas"[^>]*>([\s\S]*?)<\/div>/)?.[1]||'';jointPreview.innerHTML=value.match(/<div class="joint-preview" id="joint-preview">([\s\S]*?)<\/div>/)?.[1]||'';reviewAngle.textContent=value.match(/<output id="review-angle-output">([^<]*)<\/output>/)?.[1]||'';promptBudget.textContent=value.match(/<p id="prompt-budget"[^>]*>([^<]*)<\/p>/)?.[1]||'';promptBudget.hidden=!value.includes('id="prompt-budget"');},addEventListener:(type,fn)=>rootListeners.set(type,fn),querySelector:selector=>/^\[data-(?:(part|joint)-id|vertex-index|plan-marker)=/.test(selector)?{focus(){focusedSelectors.push(selector);}}:null};
   const status = {textContent:''}, canvas = {innerHTML:''},planCanvas={innerHTML:'',getBoundingClientRect:()=>rect(),setPointerCapture(id){captures.push(id);},releasePointerCapture(id){releases.push(id);}},jointPreview={innerHTML:''},reviewAngle={textContent:''}, angle = {textContent:''},promptBudget={textContent:'',hidden:false}, toast = {textContent:'',classList:{add(){},remove(){}}};
   const relayInput={value:'',focus(){focusedSelectors.push('#relay-url');}};
-  const rect=()=>({left:0,top:0,width:800,height:600,right:800,bottom:600});
+  let viewport={width:800,height:600};
+  const rect=()=>({left:0,top:0,...viewport,right:viewport.width,bottom:viewport.height});
   const canvasWrap={getBoundingClientRect:rect,setPointerCapture(id){captures.push(id);},releasePointerCapture(id){releases.push(id);},focus(){focusedSelectors.push('#canvas-wrap');}};
   const svg = {getBoundingClientRect:rect,createSVGPoint(){return {x:0,y:0,matrixTransform(){return {x:this.x,y:this.y};}};},getScreenCTM(){return {inverse(){return {};}};}};
   for(const name of ['project-file','artwork-file'])files.set(name,{value:'',files:[],listeners:new Map(),addEventListener(type,fn){this.listeners.set(type,fn);},click(){}});
@@ -129,6 +130,8 @@ function browserHarness() {
     planMarkup:()=>planCanvas.innerHTML,
     planMarkers:()=>[...new Set(Array.from(planCanvas.innerHTML.matchAll(/data-plan-marker="([^"]+)"/g),m=>m[1]))],
     planLocation:id=>{const markup=planCanvas.innerHTML.slice(planCanvas.innerHTML.indexOf(`data-plan-marker="${id}"`)),circle=markup.match(/<circle cx="([^"]+)" cy="([^"]+)"/);return circle?.slice(1).map(Number);},
+    resizeCanvas(width,height){viewport={width,height};windowListeners.get('resize')?.();},
+    focusPlanMarker(id){globalThis.document.activeElement=target({planMarker:id});},
     reviewAngle:()=>reviewAngle.textContent,
     viewBox:()=>canvas.innerHTML.match(/viewBox="([^"]+)"/)?.[1].split(' ').map(Number),
     pageShow:async persisted=>{windowListeners.get('pageshow')?.({persisted});await settle();},
@@ -161,6 +164,47 @@ function browserHarness() {
 }
 const PNG='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
 function legacyImageStatus(url){return String(url).endsWith('/api/status')?{ok:true,status:200,json:async()=>({service:'Shadow Puppet Studio',configured:true})}:{ok:false,status:404,json:async()=>({error:'not_found'})};}
+
+test('cold startup waits for known image capabilities without sending a surprise text draft', async () => {
+  const h=browserHarness();let releaseStatus;
+  h.setGetResponse(url=>String(url).endsWith('/api/status')?legacyImageStatus(url):new Promise(resolve=>{releaseStatus=resolve;}));
+  try {
+    await h.start('pending-image-capabilities');
+    const prompt='A panda wearing a birthday party hat.';h.input('create-prompt',prompt);
+    assert.equal(typeof releaseStatus,'function');assert.equal(h.promptBudget.textContent,'37 characters · Checking allowance…');
+    assert.doesNotMatch(h.root.innerHTML,/37 \/ (4000|800)|Create editable draft/);
+    assert.match(h.root.innerHTML,/<button[^>]*data-action="generate-image"[^>]*disabled[^>]*>Connecting…<\/button>/);
+    assert.match(h.root.innerHTML,/<button[^>]*data-action="create-plan"[^>]*disabled/);
+    for(const action of ['generate-image','create-plan'])await h.click({action});await h.submit('create-form');
+    assert.equal(h.requests.length,0,'clicks or form submission during connection cannot silently choose the text route');
+    assert.equal(h.project().brief.keywords,prompt);assert.equal(h.error(),'');
+    releaseStatus({ok:false,status:404,json:async()=>({error:'not_found'})});await h.settle();
+    assert.equal(h.promptBudget.textContent,'37 / 800 characters');assert.match(h.root.innerHTML,/>Create character<\/button>/);
+    assert.doesNotMatch(h.root.innerHTML,/>Connecting…<\/button>/);assert.equal(h.requests.length,0);assert.equal(h.project().brief.keywords,prompt);
+  } finally {await h.close();}
+});
+
+test('superseded capability checks cannot change the current session or endpoint', async () => {
+  const h=browserHarness(),pending=[];
+  h.setGetResponse(url=>new Promise(resolve=>pending.push({url,resolve})));
+  const response=imageGeneration=>({ok:true,status:200,json:async()=>({version:2,text:true,imageGeneration,vision:false,status:'Connected.'})});
+  try {
+    await h.start('stale-capability-checks');assert.equal(pending.length,1);
+    await h.click({action:'starter',kind:'figure'});assert.ok(h.project().parts.length,'local starters remain usable during the connection check');
+    await h.click({action:'new-project'});assert.equal(pending.length,2,'New restarts an unfinished capability check');
+    h.input('create-prompt','New session cosmic bird');pending[1].resolve(response(false));await h.settle();
+    pending[0].resolve(response(true));await h.settle();
+    assert.equal(h.project().brief.keywords,'New session cosmic bird');assert.equal(h.project().parts.length,0);
+    assert.match(h.root.innerHTML,/>Create editable draft<\/button>/);assert.doesNotMatch(h.root.innerHTML,/>Create character<\/button>/);
+    await h.click({action:'settings'});h.setRelayUrl('https://old-relay.example/api/studio');const oldCheck=h.click({action:'save-endpoint'});
+    h.setRelayUrl('https://current-relay.example/api/studio');const currentCheck=h.click({action:'save-endpoint'});
+    assert.equal(pending.length,4);pending[3].resolve(response(false));await currentCheck;pending[2].resolve(response(true));await oldCheck;
+    assert.equal(h.preferences.get('bnta-studio-endpoint'),'https://current-relay.example/api/studio');
+    await h.click({action:'settings'});assert.match(h.root.innerHTML,/>Create editable draft<\/button>/);assert.doesNotMatch(h.root.innerHTML,/>Create character<\/button>/);
+    h.setResponse(()=>({reply:'Review the bird.',proposal:{parts:[{id:'bird',name:'Bird',polygon:[[0,0],[80,0],[80,100],[0,100]],fill:'#774422'}],joints:[]}}));
+    await h.submit('create-form');await h.settle();assert.equal(h.requests.length,1);assert.equal(h.requests[0].url,'https://current-relay.example/api/studio');
+  } finally {await h.close();}
+});
 
 test('three-stage student workflow keeps AI edits reviewable and undoable', async () => {
   const h=browserHarness();
@@ -935,6 +979,34 @@ test('automatic joint review zooms to the selected pin without changing its tria
   } finally {await h.close();}
 });
 
+test('joint review keeps touch targets, motion and placement state when the viewport changes', async () => {
+  const h=browserHarness();h.setPlanResponse(candidates=>({selectedIds:[candidates[0].id]}));
+  const viewBox=()=>h.planMarkup().match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+  const construction=()=>Array.from(h.planMarkup().matchAll(/<g transform="matrix\([^"]+\)">|<path d="[^"]+"/g),match=>match[0]);
+  const hitDiameter=(width,height)=>{const box=viewBox(),radius=Number(h.planMarkup().match(/class="plan-marker[^>]*><circle[^>]* r="([^"]+)"/)[1]);return radius*2/Math.max(box[2]/width,box[3]/height);};
+  try {
+    await h.start('joint-plan-responsive-targets');await h.settle();
+    const project=createStudioProject();project.canvas={width:100,height:300};project.parts=[makePart('Long arm',[[0,0],[30,0],[30,300],[0,300]])];
+    await h.openProject(project);const before=h.project();await h.click({action:'prepare-joints'});
+    const ids=h.planMarkers();assert.equal(ids.length,1);h.planInput(31);await h.click({action:'plan-view'});
+    const box=viewBox(),trial=construction(),pin=h.planLocation(ids[0]);h.focusPlanMarker(ids[0]);
+    for(const [width,height]of [[366,320],[820,420],[320,300]]){
+      h.resizeCanvas(width,height);
+      assert.ok(Math.abs(hitDiameter(width,height)-44)<1e-8,'the dot remains a 44 CSS-pixel target after resizing');
+      assert.deepEqual(viewBox(),box,'responsive sizing keeps the selected-joint close-up');
+      assert.deepEqual(construction(),trial,'resizing cannot change contours or trial motion');
+      assert.deepEqual(h.planLocation(ids[0]),pin);assert.deepEqual(h.project(),before);
+      assert.match(h.root.innerHTML,/<output id="plan-angle-output">31°<\/output>/);
+      assert.equal(h.focusedSelectors.at(-1),`[data-plan-marker="${ids[0]}"]`,'keyboard focus returns to the same dot');
+    }
+    await h.click({action:'plan-move'});h.resizeCanvas(366,320);
+    assert.match(h.root.innerHTML,/Tap the new position for this dot/,'rotation does not exit placement mode');
+    await h.planPoint(15,150);assert.equal(h.planMarkers().length,1);assert.equal(h.error(),'');
+    await h.click({action:'accept'});assert.equal(h.project().joints.length,1);assert.equal(h.project().joints[0].angle,0);
+    assert.equal(h.requests.length,1,'resizing and marker correction stay local');
+  } finally {await h.close();}
+});
+
 test('AI connection errors stay inside the dialog and Escape preserves the joint trial underneath', async () => {
   const h=browserHarness();h.setPlanResponse(candidates=>({selectedIds:[candidates[0].id]}));
   const modal=()=>h.root.innerHTML.match(/<section class="settings-card"[\s\S]*?<\/section>/)?.[0]||'';
@@ -1091,8 +1163,24 @@ test('joint dots drag with a stable pointer offset and support cancellation and 
     assert.equal(h.releases.at(-1),73);assert.deepEqual(h.planLocation(id),moved,'Escape cancels the drag before its later pointerup');
     assert.equal(h.key('Enter',{planMarker:id}),true);assert.equal(h.key('ArrowDown',{planMarker:id},{shiftKey:true}),true);
     const nudged=h.planLocation(id);assert.ok(Math.abs(nudged[1]-moved[1]-2*unitsPerMm(before))<1e-6);assert.equal(nudged[0],moved[0]);assert.deepEqual(h.project(),before);
-    assert.equal(h.key('Delete',{planMarker:id}),true);assert.deepEqual(h.planMarkers(),[]);assert.deepEqual(primaryActions(h.root.innerHTML),['plan-still']);
+    assert.equal(h.key('Delete',{planMarker:id}),true);assert.deepEqual(h.planMarkers(),[]);assert.deepEqual(primaryActions(h.root.innerHTML),['plan-add']);assert.doesNotMatch(h.root.innerHTML,/Drag dots to adjust/);assert.match(h.root.innerHTML,/Add your first movement point/);
     await h.click({action:'reject'});assert.deepEqual(h.project(),before);assert.equal(h.requests.length,1,'marker interaction never starts another AI request');
+  } finally {await h.close();}
+});
+
+test('an empty movement plan leads to adding a point while a still puppet stays an explicit option', async () => {
+  const h=browserHarness();h.setPlanResponse(()=>({selectedIds:[]}));
+  try {
+    await h.start('empty-plan-recovery');await h.settle();
+    const project=createStudioProject();project.canvas={width:100,height:240};project.parts=[makePart('Long tail',[[0,0],[30,0],[30,240],[0,240]])];
+    await h.openProject(project);const before=h.project();await h.click({action:'prepare-joints'});
+    assert.deepEqual(h.planMarkers(),[]);assert.deepEqual(primaryActions(h.root.innerHTML),['plan-add']);
+    assert.doesNotMatch(h.root.innerHTML,/Drag dots to adjust/);assert.match(h.root.innerHTML,/Add your first movement point/);
+    assert.match(h.root.innerHTML,/<button[^>]*class="text-button"[^>]*data-action="plan-still"/);
+    await h.click({action:'plan-add'});assert.match(h.root.innerHTML,/Tap the character to add a joint dot/);await h.planPoint(15,120);
+    assert.equal(h.planMarkers().length,1);assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);assert.deepEqual(h.project(),before);
+    await h.click({action:'accept'});assert.equal(h.project().joints.length,1);await h.click({action:'undo'});assert.deepEqual(h.project(),before);
+    await h.click({action:'prepare-joints'});await h.click({action:'plan-still'});assert.equal(h.project().parts.length,1);assert.equal(h.project().joints.length,0);assert.match(h.root.innerHTML,/Make your puppet/);
   } finally {await h.close();}
 });
 

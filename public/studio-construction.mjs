@@ -136,18 +136,24 @@ export function splitPart(project,partId,lineStart,lineEnd,{connect=true,type='p
  * crossing the same infinite line remain intact. angleDegrees fixes the cut direction for a
  * student's adjustment; without it the shortest suitable direction is chosen.
  */
-export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
+export function suggestJointAt(project,partId,localPoint,{angleDegrees,sourcePolygon}={}){
  const before=normalizeStudioProject(project),part=before.parts.find(p=>p.id===partId);
  if(!part)fail('Select an existing part.','PART_NOT_FOUND');
  if(part.locked)fail('Unlock this part before adding movement.','LOCKED_PART');
  if(!validPoint(localPoint)||!pointInPolygon(localPoint,part.polygon))fail('Tap inside the part where you want it to bend.','INVALID_JOINT_POINT');
  if(angleDegrees!==undefined&&(typeof angleDegrees!=='number'||!Number.isFinite(angleDegrees)))fail('Choose a finite cut angle.','INVALID_CUT');
  if(selfIntersects(part.polygon))fail('Repair this outline before adding movement.','INVALID_CUT');
+ // Batch fragments retain their source coordinates. Judge the SAME finite cut
+ // against that immutable outline, so removing another branch cannot turn a
+ // previously suitable branch into an apparent broad division of the torso.
+ // Current fragment area, pin clearance and all construction checks still apply.
+ const reference=sourcePolygon??part.polygon;
+ if(sourcePolygon!==undefined&&(!Array.isArray(sourcePolygon)||sourcePolygon.length<3||sourcePolygon.length>512||sourcePolygon.some(p=>!validPoint(p))||selfIntersects(sourcePolygon)||!pointInPolygon(localPoint,sourcePolygon)))fail('The source outline does not support this joint position.','INVALID_CUT');
  const mm=unitsPerMm(before),webMm=Math.max(2,before.materialMm*2),padRadius=(before.holeMm/2+webMm)*mm;
  if(padRadius>300)fail('This image needs a larger print size before adding a joint.','JOINT_SIZE_LIMIT');
- const xs=part.polygon.map(p=>p[0]),ys=part.polygon.map(p=>p[1]),longest=Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys));
+ const xs=reference.map(p=>p[0]),ys=reference.map(p=>p[1]),longest=Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys));
  // Classroom paper-prototype defaults, not a material-strength certification.
- const reviewWidth=JOINT_SECTION_REVIEW_MM*mm,maxWidth=Math.min(JOINT_SECTION_MAX_MM*mm,longest*.65),totalArea=Math.abs(polygonArea(part.polygon)),minArea=Math.PI*padRadius*padRadius,maxSnap=Math.max(8*mm,padRadius*1.5);
+ const reviewWidth=JOINT_SECTION_REVIEW_MM*mm,maxWidth=Math.min(JOINT_SECTION_MAX_MM*mm,longest*.65),referenceArea=Math.abs(polygonArea(reference)),minArea=Math.PI*padRadius*padRadius,maxSnap=Math.max(8*mm,padRadius*1.5);
  const nearbyPins=before.joints.filter(j=>j.parentId===partId||j.childId===partId).map(j=>j.parentId===partId?j.parentAnchor:j.childAnchor);
  const minPinSpacing=(before.holeMm+webMm)*mm;
  if(nearbyPins.some(p=>distance(p,localPoint)<minPinSpacing))fail('There is already a joint here. Tap farther along the part.','JOINT_TOO_CLOSE');
@@ -156,6 +162,7 @@ export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
  for(const angle of angles){
   const radians=angle*Math.PI/180,a=localPoint,b=[a[0]+Math.cos(radians),a[1]+Math.sin(radians)];
   const section=interiorSection(part.polygon,a,b,localPoint);if(!section)continue;
+  const referenceSection=sourcePolygon===undefined?section:interiorSection(reference,a,b,localPoint);if(!referenceSection)continue;
   const {hits,pieces:[positive,negative]}=section;
   const smallArea=Math.min(Math.abs(polygonArea(positive)),Math.abs(polygonArea(negative)));
   if(smallArea<minArea)continue;
@@ -163,7 +170,8 @@ export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
   if(snap>maxSnap)continue;
   // Allow wide necks and garments while declining broad cuts through two
   // similarly sized body halves. A manual split is still available for those.
-  if(width>maxWidth||width>reviewWidth&&smallArea>totalArea*.35){broad=true;continue;}
+  const referenceWidth=distance(...referenceSection.hits),referenceSmallArea=Math.min(...referenceSection.pieces.map(points=>Math.abs(polygonArea(points))));
+  if(width>maxWidth||referenceWidth>maxWidth||referenceWidth>reviewWidth&&referenceSmallArea>referenceArea*.35){broad=true;continue;}
   if(nearbyPins.some(p=>distance(p,pivot)<minPinSpacing)){nearPin=true;continue;}
   candidates.push({hits,pivot,angle,width,score:width+snap*2});
  }

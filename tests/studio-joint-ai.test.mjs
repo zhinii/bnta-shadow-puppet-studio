@@ -23,7 +23,7 @@ test('horse selection request focuses explicit movements and supplies bounded me
   calls++;const content=JSON.parse(options.body).messages.at(-1).content,body=JSON.parse(content),context=body.scene.studio;
   assert.equal(body.scene.studentRequest,project.brief.keywords);assert.equal(context.brief.action,project.brief.action);
   assert.ok(content.length<=34500);assert.ok(body.question.length<=1600);
-  assert.match(body.question,/ONLY the minimum joints needed/);assert.match(body.question,/"one" means one/);assert.match(body.question,/ambiguous or missing, omit it/);assert.doesNotMatch(body.question,/Start with 2-6/);
+  assert.match(body.question,/ONLY the minimum joints needed/);assert.match(body.question,/"one" means one/);assert.match(body.question,/ambiguous or missing, omit it/);assert.doesNotMatch(body.question,/Start with 2-6/);assert.match(body.question,/For a still puppet, return/);assert.match(body.question,/never prose alone/);
   assert.equal(context.candidateGeometry.length,candidates.length);assert.ok(context.candidateGeometry.length<=12);
   for(const measurement of context.candidateGeometry){assert.deepEqual(Object.keys(measurement).sort(),['id','position','smallerRegion']);assert.ok(candidates.some(m=>m.id===measurement.id));assert.ok(measurement.position.every(n=>n>=0&&n<=1));assert.ok(measurement.smallerRegion.bounds.every(n=>n>=0&&n<=1));assert.ok(measurement.smallerRegion.areaFraction>0&&measurement.smallerRegion.areaFraction<=.5);}
   const nearest=(x,y)=>candidates.reduce((best,m)=>Math.hypot(m.point[0]-x,m.point[1]-y)<Math.hypot(best.point[0]-x,best.point[1]-y)?m:best),face=nearest(185,294),neck=nearest(331,256),measurement=id=>context.candidateGeometry.find(m=>m.id===id);

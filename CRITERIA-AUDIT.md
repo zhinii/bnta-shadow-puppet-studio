@@ -1,6 +1,6 @@
 # Criteria audit and refinement
 
-Current implementation: **v0.7.3**. The acceptance criteria come from the supplied character examples and the requested three-process workflow. The reference images show substantially different silhouettes, garments, anatomy and surface detail; changing the colors of one human template would not meet that intent.
+Current implementation: **v0.7.4**. The acceptance criteria come from the supplied character examples and the requested three-process workflow. The reference images show substantially different silhouettes, garments, anatomy and surface detail; changing the colors of one human template would not meet that intent.
 
 | Criterion | Result | Evidence / remaining work |
 | --- | --- | --- |
@@ -45,6 +45,6 @@ Current implementation: **v0.7.3**. The acceptance criteria come from the suppli
 
 The current workflow prepares movement suggestions automatically, reducing the need to locate every joint from scratch. It retains review of character cleanup, explicit dot editing and one acceptance for the joint plan. Both pieces still receive real overlap material and matching pin holes. The final integrated checks and live observations are recorded in [VALIDATION.md](VALIDATION.md); historical counts and screenshots apply only to their named releases.
 
-Live AI evidence includes a successful controlled text/outline selection and a full browser journey that selected unrelated body regions. The latter prompted the final selection refinements; those are not yet live verified. Automatic anatomical separation, hidden artwork reconstruction and dependable prompt matching remain incomplete. Local geometry must validate every selected or manually moved dot; no AI-selected coordinate bypasses those checks. Numeric defaults are paper-prototype heuristics, not universal material norms.
+Live AI evidence includes a successful controlled text/outline selection and a full browser journey that selected unrelated body regions. The latter prompted the final selection refinements; those later passed three live synthetic strip-selection checks, including an explicit zero-joint response. Real-character anatomical selection remains unverified. Automatic anatomical separation, hidden artwork reconstruction and dependable prompt matching remain incomplete. Local geometry must validate every selected or manually moved dot; no AI-selected coordinate bypasses those checks. Numeric defaults are paper-prototype heuristics, not universal material norms.
 
 The reference footballer, ornate historical figure and tentacled scholar remain acceptance scenarios. Test the automatic flow in an actual browser, then on phone/tablet and a paper prototype before claiming classroom or physical success. Previous manual-flow checks do not establish the new batch interface's usability.

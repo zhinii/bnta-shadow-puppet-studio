@@ -20,6 +20,14 @@ function chain(){
  p.rods=[{id:'hold',partId:'sleeve',point:[35,175]}];return p;
 }
 
+test('batch source eligibility checks the same original chord while standalone joint placement uses the current piece',()=>{
+ const p=sheet(rect(0,0,80,300));p.heightMm=300;
+ const first=suggestJointAt(p,'sleeve',[40,100],{angleDegrees:0}),target=first.project.parts.find(part=>pointInPolygon([40,150],part.polygon));
+ assert.ok(suggestJointAt(first.project,target.id,[40,150],{angleDegrees:0}).jointId,'Intentional standalone placement retains its current-piece rules.');
+ assert.throws(()=>suggestJointAt(first.project,target.id,[40,150],{angleDegrees:0,sourcePolygon:p.parts[0].polygon}),{code:'JOINT_SECTION_TOO_BROAD'});
+ assert.throws(()=>suggestJointAt(first.project,target.id,[40,150],{angleDegrees:0,sourcePolygon:[[0,0],[1,1]]}),{code:'INVALID_CUT'});
+});
+
 test('split retains image pixels, closes both cut shapes and creates a valid overlap hinge',()=>{
  const p=sheet(),original=JSON.stringify(p),scale=unitsPerMm(p);
  const result=splitPart(p,'sleeve',[-20,100],[120,100]);
