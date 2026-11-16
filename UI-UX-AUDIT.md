@@ -1,7 +1,13 @@
 # UI/UX re-audit — simplicity first
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
-## Current v0.7.5 continuation audit · 17 November 2026
+## Current v0.7.6 middle-school recovery audit · 17 November 2026
+
+The panda feedback exposed a discoverability failure: background selection was hidden, and an image rectangle could be treated as a puppet outline. The revised cleanup screen names the task, places background selection beside the image, previews empty space and the actual cut edge, and makes mistakes reversible. Suspect rectangles pause before joints. Failed image-based joint plans offer **Fix background**.
+
+The [middle-school audit](MIDDLE-SCHOOL-UX-AUDIT.md) records the findings, corrections and acceptance scenarios. All **250 automated tests pass**, including **45 workflow tests** and a cross-module reproduction in which the same knee is rejected before background repair and valid afterward. This is expert inspection and software validation, not an independent student usability result. Phone touch and a short classroom trial remain necessary.
+
+## Previous v0.7.5 continuation audit · 17 November 2026
 
 **Verdict:** the three-process workflow is suitable for a supervised trial. This pass fixes concrete failure/recovery and small-screen interaction issues; it does not establish automatic anatomical accuracy or independent student usability.
 

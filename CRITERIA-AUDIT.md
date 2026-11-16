@@ -1,6 +1,6 @@
 # Criteria audit and refinement
 
-Current implementation: **v0.7.5**. The acceptance criteria come from the supplied character examples and the requested three-process workflow. The reference images show substantially different silhouettes, garments, anatomy and surface detail; changing the colors of one human template would not meet that intent.
+Current implementation: **v0.7.6**. The acceptance criteria come from the supplied character examples and the requested three-process workflow. The reference images show substantially different silhouettes, garments, anatomy and surface detail; changing the colors of one human template would not meet that intent.
 
 | Criterion | Result | Evidence / remaining work |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ Current implementation: **v0.7.5**. The acceptance criteria come from the suppli
 | Reliable custom prompt results | Partial | Legacy image payload now respects its 800-character total budget without truncating exact custom text or selected settings. Optional compact rules use spare budget. The panda retry timed out before an HTTP response; earlier footballer/tentacle evidence remains mixed |
 | Preserve work explicitly | Implemented | Download/Open portable image-inclusive files; classic editor supports downloaded v1 files. Closing/reloading intentionally starts fresh; automatic snapshots are no longer retained or restored |
 | Start fresh after a closed session | Implemented | Current and classic editors keep projects in memory only; prior project snapshots are cleaned best-effort. AI endpoint preference remains; unrelated browser settings are untouched |
-| Clear student workflow and readable controls | Implemented; supervised trial needed | Cleanup acceptance opens a numbered joint plan automatically; select/adjust dots, try motion and accept once. Failed dots block acceptance until fixed/removed. Manual construction and technical settings remain optional. Live generation/cleanup/plan review exposed issues fixed in v0.7.2; final refinements and real touch/student use need further verification |
+| Clear student workflow and readable controls | Improved; independent student trial still needed | Cleanup acceptance opens a numbered joint plan automatically; select/adjust dots, try motion and accept once. Failed dots block acceptance until fixed/removed. Manual construction and technical settings remain optional. Live generation/cleanup/plan review exposed issues fixed in v0.7.2; final refinements and real touch/student use need further verification |
 
 ## Repeated review and repairs
 
@@ -40,6 +40,8 @@ Current implementation: **v0.7.5**. The acceptance criteria come from the suppli
 14. **v0.6.1 joint simplification:** replaced the default two-point cut with one bend-point tap and a reviewed geometric proposal. Existing-piece joins now select two pieces without manually locating their anchors. Both connected contours retain real overlap material around matching holes, with a visible back/front distinction and explicit layer swap. Movement testing changes a preview copy; accepting keeps the original resting pose. The manual cut and two-anchor tools remain optional.
 
 15. **v0.7.2 automatic joint plan:** added bounded local bend candidates, one AI selection request and a single editable numbered-dot review after cleanup acceptance. Student edits rebuild from the original geometry without more AI calls. Invalid dots require correction/removal; accepting the complete plan is one undoable operation. Automatic magenta and opt-in black mark detection retain source pixels. A live text/outline horse request selected the supplied neck/foreleg candidates; no image understanding is claimed.
+
+16. **v0.7.6 background-recovery audit:** brought background selection onto the main task, added connected-area tapping with review/undo, a checkerboard and visible cut outline, a suspicious-rectangle pause and a direct repair path from failed joint plans. This addresses expert-inspection failures; it does not establish independent middle-school usability.
 
 ## Release judgment
 

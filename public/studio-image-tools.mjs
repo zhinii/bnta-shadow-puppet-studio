@@ -53,6 +53,26 @@ export function removeConnectedBackground(input,{tolerance=30,backgroundColor}={
  return {width,height,data:resultData,removedPixels,backgroundColor:inferred.color,warnings};
 }
 
+/** Preview removal of only the connected color area the student taps. */
+export function removeTappedBackground(input,{seed,tolerance=30}={}){
+ const {width,height,data}=raster(input);tolerance=optionNumber(tolerance,30,0,150);
+ if(!Array.isArray(seed)||seed.length!==2||seed.some(value=>!Number.isFinite(value)))throw toolError('Tap the background inside the picture.','BACKGROUND_POINT');
+ const x=Math.floor(seed[0]),y=Math.floor(seed[1]);
+ if(x<0||y<0||x>=width||y>=height)throw toolError('Tap inside the picture to choose the background.','BACKGROUND_POINT');
+ const start=y*width+x,offset=start*4;
+ if(data[offset+3]<16)throw toolError('That area is already clear. Tap another background area.','BACKGROUND_ALREADY_CLEAR');
+ const backgroundColor=Array.from(data.subarray(offset,offset+3));
+ // Transparent gaps are barriers, not bridges to disconnected artwork with the
+ // same color. Every pixel is compared to the original tap, not its neighbor.
+ const selected=flood(width,height,[start],index=>data[index*4+3]>=16&&colorMatch(data,index,backgroundColor,tolerance));
+ let visiblePixels=0;for(let i=3;i<data.length;i+=4)if(data[i]>=16)visiblePixels++;
+ if(selected.pixelCount===visiblePixels)throw toolError('That would remove the whole picture. Tap a different background area or choose a smaller removal range.','BACKGROUND_REMOVES_ALL');
+ const resultData=new Uint8ClampedArray(data);for(const index of selected.pixels)resultData[index*4+3]=0;
+ const warnings=['Check that your whole character is still visible before keeping this change. Only the connected color area you tapped was removed.'];
+ if(selected.pixelCount>visiblePixels*.95)warnings.push('Almost all visible pixels were removed. Go back if any part of your character disappeared.');
+ return {width,height,data:resultData,removedPixels:selected.pixelCount,backgroundColor,warnings};
+}
+
 /** Label all alpha-connected regions without turning decoration into puppet parts. */
 export function enumerateImageComponents(input,{minAlpha=16,maxComponents=4096}={}){
  const {width,height,data}=raster(input);minAlpha=optionNumber(minAlpha,16,1,255);maxComponents=optionNumber(maxComponents,4096,1,65536);
@@ -117,7 +137,7 @@ export function isolateImageSubject(input,{seed,keepSeeds=[],excludeSeeds=[],min
  warnings.push('Decoration touching the character remains attached. Separate it manually before accepting if it is unwanted.');
  if(components.length>kept.length)warnings.push(`${components.length-kept.length} disconnected region(s) will be removed. Keep any separate legs, props or other intentional pieces before accepting.`);
  if(kept.some(component=>component.touchesEdge))warnings.push('A kept region touches the image edge. Check for a remaining border or clipped artwork.');
- return {width,height,data,keptPixels,removedPixels,backgroundRemovedPixels:cleaned.removedPixels,removedComponentPixels,subjectBounds:{x:minX,y:minY,width:maxX-minX,height:maxY-minY,minX,minY,maxX,maxY},components:components.map(component=>({...component,selected:selected.has(component.id)})),labels,selectedComponentIds:kept.map(component=>component.id),keptComponentCount:kept.length,removedComponentCount:components.length-kept.length,warnings};
+ return {width,height,data,keptPixels,removedPixels,backgroundRemovedPixels:cleaned.removedPixels,backgroundNeedsReview:opaqueRemnant,removedComponentPixels,subjectBounds:{x:minX,y:minY,width:maxX-minX,height:maxY-minY,minX,minY,maxX,maxY},components:components.map(component=>({...component,selected:selected.has(component.id)})),labels,selectedComponentIds:kept.map(component=>component.id),keptComponentCount:kept.length,removedComponentCount:components.length-kept.length,warnings};
 }
 
 function removeCollinear(points){

@@ -1,5 +1,15 @@
 # Validation · 17 November 2026
 
+## v0.7.6 background selection and middle-school recovery
+
+**Automated:** all **250 tests pass**, including **45 workflow tests**, plus syntax, build, generated Worker syntax and the 22-asset smoke check. Four new pixel-tool regressions cover selected connected backgrounds, enclosed white artwork, disconnected props, gradients, invalid taps, remove-everything protection and transparent margins. Four new workflow regressions cover visible selection/review, cancellation/undo, suspect-rectangle gating and intentional shapes, repair from joint planning, stale results and protected pieces. A cross-module regression reproduces the retained-background knee rejection and verifies that the same knee coordinate works after actual silhouette extraction, including unioned overlap contours and matching pin holes.
+
+**User-visible correction:** cleanup has a visible **Tap background to remove** action, source-image tap mode, Cancel, optional removal adjustment, checkerboard transparency, a green cut edge, original comparison and Undo last removal. Changes remain a draft until accepted. A suspected opaque rectangle pauses movement planning; deliberately rectangular objects require an explicit choice. **Fix background** provides recovery from failed or empty image joint plans. Generated-picture approval is **Use this picture**; cleanup approval is **Continue to movement**.
+
+The supplied panda screenshot does not contain the saved project, so its exact stored contour is unconfirmed. The regression establishes the observed failure mechanism with authored pixel data. Expert findings, implemented repairs and the remaining student-trial protocol are in [MIDDLE-SCHOOL-UX-AUDIT.md](MIDDLE-SCHOOL-UX-AUDIT.md).
+
+**Verification limits at publication:** the browser's file-chooser automation has not successfully populated this fixture in the app, and Chromium policy blocks DevTools/phone emulation. These are test-environment limits, not proof of an application import failure. Real phone touch, independent student use and physical assembly remain unverified. Live desktop observations for this release will be recorded separately below.
+
 ## v0.7.5 continuation checks
 
 **Automated:** the final v0.7.5 run passes 241 tests, including 41 workflow tests (14.74 s). Syntax checks, the production build and Worker smoke checks also pass. Six new geometry regressions cover selected subsets and reversed branch order, original-torso rejection, unchanged manual placement, a long-robed figure, a footballer with an unlocked separate ball, and a six-tentacle silhouette. Four new workflow regressions cover delayed capability checks, endpoint/session races, empty-plan recovery, and 44 CSS-pixel marker targets at 366/820/320 px widths. These are event/geometry checks, not real touch-device observations.

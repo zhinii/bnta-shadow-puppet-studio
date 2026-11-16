@@ -30,7 +30,7 @@ await mkdir(resolve(root,'dist/server'),{recursive:true});await mkdir(resolve(ro
 await writeFile(resolve(root,'dist/server/index.js'),code);await copyFile(resolve(root,'.openai/hosting.json'),resolve(root,'dist/.openai/hosting.json'));
 console.log('Built dependency-free Worker and '+files.length+' embedded assets.');
 const app=await bundle(['public/studio-app.mjs']);check(app.source);
-const portableScript=app.source.replace("new URL('./legacy.html?v=0.7.5',import.meta.url).href","'https://zhinii.github.io/bnta-shadow-puppet-studio/public/legacy.html?v=0.7.5'");
+const portableScript=app.source.replace("new URL('./legacy.html?v=0.7.6',import.meta.url).href","'https://zhinii.github.io/bnta-shadow-puppet-studio/public/legacy.html?v=0.7.6'");
 const offline=assets['/index.html'].replace(/<link rel="stylesheet" href="\.\/studio\.css(?:[?#][^"]*)?">/,()=>'<style>'+assets['/studio.css']+'</style>').replace(/<script type="module" src="\.\/studio-app\.mjs(?:[?#][^"]*)?"><\/script>/,()=>'<script type="module">'+portableScript.replace(/<\/script/gi,'<\\/script')+'</script>');
 await writeFile(resolve(root,'START-HERE.html'),offline);
 const pages=assets['/index.html'].replace('href="./studio.css','href="./public/studio.css').replace('src="./studio-app.mjs','src="./public/studio-app.mjs');

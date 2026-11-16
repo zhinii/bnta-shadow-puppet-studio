@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {removeConnectedBackground,selectImageRegion,extractImageSilhouette,enumerateImageComponents,isolateImageSubject,decodeArtwork,assetFromImageData} from '../public/studio-image-tools.mjs';
+import {removeConnectedBackground,removeTappedBackground,selectImageRegion,extractImageSilhouette,enumerateImageComponents,isolateImageSubject,decodeArtwork,assetFromImageData} from '../public/studio-image-tools.mjs';
 import {selfIntersects,polygonArea} from '../public/studio-model.mjs';
 
 function image(width,height,color=[0,0,0,0]){const data=new Uint8ClampedArray(width*height*4);for(let i=0;i<data.length;i+=4)data.set(color,i);return {width,height,data};}
@@ -18,6 +18,32 @@ test('background removal only clears edge-connected color and preserves enclosed
 test('transparent artwork is not whitened and background removal exposes its edge risk honestly',()=>{
  const source=image(12,12);rectangle(source,3,3,5,5,[255,255,255,255]);const cleaned=removeConnectedBackground(source);assert.equal(cleaned.removedPixels,0);assert.deepEqual(cleaned.data,source.data);assert.match(cleaned.warnings.join(' '),/already transparent/);
  const white=image(12,12,[255,255,255,255]);rectangle(white,4,4,3,3,[0,0,0,255]);const result=removeConnectedBackground(white);assert.equal(result.removedPixels,135);assert.match(result.warnings.join(' '),/image edge/);
+});
+
+test('a background tap clears an enclosed background while preserving the frame and white character details',()=>{
+ const source=image(32,28,[250,250,250,255]);rectangle(source,0,0,32,1,[15,15,15,255]);rectangle(source,0,27,32,1,[15,15,15,255]);rectangle(source,0,0,1,28,[15,15,15,255]);rectangle(source,31,0,1,28,[15,15,15,255]);
+ // White face and clothing enclosed by the character's dark outline.
+ rectangle(source,11,6,10,16,[15,15,15,255]);rectangle(source,12,7,8,7,[250,250,250,255]);rectangle(source,12,16,8,5,[250,250,250,255]);pixel(source,11,6,[15,15,15,128]);
+ const before=source.data.slice(),result=removeTappedBackground(source,{seed:[3,3],tolerance:12});
+ assert.deepEqual(source.data,before,'tapping never edits the original artwork');assert.equal(result.removedPixels,30*26-10*16);assert.deepEqual(result.backgroundColor,[250,250,250]);
+ assert.equal(at(result,3,3)[3],0);assert.deepEqual(at(result,0,3),at(source,0,3),'a border is not erased implicitly');assert.deepEqual(at(result,14,9),at(source,14,9),'same-color white face is enclosed');assert.deepEqual(at(result,14,18),at(source,14,18),'same-color white clothing is enclosed');assert.deepEqual(at(result,11,6),at(source,11,6));
+ const kept=isolateImageSubject(result,{seed:[14,9]});assert.equal(kept.keptPixels,160);assert.equal(kept.backgroundNeedsReview,false);assert.equal(at(kept,0,3)[3],0);assert.deepEqual(at(kept,14,9),at(source,14,9));
+});
+
+test('tapped removal does not cross transparent gaps or drift through a color gradient',()=>{
+ const source=image(24,14);rectangle(source,1,1,8,10,[245,245,245,255]);rectangle(source,14,2,7,9,[245,245,245,255]);rectangle(source,3,4,3,4,[20,30,40,255]);
+ const result=removeTappedBackground(source,{seed:[2.5,2.5],tolerance:0});assert.equal(result.removedPixels,68);assert.equal(at(result,2,2)[3],0);assert.equal(at(result,16,4)[3],255,'disconnected matching prop is retained');assert.deepEqual(at(result,4,5),at(source,4,5));
+ const gradient=image(20,4);for(let x=0;x<20;x++)for(let y=0;y<4;y++)pixel(gradient,x,y,[x*10,x*10,x*10,255]);
+ const limited=removeTappedBackground(gradient,{seed:[0,1],tolerance:11});assert.equal(limited.removedPixels,8);assert.equal(at(limited,1,1)[3],0);assert.equal(at(limited,2,1)[3],255);
+});
+
+test('background taps reject empty, invalid and remove-everything selections without changing the source',()=>{
+ const source=image(12,12);rectangle(source,2,2,8,8,[255,255,255,255]);const before=source.data.slice();
+ assert.throws(()=>removeTappedBackground(source,{seed:[1,1]}),{code:'BACKGROUND_ALREADY_CLEAR'});
+ for(const seed of [undefined,[NaN,2],[-1,2],[12,2],[2,12],[1]])assert.throws(()=>removeTappedBackground(source,{seed}),{code:'BACKGROUND_POINT'});
+ assert.throws(()=>removeTappedBackground(source,{seed:[3,3],tolerance:NaN}),/settings/);
+ assert.throws(()=>removeTappedBackground(source,{seed:[3,3]}),{code:'BACKGROUND_REMOVES_ALL'});assert.deepEqual(source.data,before);
+ const solid=image(8,8,[255,255,255,255]);assert.throws(()=>removeTappedBackground(solid,{seed:[4,4]}),{code:'BACKGROUND_REMOVES_ALL'});assert.deepEqual(solid.data,image(8,8,[255,255,255,255]).data);
 });
 
 test('magic wand selects connected seed colors, respects its box, and does not drift through a gradient',()=>{
@@ -97,7 +123,13 @@ test('a valid clicked subject can exclude a larger opaque frame remnant elsewher
 
 test('an existing cutout with a thin transparent border remains selectable with a review warning',()=>{
  const source=image(100,100);rectangle(source,1,1,98,98,[120,35,25,255]);rectangle(source,20,20,40,40,[255,255,255,255]);
- const result=isolateImageSubject(source,{seed:[30,30]});assert.equal(result.keptPixels,98*98);assert.equal(result.backgroundRemovedPixels,0);assert.deepEqual(result.data,source.data);assert.equal(result.subjectBounds.minX,1);assert.match(result.warnings.join(' '),/nearly solid rectangle/);
+ const result=isolateImageSubject(source,{seed:[30,30]});assert.equal(result.keptPixels,98*98);assert.equal(result.backgroundRemovedPixels,0);assert.deepEqual(result.data,source.data);assert.equal(result.subjectBounds.minX,1);assert.equal(result.backgroundNeedsReview,true);assert.match(result.warnings.join(' '),/nearly solid rectangle/);
+});
+
+test('partial transparency does not certify a remaining opaque rectangular background',()=>{
+ const source=image(100,100);rectangle(source,4,4,92,92,[250,250,250,255]);rectangle(source,38,20,24,60,[20,20,20,255]);rectangle(source,42,24,16,16,[250,250,250,255]);
+ const draft=isolateImageSubject(source);assert.equal(draft.backgroundNeedsReview,true);assert.equal(draft.keptPixels,92*92);assert.equal(draft.backgroundRemovedPixels,0);
+ const tapped=removeTappedBackground(source,{seed:[8,8]}),character=isolateImageSubject(tapped);assert.equal(character.backgroundNeedsReview,false);assert.deepEqual(character.subjectBounds,{x:38,y:20,width:24,height:60,minX:38,minY:20,maxX:62,maxY:80});assert.deepEqual(at(character,47,30),at(source,47,30));
 });
 
 test('complex jagged silhouettes simplify to a bounded non-crossing cut boundary',()=>{

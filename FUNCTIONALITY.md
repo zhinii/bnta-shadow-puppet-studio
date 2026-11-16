@@ -1,12 +1,12 @@
 # Shadow Puppet Studio · functionality and acceptance review
 
-Current version: **v0.7.5**. The student workflow is **Create → Refine → Make**. AI prepares proposals; students retain control over the character, movement and final result.
+Current version: **v0.7.6**. The student workflow is **Create → Refine → Make**. AI prepares proposals; students retain control over the character, movement and final result.
 
 | Process | Available functionality | Practical boundary |
 | --- | --- | --- |
 | Create | Custom prompts, live character count and confirmed allowance, optional character/world/style presets, image generation through the protected relay | Creation waits for the capability check; generation can misinterpret details, so review the image |
 | Create | Upload PNG/JPEG/WebP, focused tap-to-draw shapes, four editable construction starters | Uploads are processed locally; templates are optional |
-| Refine | Automatic subject cleanup, background removal, retain another piece/prop, choose a different subject | Complex backgrounds and connected decorations may need correction |
+| Refine | Automatic cleanup, visible tap-to-remove background, checkerboard/cut-edge preview, Undo last removal, retain missing props, choose the character | Suspected opaque rectangles pause for review; complex backgrounds and connected decorations may need correction |
 | Refine | AI selects among validated movement candidates; editable numbered dots; empty plans offer a first movement point or an explicit still-puppet choice | Current relay uses the brief and outline measurements, not visual anatomy recognition |
 | Refine | Add, move, drag, keyboard-nudge and remove dots; detect magenta markers, opt-in black markers | Embedded dots remain source artwork; eyes and decoration can resemble black markers |
 | Refine | Split at local movement sections; retain artwork; add real overlap tabs and aligned pin holes | Hidden artwork is not reconstructed; not a material-strength simulation |

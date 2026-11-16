@@ -87,7 +87,7 @@ function browserHarness() {
     if(['#puppet-canvas','#puppet-canvas svg','#canvas-wrap'].includes(selector)&&!root.innerHTML.includes('id="puppet-canvas"'))return null;
     if(['#joint-preview','#review-angle-output'].includes(selector)&&!root.innerHTML.includes('id="joint-preview"'))return null;
     if(['#plan-canvas','#plan-canvas svg'].includes(selector)&&!root.innerHTML.includes('id="plan-canvas"'))return null;
-    if(selector==='#review-heading')return {focus(){focusedSelectors.push(selector);}};
+    if(selector==='#review-heading'||selector==='#cleanup-heading')return {focus(){focusedSelectors.push(selector);}};
     if(selector==='#relay-url')return root.innerHTML.includes('id="relay-url"')?relayInput:null;
     if(selector==='#ai-status-button')return {focus(){focusedSelectors.push(selector);}};
     if(selector==='.canvas-panel')return {scrollIntoView(options){scrollRequests.push(options);}};
@@ -468,7 +468,7 @@ test('local image extraction, hinged splitting and parametric artwork resizing r
   try {
     await h.start('local-image-pipeline');await h.settle();await h.importArtwork();
     assert.equal(h.project().assets[0].dataUrl,original);
-    assert.match(h.root.innerHTML,/Keep this character\?/);await h.click({action:'reject'});
+    assert.match(h.root.innerHTML,/Remove the background/);await h.click({action:'reject'});
     await h.click({action:'extract-silhouette'});await h.settle();
     assert.match(h.root.innerHTML,/Review the extracted cut boundaries/);
     assert.equal(h.project().parts.length,0,'extraction is reviewable, not applied immediately');
@@ -550,7 +550,7 @@ test('color selection, reviewed connection suggestions and drawn parameter direc
   h.setRaster(rasterFixture({rectangles:[{x:15,y:15,w:60,h:30,color:[180,40,20,255]},{x:25,y:45,w:40,h:40,color:[30,70,180,255]}]}));
   try {
     await h.start('region-connection-axis');await h.settle();await h.importArtwork();
-    assert.match(h.root.innerHTML,/Keep this character\?/);await h.click({action:'reject'});
+    assert.match(h.root.innerHTML,/Remove the background/);await h.click({action:'reject'});
     for(const point of [[35,30],[45,65]]){
       const count=h.project().parts.length;
       await h.click({action:'select-region'});await h.point(...point);await h.settle();
@@ -579,7 +579,7 @@ test('changing selection or importing artwork clears unfinished cuts and restore
   const original=h.setRaster(rasterFixture({rectangles:[{x:10,y:10,w:30,h:80,color:[180,40,20,255]},{x:50,y:10,w:40,h:80,color:[30,70,180,255]}]}));
   try {
     await h.start('cancel-stale-cut');await h.settle();await h.importArtwork();
-    assert.match(h.root.innerHTML,/Keep this character\?/);await h.click({action:'reject'});
+    assert.match(h.root.innerHTML,/Remove the background/);await h.click({action:'reject'});
     await h.click({action:'extract-silhouette'});await h.click({action:'accept'});await h.settle();
     const before=structuredClone(h.project()),[first,second]=before.parts;
     await h.click({action:'select',id:first.id});await h.click({action:'split-part'});await h.point(5,50);
@@ -709,14 +709,14 @@ test('the simple image route automatically reviews the character and joint plan,
     await h.importArtwork();
     const imported=structuredClone(h.project());
     assert.equal(imported.parts.length,0,'import does not automatically turn every disconnected mark into a part');
-    assert.match(h.root.innerHTML,/Keep this character\?/,'upload starts the cleanup review automatically');
+    assert.match(h.root.innerHTML,/Remove the background/,'upload starts the cleanup review automatically');
     assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);
     await h.click({action:'reject'});assert.deepEqual(h.project(),imported);
     assert.doesNotMatch(h.root.innerHTML,/class="refine-stages"|data-action="refine-stage" data-stage="clean"/,'the four internal tool stages are not a visible navigation rail');
     assert.match(h.root.innerHTML,/<details class="view-tools"[^>]*>/,'view controls are in a disclosure');
     assert.doesNotMatch(h.root.innerHTML,/<details class="view-tools"[^>]*\sopen(?:\s|=|>)/,'view controls are folded away by default');
     assert.match(h.root.innerHTML,/More editing tools/);
-    assert.deepEqual(primaryActions(h.root.innerHTML),['remove-extras']);
+    assert.deepEqual(primaryActions(h.root.innerHTML),['pick-background']);
     await h.click({action:'remove-extras'});await h.settle();
     assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="review-heading"/);
     assert.deepEqual(primaryActions(h.root.innerHTML),['accept'],'cleanup has one primary review decision');
@@ -760,7 +760,7 @@ test('a new generated character prepares before reusing an old rig, keeps chosen
     await h.click({action:'step',step:'create'});h.input('create-prompt','A brown horse with a blue saddle and a separate ball.');
     await h.click({action:'generate-image'});await h.click({action:'accept'});await h.settle();
     assert.equal(h.error(),'');assert.deepEqual(h.project().parts,oldRig.parts);assert.deepEqual(h.project().joints,oldRig.joints);
-    assert.deepEqual(primaryActions(h.root.innerHTML),['remove-extras'],'a new image needs preparation even when the previous character already had movable joints');
+    assert.deepEqual(primaryActions(h.root.innerHTML),['pick-background'],'a new image needs preparation even when the previous character already had movable joints');
     const before=structuredClone(h.project());assert.ok(before.parts.length>2);assert.ok(before.joints.length);
     await h.click({action:'remove-extras'});await h.settle();assert.deepEqual(h.project(),before,'old construction is preserved while cleanup is being reviewed');
     assert.match(h.root.innerHTML,/data-action="keep-more"/);
@@ -911,7 +911,7 @@ test('a prepared joint plan rebuilds edits from the original and commits all joi
     await h.click({action:'plan-add'});await h.planPoint(15,60,{partId});
     await h.click({action:'plan-add'});await h.planPoint(15,.1,{partId});
     assert.equal(h.planMarkers().length,3);assert.deepEqual(primaryActions(h.root.innerHTML),[],'a marker that cannot form a sound cut blocks acceptance');
-    assert.match(h.root.innerHTML,/This dot needs another position/);assert.deepEqual(h.project(),before);
+    assert.match(h.root.innerHTML,/A moving piece could not be separated here/);assert.deepEqual(h.project(),before);
     await h.click({action:'plan-delete'});assert.equal(h.planMarkers().length,2);h.planInput(-20);
     assert.equal(h.error(),'');assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);assert.deepEqual(h.project(),before);
     assert.equal(h.requests.length,1,'adding, moving, deleting and trying joints reuse the accepted geometry candidates locally');
@@ -1062,7 +1062,7 @@ test('moving and dragging an automatic dot recomputes its cut direction for a di
       await h.click({action:'prepare-joints'});const id=h.planMarkers()[0],start=h.planLocation(id);assert.ok(start[0]>60&&start[1]>150);
       if(mode==='move'){await h.click({action:'plan-move'});await h.planPoint(15,90);}
       else{h.pointer('pointerdown',...start,{planCanvas:true,planMarker:id,pointerId:95});h.pointer('pointermove',15,90,{pointerId:95});h.pointer('pointerup',15,90,{pointerId:95});}
-      assert.deepEqual(h.planMarkers(),[id]);assert.deepEqual(h.planLocation(id),[15,90]);assert.deepEqual(primaryActions(h.root.innerHTML),['accept'],`${mode} chooses a new seam across the vertical limb`);assert.doesNotMatch(h.root.innerHTML,/This dot needs another position/);assert.deepEqual(h.project(),before);
+      assert.deepEqual(h.planMarkers(),[id]);assert.deepEqual(h.planLocation(id),[15,90]);assert.deepEqual(primaryActions(h.root.innerHTML),['accept'],`${mode} chooses a new seam across the vertical limb`);assert.doesNotMatch(h.root.innerHTML,/A moving piece could not be separated here/);assert.deepEqual(h.project(),before);
       await h.click({action:'accept'});const accepted=h.project();assert.equal(accepted.joints.length,1);assert.deepEqual(accepted.joints[0].parentAnchor,[15,90]);
       await h.click({action:'undo'});assert.deepEqual(h.project(),before);
     }
@@ -1208,7 +1208,7 @@ test('a generated character retains its exact custom request through cleanup and
     assert.match(h.root.innerHTML,/Is this your character\?/);assert.equal(h.project().assets.length,0);
     await h.click({action:'accept'});
     assert.equal(h.project().brief.keywords,prompt,'accepted artwork retains the exact request used to generate it');
-    assert.equal(h.project().assets.length,1);assert.equal(h.project().parts.length,0);assert.match(h.root.innerHTML,/Keep this character\?/,'using the generated artwork starts its cleanup review');
+    assert.equal(h.project().assets.length,1);assert.equal(h.project().parts.length,0);assert.match(h.root.innerHTML,/Remove the background/,'using the generated artwork starts its cleanup review');
     await h.click({action:'accept'});
     assert.equal(h.error(),'');assert.equal(h.project().parts.length,1);assert.equal(h.project().joints.length,0);assert.match(h.root.innerHTML,/id="plan-canvas"/);
     const count=h.planMarkers().length;assert.ok(count>0);const cleaned=h.project();
@@ -1369,4 +1369,66 @@ test('zoom, pan cancellation and touch-sized keyboard or pointer outline edits p
     await h.click({action:'undo'});await h.click({action:'undo'});assert.deepEqual(h.project(),before);await h.click({action:'vertices'});
     h.pointer('pointerdown',22,22,{vertexIndex:0,pointerId:55});h.pointer('pointermove',26,24,{pointerId:55});h.pointer('pointerup',26,24,{pointerId:55});assert.deepEqual(h.project().parts[0].polygon[0],[24,22],'grabbing the wider hit area preserves the pointer offset');assert.equal(h.releases.at(-1),55);assert.equal(h.error(),'');assert.equal(h.requests.length,0);
   } finally {await h.close();}
+});
+
+function framedPandaFixture(){
+  const white=[250,250,250,255],ink=[25,25,25,255];
+  return rasterFixture({rectangles:[{x:4,y:4,w:92,h:92,color:white},{x:40,y:15,w:20,h:25,color:ink},{x:43,y:18,w:14,h:16,color:white},{x:40,y:35,w:20,h:25,color:ink},{x:30,y:35,w:10,h:10,color:ink},{x:60,y:35,w:10,h:10,color:ink},{x:40,y:60,w:8,h:25,color:ink},{x:52,y:60,w:8,h:25,color:ink}]});
+}
+
+test('a suspected background rectangle pauses joints and offers obvious tap, cancel and intentional-shape choices', async()=>{
+  const h=browserHarness();h.setRaster(framedPandaFixture());h.setPlanResponse(()=>({selectedIds:[]}));
+  try{
+    await h.start('background-rectangle-review');await h.settle();await h.importArtwork();const before=h.project();
+    assert.match(h.root.innerHTML,/Remove the background|The background may still be attached/);
+    assert.match(h.root.innerHTML,/class="cleanup-cut-outline"/,'preview displays the cut boundary as well as pixels');
+    assert.deepEqual(primaryActions(h.root.innerHTML),['pick-background']);
+    assert.match(h.root.innerHTML,/<button[^>]*data-action="accept"[^>]*disabled/);
+    await h.click({action:'accept'});assert.deepEqual(h.project(),before);assert.equal(h.requests.length,0);assert.match(h.error(),/Remove the background first/);
+    await h.click({action:'pick-background'});assert.match(h.root.innerHTML,/mode-background-pick/);assert.match(h.root.innerHTML,/Tap the empty space around your character/);
+    assert.doesNotMatch(h.root.innerHTML,/<aside class="inspector"/);assert.match(h.root.innerHTML,/Adjust removal/);assert.equal(h.focusedSelectors.at(-1),'#cleanup-heading');assert.match(h.root.innerHTML,/aria-label="Picture for background removal/);
+    await h.click({action:'cancel-tool'});assert.match(h.root.innerHTML,/The background may still be attached/);assert.deepEqual(h.project(),before);
+    await h.click({action:'keep-whole-shape'});assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);await h.click({action:'accept'});await h.settle();
+    assert.equal(h.project().parts.length,1,'intentional rectangular objects remain available after explicit confirmation');
+    assert.deepEqual(h.project().parts[0].polygon,[[4,4],[96,4],[96,96],[4,96]]);
+  }finally{await h.close();}
+});
+
+test('tapping a retained background previews new outlines, preserves enclosed white artwork and commits once before planning',async()=>{
+  const h=browserHarness(),raster=framedPandaFixture(),original=h.setRaster(raster);h.setPlanResponse(()=>({selectedIds:[]}));
+  try{
+    await h.start('background-tap-to-joints');await h.settle();await h.importArtwork();const before=h.project(),scale=unitsPerMm(before);
+    await h.click({action:'pick-background'});await h.point(10,10);await h.settle();
+    assert.equal(h.error(),'');assert.match(h.root.innerHTML,/Continue to movement/);assert.doesNotMatch(h.root.innerHTML,/The background may still be attached/);
+    assert.match(h.root.innerHTML,/Undo last removal/);assert.deepEqual(h.project(),before,'pixels and cut boundaries are only a proposal');assert.equal(h.requests.length,0);
+    await h.click({action:'undo-background'});assert.match(h.root.innerHTML,/The background may still be attached/);assert.deepEqual(h.project(),before);
+    await h.click({action:'pick-background'});await h.point(10,10);await h.settle();await h.click({action:'reject'});assert.deepEqual(h.project(),before);
+    await h.click({action:'pick-background'});await h.point(10,10);await h.settle();await h.click({action:'accept'});await h.settle();
+    const accepted=h.project(),asset=accepted.assets.find(a=>a.id===accepted.conceptAssetId),pixels=h.rasters.get(asset.dataUrl),outline=accepted.parts[0].polygon;
+    assert.equal(accepted.parts.length,1);assert.ok(outline.length>4,'accepted shape follows the head, arms and legs');
+    assert.ok(outline.every(([x,y])=>x>=30&&x<=70&&y>=15&&y<=85));assert.equal(accepted.heightMm,before.heightMm,'new artwork keeps its chosen puppet height');
+    assert.equal(pixels.data[(10*100+10)*4+3],0);assert.equal(pixels.data[(20*100+48)*4+3],255,'white enclosed face remains artwork');
+    assert.equal(accepted.assets[0].dataUrl,original);assert.deepEqual(h.rasters.get(original),raster);assert.match(h.root.innerHTML,/id="plan-canvas"/);
+    await h.click({action:'reject'});await h.click({action:'undo'});assert.deepEqual(h.project(),before,'one undo restores the image and old geometry together');
+  }finally{await h.close();}
+});
+
+test('background recovery from a failed joint restores its review on Cancel and cannot alter locked pieces',async()=>{
+  const h=browserHarness(),raster=framedPandaFixture(),original=h.setRaster(raster);h.setPlanResponse(()=>({selectedIds:[]}));
+  try{
+    await h.start('joint-background-recovery');await h.settle();
+    const project=createStudioProject();project.canvas={width:100,height:100};project.assets=[{id:'picture',name:'Panda picture',mime:'image/png',dataUrl:original,width:100,height:100}];project.conceptAssetId='picture';project.parts=[makePart('Uncleaned image',[[4,4],[96,4],[96,96],[4,96]],'picture')];
+    await h.openProject(project);const before=h.project();await h.click({action:'prepare-joints'});await h.click({action:'plan-add'});await h.planPoint(55,70);assert.match(h.root.innerHTML,/A moving piece could not be separated here/);assert.match(h.root.innerHTML,/>Fix background<\/button>/);const markers=h.planMarkers();
+    await h.click({action:'pick-background'});assert.match(h.root.innerHTML,/mode-background-pick/);h.key('Escape');assert.deepEqual(h.planMarkers(),markers);assert.match(h.root.innerHTML,/>Fix background<\/button>/);assert.deepEqual(h.project(),before);
+    await h.click({action:'reject'});await h.click({action:'select',id:before.parts[0].id});await h.click({action:'lock'});const locked=h.project();await h.click({action:'pick-background'});assert.match(h.error(),/Unlock/);assert.deepEqual(h.project(),locked);
+  }finally{await h.close();}
+});
+
+test('background removal handles an empty-space tap and ignores a late result after New',async()=>{
+  const h=browserHarness();h.setRaster(framedPandaFixture());
+  try{
+    await h.start('background-tap-reset');await h.settle();await h.importArtwork();const before=h.project();await h.click({action:'pick-background'});await h.point(0,0);await h.settle();
+    assert.match(h.error(),/already empty/);assert.match(h.root.innerHTML,/mode-background-pick/);assert.deepEqual(h.project(),before);
+    await h.point(10,10);await h.click({action:'new-project'});await h.settle();assert.equal(h.project().parts.length,0);assert.equal(h.project().assets.length,0);assert.doesNotMatch(h.root.innerHTML,/cleanup-review|mode-background-pick|Undo last removal/);assert.equal(h.error(),'');
+  }finally{await h.close();}
 });

@@ -1,13 +1,13 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.5**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.6**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
-[Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality list](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md)
+[Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality list](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md) · [Middle-school usability audit](MIDDLE-SCHOOL-UX-AUDIT.md)
 
 ## Design your own character
 
 1. **Create:** describe your own historical, modern, fictional or real-world character and choose **Create character**. Optional style fields and construction templates stay under **Choose a style or starting shape**. You can also upload PNG/JPEG/WebP artwork.
-2. **Refine:** review the character and props to keep. Accepting that cleanup automatically prepares a plan of numbered movement dots. In **Make it move**, adjust or remove dots, try each joint, then choose **Use these joints** once for the whole plan.
+2. **Refine:** check the **Remove the background** preview. If background remains, choose **Tap background to remove** and tap the space around the character. Squares show empty space; the green line shows the cut edge. **Continue to movement** then prepares a plan of numbered movement dots. In **Make it move**, adjust or remove dots, try each joint, then choose **Use these joints** once for the whole plan.
 3. **Make:** set the **print height**, check the geometry, and choose **Print puppet**. Material settings and SVG exports are under **Materials & file options**.
 
 The canvas presents one next action at a time. The default review shows the result; **Compare with original** switches to the original, and **Show result** returns to the proposal. Accept or keep the original before continuing. There is no required four-step Refine submenu or default three-way comparison.
@@ -24,10 +24,13 @@ Uploading artwork into an empty project, or accepting its first generated image,
 
 Review the result before accepting:
 
-- **Keep another piece or prop:** tap a separate intentional region to include it.
-- **Choose a different character:** tap the region that should be the main subject instead.
+- **Tap background to remove:** tap a connected background area inside the picture. Review the checkerboard and green cut outline; **Undo last removal** reverses a wrong tap. **Cancel** returns from placement to the previous review. Separate regions of the same color are retained; connected matching artwork may be removed and must be reviewed.
+- **Keep a missing piece or prop:** tap a separate intentional region to include it.
+- **Choose the character:** tap the region that should be the main subject instead.
 - Use **Compare with original** to check that limbs, costume details and requested props remain.
 - Accept only after the selection is complete. Rebuilding an existing character replaces its pieces, joints and rod points; this is disclosed in the review and can be undone. Locked pieces must be unlocked before rebuilding.
+
+If cleanup still looks like a large opaque rectangle, the app pauses before movement and makes background repair the main action. **Is the rectangle intentional? → Keep this whole shape** is available for deliberately rectangular puppets. **Fix background** also appears in invalid or empty joint reviews for image-based designs. Repair stays in a draft until acceptance; continuing rebuilds the outlines and discloses replacement of existing pieces and joints.
 
 Accepting the selection creates editable cut outlines. A connected figure may still be one piece; the tool does not identify anatomical limbs or reconstruct hidden artwork.
 
