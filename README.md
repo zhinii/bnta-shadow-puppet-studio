@@ -1,6 +1,6 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.6.0**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.6.1**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
 [Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/)
 

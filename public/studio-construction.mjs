@@ -143,7 +143,7 @@ export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
  child.z=Number.isFinite(nextLayer)?(part.z+nextLayer)/2:Math.min(1000,part.z+1);
  restorePhysicalScale(p,mm);
  const normalized=normalizeStudioProject(p);ensureLockedUnchanged(before,normalized);ensureGeometry(normalized);
- const warnings=[...result.warnings,before.language==='zh'?'已在两片上添加同心重叠片和销孔。前片位于后片之上；请先用废纸试装并检查转动。':'Both pieces have matching overlap tabs and pin holes. The moving piece sits in front; test the overlap and movement with scrap paper.'];
+ const warnings=result.warnings;
  return {...result,project:normalized,cutLine,pivot:[...best.pivot],angleDegrees:best.angle,warnings};
 }
 

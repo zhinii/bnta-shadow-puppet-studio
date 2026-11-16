@@ -1,7 +1,7 @@
 # UI/UX re-audit — simplicity first
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
-## Current v0.6.0 joint revision
+## Current v0.6.1 joint revision
 
 The latest feedback identifies two linked problems: placing pivots is difficult, and the student must understand which material lies over and under the joint. The default flow is now **Add a joint → tap where it should bend → Try your joint → Use this joint**. The app chooses a simple narrow cross-section and builds the shared pivot and both overlap tabs. The student reviews the result instead of locating two exact anchors.
 
@@ -9,13 +9,13 @@ The latest feedback identifies two linked problems: placing pivots is difficult,
 | --- | --- | --- |
 | Make a connected limb bend | Tap once on a narrow limb, neck or tail; inspect the proposed joint | Choose another spot; manual cut line under More editing tools |
 | Connect separate pieces | Choose Join two existing pieces, then tap each piece once | Manual two-anchor placement under More editing tools |
-| Understand the overlapping material | Solid blue back-tab outline, dashed orange front-tab outline, one shared hole | Swap front / back under Adjust joint |
+| Understand the overlapping material | Default close-up with solid blue back-tab outline, dashed orange front-tab outline, one shared hole | Swap front / back under Adjust joint |
 | Check motion | Move the review slider through the proposed range | Accept keeps the original resting pose; Keep original discards the proposal |
 | Assemble | Keep both printed overlap tabs; use the labelled Back/Front order and matching hole numbers | Test a paper fastener loosely enough for rotation |
 
 This reduces precision work while retaining the student's choice of bend location and acceptance. It does not identify anatomy automatically. Failed narrow-section searches leave the design unchanged and offer a new location or manual construction. Added tabs supply physical material, not reconstructed artwork from behind a sleeve or limb. Numeric defaults are paper-prototype heuristics, not universal material standards.
 
-**Verification status:** v0.6.0 passes 186 automated tests, including 26 workflow tests, plus syntax, production build and Worker smoke checks. Current browser observations remain pending. The historical records below do not establish current phone layout, real touch accuracy or physical assembly. The review must still be checked at 390 px, with keyboard/touch and a printed prototype.
+**Verification status:** v0.6.1 passes 186 automated tests, including 26 workflow tests, plus syntax, production build and Worker smoke checks. Current browser observations remain pending. The historical records below do not establish current phone layout, real touch accuracy or physical assembly. The review must still be checked at 390 px, with keyboard/touch and a printed prototype.
 
 Additional acceptance checks for this revision:
 

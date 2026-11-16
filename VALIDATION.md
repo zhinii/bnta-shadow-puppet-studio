@@ -1,12 +1,12 @@
 # Validation · 16 November 2026
 
-## v0.6.0 joint workflow verification
+## v0.6.1 joint workflow verification
 
 The current change replaces the default two-point cut with **Add a joint → tap once → Try your joint → Use this joint**. A local geometric search proposes a narrow cut, a shared pivot, reinforced overlap on both pieces and an initial front/back order. Joining existing pieces takes one tap on each piece and proposes their anchors automatically. Manual two-point cuts and two-anchor placement remain advanced tools.
 
-Joint review distinguishes the back tab with a solid blue outline and the front tab with a dashed orange outline. Its range slider changes a preview copy; accepting a joint retains the original resting pose. Front/back swapping is explicit. Both printed pieces retain their actual unioned material tabs and matching circular holes; guide annotations are not extra cut lines. The assembly guide names Back and Front for every connection and explains aligned holes and loosely fastened paper pins.
+Joint review opens with a close-up of the shared pivot and can switch to the whole puppet without changing geometry or the trial angle. It distinguishes the back tab with a solid blue outline and the front tab with a dashed orange outline. Its range slider changes a preview copy; accepting a joint retains the original resting pose. Front/back swapping is explicit. Both printed pieces retain their actual unioned material tabs and matching circular holes; guide annotations are not extra cut lines. The assembly guide names Back and Front for every connection and explains aligned holes and loosely fastened paper pins.
 
-Focused renderer checks passed for material extending across both sides of a split, identical reinforced contours in stage/artwork/print outputs, matching pivot centres through rotation, deterministic layer order, and review annotations excluded from exports. **The integrated v0.6.0 run passes 186 automated tests, including 26 workflow tests. Syntax checks, the production build and Worker smoke checks also pass.** Current browser observations remain pending. No new live image-generation result, phone/tablet usability result, physical prototype or print-dialog result is claimed here.
+Focused renderer checks passed for material extending across both sides of a split, identical reinforced contours in stage/artwork/print outputs, matching pivot centres through rotation, deterministic layer order, and review annotations excluded from exports. **The integrated v0.6.1 run passes 186 automated tests, including 26 workflow tests. Syntax checks, the production build and Worker smoke checks also pass.** Current browser observations remain pending. No new live image-generation result, phone/tablet usability result, physical prototype or visible operating-system print dialog is claimed here.
 
 The search is geometric, not anatomical. It rejects unsuitable sections instead of inventing disconnected pieces. Numeric limits and clearances are paper-prototype heuristics, not certified material standards. Original artwork is retained; hidden surfaces are not reconstructed. Motion preview remains planar and does not test collision, stiffness, fastener thickness or rod control.
 
@@ -81,7 +81,7 @@ The initial local image-tools release made no live generation requests. The late
 
 ## Remaining verification
 
-- Earlier browser-control attempts returned `Transport closed`, and the previous audit could not establish rendered usability. Current v0.6.0 browser observations are pending. Actual phone/tablet interactions, focus behavior and print dialogs remain separate checks; source tests do not establish them.
+- Earlier browser-control attempts returned `Transport closed`, and the previous audit could not establish rendered usability. Current v0.6.1 browser observations are pending. Actual phone/tablet interactions, focus behavior and print dialogs remain separate checks; source tests do not establish them.
 - Physical material strength, hole clearance, layered movement, light transmission and rod control require a prototype with the chosen material.
 - Add and verify vision/image-editing capabilities separately. Test automatic image critique and selected-region revisions before advertising them. See `integration/IMAGE-HANDOFF.md` and `integration/STUDIO-V2-RELAY.md`.
 

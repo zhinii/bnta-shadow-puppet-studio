@@ -822,6 +822,15 @@ test('one bend tap previews a joint and movement without committing the trial po
     assert.equal(h.reviewAngle(),'35°');
     assert.equal(h.root.innerHTML,restingPage,'movement preview keeps the slider DOM stable for dragging');
     assert.deepEqual(h.project(),before,'trying the movement cannot change accepted construction');
+    const closeupBox=h.reviewMarkup().match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+    await h.click({action:'joint-view'});
+    const wholeBox=h.reviewMarkup().match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+    assert.notDeepEqual(wholeBox,closeupBox,'the review can switch from the joint detail to the whole puppet');
+    assert.ok(wholeBox[3]>closeupBox[3],'the initial close-up shows a smaller area around the joint');
+    assert.equal(h.reviewAngle(),'35°');assert.deepEqual(h.project(),before,'changing the view preserves the trial angle and accepted project');
+    await h.click({action:'joint-view'});
+    assert.deepEqual(h.reviewMarkup().match(/viewBox="([^"]+)"/)[1].split(' ').map(Number),closeupBox,'switching back restores the same joint detail');
+    assert.equal(h.reviewAngle(),'35°');assert.deepEqual(h.project(),before);
     await h.click({action:'accept'});
     const accepted=h.project(),joint=accepted.joints[0];
     assert.equal(accepted.parts.length,2);assert.equal(accepted.joints.length,1);
