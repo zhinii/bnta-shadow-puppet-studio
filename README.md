@@ -16,7 +16,7 @@ The first screen contains no authored character or story. The former decoration 
 
 Artwork, cut contours and connections are separate. Imported or generated artwork retains texture and colors inside editable cut contours. Characters are not restricted to ten human body parts: a character can contain up to 80 pieces with arbitrary connection trees.
 
-**Project** provides New, Open, Download and AI connection settings. Work stays in the open session only. Download before closing or reloading. Actual browser, tablet and print-dialog usability still needs verification; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
+**Project** provides New, Open, Download and AI connection settings. Work stays in the open session only. Download before closing or reloading. The desktop joint flow and cut download have been checked live. Tablet, operating-system print-dialog and physical assembly still need verification; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
 
 ## Keep the character, then add movement
 

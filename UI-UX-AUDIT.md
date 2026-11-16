@@ -15,7 +15,7 @@ The latest feedback identifies two linked problems: placing pivots is difficult,
 
 This reduces precision work while retaining the student's choice of bend location and acceptance. It does not identify anatomy automatically. Failed narrow-section searches leave the design unchanged and offer a new location or manual construction. Added tabs supply physical material, not reconstructed artwork from behind a sleeve or limb. Numeric defaults are paper-prototype heuristics, not universal material standards.
 
-**Verification status:** v0.6.1 passes 186 automated tests, including 26 workflow tests, plus syntax, production build and Worker smoke checks. Current browser observations remain pending. The historical records below do not establish current phone layout, real touch accuracy or physical assembly. The review must still be checked at 390 px, with keyboard/touch and a printed prototype.
+**Verification status:** v0.6.1 passes 186 automated tests, including 26 workflow tests, plus syntax, production build and Worker smoke checks. Live desktop checks passed for one-tap placement, rotation, front/back swap, rest-pose acceptance, print-document preparation, Cut SVG download and a fresh session after reload. The original whole-puppet preview made the tab markers too small; the default close-up was added and visually verified, with a whole-puppet toggle that preserves the trial angle. The historical records below do not establish current phone layout, real touch accuracy or physical assembly. Phone/tablet layout, touch accuracy and a printed prototype remain to be checked.
 
 Additional acceptance checks for this revision:
 
@@ -78,7 +78,7 @@ Generation requests preserve the complete student prompt and add composition gui
 
 **Verification: 168 automated tests pass, including 21 workflow tests.** The new simulated journey covers 51 foreground regions reduced to one character, retained costume colors, optional ball restoration, manual subject choice, reviewed split and hinge, angle adjustment, print HTML, download and explicit reopening. Existing reset, lock, parameter, keyboard and pointer regressions remain. Syntax, build and Worker checks are recorded in VALIDATION.md.
 
-The browser connection remains unavailable. The concept board is not a screenshot, and 390 px rendering, actual touch/focus behavior, print-dialog operation and a paper prototype remain unverified. These are the remaining acceptance checks; the implementation does not claim classroom usability from automated tests alone.
+At the time of the v0.5 review, the browser connection was unavailable. The concept board is not a screenshot, and 390 px rendering, actual touch/focus behavior, print-dialog operation and a paper prototype remain unverified. These are the remaining acceptance checks; the implementation does not claim classroom usability from automated tests alone.
 
 ---
 ## Previous v0.4 implementation record
