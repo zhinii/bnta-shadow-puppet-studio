@@ -1,7 +1,7 @@
 # UI/UX re-audit — simplicity first
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
-## Current v0.7.4 continuation audit · 17 November 2026
+## Current v0.7.5 continuation audit · 17 November 2026
 
 **Verdict:** the three-process workflow is suitable for a supervised trial. This pass fixes concrete failure/recovery and small-screen interaction issues; it does not establish automatic anatomical accuracy or independent student usability.
 
@@ -11,11 +11,14 @@
 | Swiping blank joint artwork could block page scrolling | Permit vertical pan on blank artwork; reserve dragging for dots | CSS/event checks; real touch remains unverified |
 | Resizing could shrink dot hit targets | Recompute targets after layout and resize while retaining focus and trial state | 44 CSS-pixel targets at 366, 820 and 320 px test widths |
 | Drawing a blank shape displayed unrelated image-cleanup controls | Hide the inspector during drawing and use the full canvas; restore editing controls after Finish | Drawing, Cancel and Finish regression |
-| Empty plans told students to drag nonexistent dots | Explain the empty state and prioritize Add your first movement point; still-puppet output remains available | Workflow regression |
+| Empty plans told students to drag nonexistent dots | Explain the empty state and prioritize Add your first movement point; still-puppet output remains available | Workflow regression and live remove/add-dot recovery |
+| Deleting the last valid suggestion incorrectly claimed no automatic joints had been found | Remove the duplicate failure claim and keep neutral recovery guidance; use the singular “1 joint ready” | Initially empty and last-dot deletion regressions; copy polish follows the v0.7.4 live check |
 | A valid branch could fail after another valid cut | Evaluate broad-cut eligibility against the same cut in the original outline | Six geometry regressions, unchanged safety/validity guards |
 | A still-puppet response arrived as prose and triggered joint fallback | Add an explicit structured zero-joint example; keep rejecting non-structured advice | Final live synthetic relay run: 3/3 expected selections |
 
-241 automated tests pass. Live synthetic outcomes are scoped to simple authored strips; realistic character recognition, phone/tablet touch and physical prototypes still require validation. See [VALIDATION.md](VALIDATION.md) for exact evidence and [FUNCTIONALITY.md](FUNCTIONALITY.md) for the inventory.
+241 automated tests pass, including 41 workflow tests. A live v0.7.4 browser journey carried a newly drawn strip through AI selection, removal/replacement of a dot, joint close-up, 35° motion, front/back swapping, rest-pose acceptance, Make, print-document preparation and Cut SVG download. Switching between close-up and whole-puppet view retained the trial angle; swapping front/back reset it to 0° before retesting. The print document showed matching #1 holes, two labelled pieces, back/front layer order, a 50 mm ruler and overlap assembly instructions.
+
+The v0.7.4 screenshots in [VALIDATION.md](VALIDATION.md) precede v0.7.5’s singular-count and empty-state copy polish. No fresh image generation or file upload was tested in this continuation. Live outcomes are scoped to synthetic strips; realistic character anatomy, phone/tablet touch, independent student usability, physical assembly and actual printing remain unverified. See [FUNCTIONALITY.md](FUNCTIONALITY.md) for the inventory.
 
 ## Previous v0.7.3 audit and verdict
 
@@ -43,7 +46,7 @@ A final v0.7.2 live local-starter journey verified piece selection, 35° motion,
 
 Two real generated horses were inspected during this audit. The second reached an AI-selected three-joint review; its selected regions exposed the semantic-selection weakness recorded above. Browser file selection repeatedly stalled in the test tool, so current live file-import verification remains incomplete. This is not evidence that the application import handler failed. No phone, tablet, independent student session or physical assembly result is claimed.
 
-Automatic approval review rejected an additional live Kimi planner test, citing insufficient authorization for sending project geometry to that destination. The request was not repeated. Revised AI selection is therefore reported as locally tested rather than live verified.
+Automatic approval review rejected an additional live Kimi planner test, citing insufficient authorization for sending project geometry to that destination. The request was not repeated. At that v0.7.3 audit, revised AI selection was reported as locally tested rather than live verified; the later synthetic-only checks are recorded above.
 
 ## Previous v0.6.1 joint revision
 

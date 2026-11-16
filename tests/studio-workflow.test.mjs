@@ -1157,6 +1157,7 @@ test('joint dots drag with a stable pointer offset and support cancellation and 
     const project=createStudioProject();project.canvas={width:100,height:240};project.parts=[makePart('Long tail',[[0,0],[30,0],[30,240],[0,240]])];
     await h.openProject(project);const before=h.project();await h.click({action:'prepare-joints'});
     const id=h.planMarkers()[0],start=h.planLocation(id),page=h.root.innerHTML;
+    assert.match(h.root.innerHTML,/>1 joint ready<\/span>/);assert.doesNotMatch(h.root.innerHTML,/1 joints ready/);
     assert.equal(h.pointer('pointerdown',start[0]+2,start[1]+2,{planCanvas:true,planMarker:id,pointerId:71}),true);
     assert.equal(h.captures.at(-1),71);h.pointer('pointermove',start[0]+2,start[1]+32,{pointerId:71});
     assert.equal(h.root.innerHTML,page,'dragging preserves the captured canvas until release');assert.deepEqual(h.project(),before);
@@ -1169,7 +1170,7 @@ test('joint dots drag with a stable pointer offset and support cancellation and 
     assert.equal(h.releases.at(-1),73);assert.deepEqual(h.planLocation(id),moved,'Escape cancels the drag before its later pointerup');
     assert.equal(h.key('Enter',{planMarker:id}),true);assert.equal(h.key('ArrowDown',{planMarker:id},{shiftKey:true}),true);
     const nudged=h.planLocation(id);assert.ok(Math.abs(nudged[1]-moved[1]-2*unitsPerMm(before))<1e-6);assert.equal(nudged[0],moved[0]);assert.deepEqual(h.project(),before);
-    assert.equal(h.key('Delete',{planMarker:id}),true);assert.deepEqual(h.planMarkers(),[]);assert.deepEqual(primaryActions(h.root.innerHTML),['plan-add']);assert.doesNotMatch(h.root.innerHTML,/Drag dots to adjust/);assert.match(h.root.innerHTML,/Add your first movement point/);
+    assert.equal(h.key('Delete',{planMarker:id}),true);assert.deepEqual(h.planMarkers(),[]);assert.deepEqual(primaryActions(h.root.innerHTML),['plan-add']);assert.doesNotMatch(h.root.innerHTML,/Drag dots to adjust|No suitable automatic joints found/);assert.match(h.root.innerHTML,/Add your first movement point/);assert.match(h.root.innerHTML,/>0 joints ready<\/span>/);
     await h.click({action:'reject'});assert.deepEqual(h.project(),before);assert.equal(h.requests.length,1,'marker interaction never starts another AI request');
   } finally {await h.close();}
 });
@@ -1181,10 +1182,10 @@ test('an empty movement plan leads to adding a point while a still puppet stays 
     const project=createStudioProject();project.canvas={width:100,height:240};project.parts=[makePart('Long tail',[[0,0],[30,0],[30,240],[0,240]])];
     await h.openProject(project);const before=h.project();await h.click({action:'prepare-joints'});
     assert.deepEqual(h.planMarkers(),[]);assert.deepEqual(primaryActions(h.root.innerHTML),['plan-add']);
-    assert.doesNotMatch(h.root.innerHTML,/Drag dots to adjust/);assert.match(h.root.innerHTML,/Add your first movement point/);
+    assert.doesNotMatch(h.root.innerHTML,/Drag dots to adjust|No suitable automatic joints found/);assert.match(h.root.innerHTML,/Add your first movement point/);assert.match(h.root.innerHTML,/>0 joints ready<\/span>/);
     assert.match(h.root.innerHTML,/<button[^>]*class="text-button"[^>]*data-action="plan-still"/);
     await h.click({action:'plan-add'});assert.match(h.root.innerHTML,/Tap the character to add a joint dot/);await h.planPoint(15,120);
-    assert.equal(h.planMarkers().length,1);assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);assert.deepEqual(h.project(),before);
+    assert.equal(h.planMarkers().length,1);assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);assert.deepEqual(h.project(),before);assert.match(h.root.innerHTML,/>1 joint ready<\/span>/);
     await h.click({action:'accept'});assert.equal(h.project().joints.length,1);await h.click({action:'undo'});assert.deepEqual(h.project(),before);
     await h.click({action:'prepare-joints'});await h.click({action:'plan-still'});assert.equal(h.project().parts.length,1);assert.equal(h.project().joints.length,0);assert.match(h.root.innerHTML,/Make your puppet/);
   } finally {await h.close();}

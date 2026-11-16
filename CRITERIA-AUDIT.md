@@ -1,6 +1,6 @@
 # Criteria audit and refinement
 
-Current implementation: **v0.7.4**. The acceptance criteria come from the supplied character examples and the requested three-process workflow. The reference images show substantially different silhouettes, garments, anatomy and surface detail; changing the colors of one human template would not meet that intent.
+Current implementation: **v0.7.5**. The acceptance criteria come from the supplied character examples and the requested three-process workflow. The reference images show substantially different silhouettes, garments, anatomy and surface detail; changing the colors of one human template would not meet that intent.
 
 | Criterion | Result | Evidence / remaining work |
 | --- | --- | --- |
