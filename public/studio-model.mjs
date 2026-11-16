@@ -44,7 +44,16 @@ export function makePart(name,points,assetId=null) {
 }
 function normalizePart(raw) {
   if(!record(raw))fail('Invalid part.');
-  return {id:id(raw.id),name:cleanText(raw.name,100)||'Untitled part',polygon:polygon(raw.polygon),assetId:raw.assetId==null?null:id(raw.assetId,false),fill:color(raw.fill),x:number(raw.x,0),y:number(raw.y,0),rotation:number(raw.rotation,0,-360,360),locked:raw.locked===true,z:number(raw.z,0,-1000,1000)};
+  const points=polygon(raw.polygon),box=boundsOf(points),parameters=raw.parameters;
+  if(parameters!==undefined&&!record(parameters))fail('Invalid part dimensions.','INVALID_PARAMETERS');
+  let artworkMatrix=[1,0,0,1,0,0];
+  if(raw.artworkMatrix!==undefined){
+    if(!Array.isArray(raw.artworkMatrix)||raw.artworkMatrix.length!==6||Array.from(raw.artworkMatrix).some(n=>typeof n!=='number'||!Number.isFinite(n)))fail('Artwork transform needs six finite numbers.','INVALID_PARAMETERS');
+    artworkMatrix=raw.artworkMatrix.map((n,i)=>number(n,0,i<4?-1000:-MAX_COORD,i<4?1000:MAX_COORD));
+    const determinant=artworkMatrix[0]*artworkMatrix[3]-artworkMatrix[1]*artworkMatrix[2];
+    if(!Number.isFinite(determinant)||determinant<1e-8)fail('Artwork transform must preserve a positive, non-zero area.','INVALID_PARAMETERS');
+  }
+  return {id:id(raw.id),name:cleanText(raw.name,100)||'Untitled part',polygon:points,assetId:raw.assetId==null?null:id(raw.assetId,false),fill:color(raw.fill),x:number(raw.x,0),y:number(raw.y,0),rotation:number(raw.rotation,0,-360,360),locked:raw.locked===true,z:number(raw.z,0,-1000,1000),artworkMatrix,parameters:{width:number(parameters?.width,1,.25,4),length:number(parameters?.length,1,.25,4),axisAngle:number(parameters?.axisAngle,0,-180,180),origin:parameters?.origin===undefined?[box.x+box.width/2,box.y+box.height/2]:point(parameters.origin)}};
 }
 function normalizeJoint(raw) {
   if(!record(raw))fail('Invalid connection.');
@@ -69,7 +78,7 @@ export function normalizeStudioProject(raw) {
   p.id=id(raw.id);p.title=cleanText(raw.title,160);p.language=raw.language==='zh'?'zh':'en';
   for(const key of Object.keys(p.brief))p.brief[key]=cleanText(raw.brief?.[key],key==='keywords'?4000:1000);
   p.canvas={width:number(raw.canvas?.width,800,1,8192),height:number(raw.canvas?.height,1000,1,8192)};
-  p.heightMm=number(raw.heightMm,280,50,1200);p.holeMm=number(raw.holeMm,3,.5,12);p.materialMm=number(raw.materialMm,1,.1,10);
+  p.heightMm=number(raw.heightMm,280,1,1200);p.holeMm=number(raw.holeMm,3,.5,12);p.materialMm=number(raw.materialMm,1,.1,10);
   p.assets=list(raw.assets,24,'images').map(normalizeAsset);const assetIds=distinct(p.assets,'image');
   if(p.assets.reduce((n,a)=>n+a.dataUrl.length,0)>40*1024*1024)fail('Embedded images exceed the 30 MB project limit.','INVALID_ASSET');
   p.conceptAssetId=raw.conceptAssetId==null?null:id(raw.conceptAssetId,false);
@@ -145,6 +154,14 @@ function assemblyBounds(project,neutral) {
 export function projectBounds(project) { return assemblyBounds(project,false); }
 export function neutralProjectBounds(project) { return assemblyBounds(project,true); }
 export function unitsPerMm(project) { return (neutralProjectBounds(project).height||project.canvas?.height||1000)/(project.heightMm||280); }
+/** Keep the image-unit-to-material scale unchanged when pieces are added or removed. */
+export function preservePhysicalScale(before,next) {
+  const original=normalizeStudioProject(before),result=normalizeStudioProject(next);
+  const height=(neutralProjectBounds(result).height||result.canvas.height)/unitsPerMm(original);
+  if(!Number.isFinite(height)||height<1||height>1200)fail('This change would make the overall height smaller than 1 mm or larger than 1200 mm. Adjust the print scale before changing these pieces.','PHYSICAL_SCALE_RANGE');
+  result.heightMm=height;
+  return result;
+}
 export function jointGeometry(project,joint) {
   return {holeRadius:joint.type==='fixed'?0:project.holeMm*unitsPerMm(project)/2,padRadius:joint.padRadius,sides:[{partId:joint.parentId,anchor:[...joint.parentAnchor]},{partId:joint.childId,anchor:[...joint.childAnchor]}]};
 }
@@ -216,6 +233,7 @@ export function validateStudio(project) {
 export function applyStudioProposal(project,proposal) {
   if(!record(proposal))fail('AI did not return a usable change proposal.','INVALID_PROPOSAL');
   const p=normalizeStudioProject(project),before=new Map(p.parts.map(part=>[part.id,part]));
+  const dimensionRequests=[];
   const locked=new Set(p.parts.filter(part=>part.locked).map(part=>part.id));
   const ancestors=new Set(locked),parentOf=new Map(p.joints.map(j=>[j.childId,j.parentId]));
   for(const partId of locked){let parent=parentOf.get(partId);while(parent){ancestors.add(parent);parent=parentOf.get(parent);}}
@@ -226,7 +244,15 @@ export function applyStudioProposal(project,proposal) {
     if(!record(patch))fail('Invalid proposed part.','INVALID_PROPOSAL');
     const partId=patch.id===undefined?studioId():id(patch.id,false);
     if(locked.has(partId))continue;
-    const old=before.get(partId),part=normalizePart({...old,...patch,id:partId,locked:old?.locked||false});
+    const old=before.get(partId);
+    if(!old&&record(patch.parameters)&&((patch.parameters.width!==undefined&&patch.parameters.width!==1)||(patch.parameters.length!==undefined&&patch.parameters.length!==1)))fail('A new part starts at 100% dimensions. Define its outline before resizing it.','INVALID_PARAMETERS');
+    if(old&&own(patch,'parameters')){
+      if(!record(patch.parameters))fail('Invalid proposed dimensions.','INVALID_PARAMETERS');
+      if(own(patch,'polygon'))fail('Propose dimensions or a replacement outline separately.','INVALID_PARAMETERS');
+      if(Object.keys(patch.parameters).some(key=>!['width','length'].includes(key)))fail('AI dimension edits may change width or length only.','INVALID_PARAMETERS');
+      dimensionRequests.push({id:partId,parameters:patch.parameters});
+    }
+    const part=normalizePart({...old,...patch,...(old&&own(patch,'parameters')?{parameters:old.parameters}:{}),id:partId,locked:old?.locked||false});
     if(old&&ancestors.has(partId)){part.x=old.x;part.y=old.y;part.rotation=old.rotation;}
     const index=p.parts.findIndex(part=>part.id===partId);if(index>=0)p.parts[index]=part;else p.parts.push(part);
   }
@@ -251,7 +277,79 @@ export function applyStudioProposal(project,proposal) {
     const rod={...existing,...patch,id:patch.id||studioId()},index=p.rods.findIndex(r=>r.id===rod.id);
     if(index>=0)p.rods[index]=rod;else p.rods.push(rod);
   }
-  const next=normalizeStudioProject(p),errors=validateStudio(next).filter(issue=>issue.level==='error');
+  let next=normalizeStudioProject(p);
+  for(const request of dimensionRequests)if(next.parts.some(part=>part.id===request.id))next=resizePart(next,request.id,request.parameters);
+  const errors=validateStudio(next).filter(issue=>issue.level==='error');
   if(errors.length)fail(errors.map(issue=>issue.message).join(' '),'INVALID_GEOMETRY');
   return next;
+}
+
+
+const paramCopy=paramValue=>JSON.parse(JSON.stringify(paramValue));
+const paramIdentity=[1,0,0,1,0,0];
+const paramRotate=angle=>{const radians=angle*Math.PI/180,c=Math.cos(radians),s=Math.sin(radians);return [c,s,-s,c,0,0];};
+const paramTranslate=point=>[1,0,0,1,...point];
+const paramClose=(a,b)=>Math.abs(a-b)<=1e-7*Math.max(1,Math.abs(a),Math.abs(b));
+function paramFailure(message,code='INVALID_PARAMETERS'){return Object.assign(Error(message),{code});}
+function paramFindPart(project,id){const part=project.parts.find(p=>p.id===id);if(!part)throw paramFailure('Select an existing part.','PART_NOT_FOUND');return part;}
+function paramValue(input,fallback){if(input===undefined)return fallback;if(typeof input!=='number'||!Number.isFinite(input)||input<.25||input>4)throw paramFailure('Part dimensions must be between 25% and 400%.');return input;}
+
+/** Guard geometry and source-pixel placement of every locked part, including descendants. */
+export function assertLockedPartsUnchanged(before,after){
+ const oldTransforms=partTransforms(before),newTransforms=partTransforms(after);
+ const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+ for(const old of before.parts.filter(p=>p.locked)){
+  const next=after.parts.find(p=>p.id===old.id);
+  if(!next||!same(old.polygon,next.polygon)||!same(old.artworkMatrix||paramIdentity,next.artworkMatrix||paramIdentity)||old.assetId!==next.assetId||old.fill!==next.fill||old.z!==next.z||old.locked!==next.locked||!oldTransforms[old.id].every((n,i)=>paramClose(n,newTransforms[old.id][i])))throw paramFailure('This change would alter or move the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
+ }
+ return after;
+}
+
+/** Width is along the frame X axis; length is along Y. Axis 0 uses image X/Y. */
+export function getPartParameters(project,id){
+ const p=normalizeStudioProject(project),part=paramFindPart(p,id),parameters=part.parameters;
+ const framePoints=part.polygon.map(point=>transformPoint(paramRotate(-parameters.axisAngle),point));
+ const dimensions=boundsOf(framePoints),scale=unitsPerMm(p);
+ const incoming=p.joints.find(j=>j.childId===id),origin=incoming?.childAnchor||parameters.origin;
+ return {...paramCopy(parameters),origin:[...origin],widthUnits:dimensions.width,lengthUnits:dimensions.height,widthMm:dimensions.width/scale,lengthMm:dimensions.height/scale};
+}
+
+/** Rebase a width/length frame without deforming the already approved artwork. */
+export function setPartParameterAxis(project,id,angle){
+ const p=normalizeStudioProject(project),part=paramFindPart(p,id);
+ if(part.locked)throw paramFailure('Unlock this part before changing its dimension frame.','LOCKED_PART');
+ if(typeof angle!=='number'||!Number.isFinite(angle)||angle< -180||angle>180)throw paramFailure('The dimension axis must be between -180 and 180 degrees.');
+ const b=boundsOf(part.polygon),incoming=p.joints.find(j=>j.childId===id);
+ part.parameters={width:1,length:1,axisAngle:angle,origin:[...(incoming?.childAnchor||[b.x+b.width/2,b.y+b.height/2])]};
+ return normalizeStudioProject(p);
+}
+
+/**
+ * Affine deformation is materialized into this piece's local contour and image
+ * projection. Child contours are left untouched: the connection graph moves them
+ * to the transformed outgoing pivot. Circular drill holes stay circular.
+ */
+export function resizePart(project,id,dimensions={}){
+ const before=normalizeStudioProject(project),p=paramCopy(before),part=paramFindPart(p,id);
+ if(part.locked)throw paramFailure('Unlock this part before changing its dimensions.','LOCKED_PART');
+ if(!dimensions||typeof dimensions!=='object'||Array.isArray(dimensions))throw paramFailure('Provide width or length dimensions.');
+ if(dimensions.axisAngle!==undefined&&dimensions.axisAngle!==part.parameters.axisAngle)throw paramFailure('Set the dimension axis before resizing this part.');
+ const width=paramValue(dimensions.width,part.parameters.width),length=paramValue(dimensions.length,part.parameters.length);
+ if(width===part.parameters.width&&length===part.parameters.length)return before;
+ const incoming=p.joints.find(j=>j.childId===id),origin=incoming?.childAnchor||part.parameters.origin;
+ const frame=paramRotate(part.parameters.axisAngle),inverseFrame=paramRotate(-part.parameters.axisAngle);
+ const ratios=[width/part.parameters.width,0,0,length/part.parameters.length,0,0];
+ const matrix=multiplyMatrices(multiplyMatrices(multiplyMatrices(multiplyMatrices(paramTranslate(origin),frame),ratios),inverseFrame),paramTranslate(origin.map(v=>-v)));
+ part.polygon=part.polygon.map(point=>transformPoint(matrix,point));
+ part.artworkMatrix=multiplyMatrices(matrix,part.artworkMatrix);
+ for(const joint of p.joints){if(joint.parentId===id)joint.parentAnchor=transformPoint(matrix,joint.parentAnchor);if(joint.childId===id)joint.childAnchor=transformPoint(matrix,joint.childAnchor);}
+ for(const rod of p.rods)if(rod.partId===id)rod.point=transformPoint(matrix,rod.point);
+ part.parameters={...part.parameters,width,length,origin:transformPoint(matrix,part.parameters.origin)};
+ // Preserve all other material dimensions. Explicit whole-puppet height edits
+ // still rescale everything through the existing heightMm control.
+ const result=preservePhysicalScale(before,p);assertLockedPartsUnchanged(before,result);
+ const priorErrors=new Set(validateStudio(before).filter(x=>x.level==='error').map(x=>x.code+':'+x.partId));
+ const newErrors=validateStudio(result).filter(x=>x.level==='error'&&!priorErrors.has(x.code+':'+x.partId));
+ if(newErrors.length)throw paramFailure(newErrors.map(x=>x.message).join(' '),'INVALID_GEOMETRY');
+ return result;
 }

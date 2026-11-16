@@ -13,6 +13,10 @@ let renderSequence = 0;
 const geometryCache = new Map();
 const pointsOf = part => (part.polygon || []).filter(p => Array.isArray(p) && p.length >= 2 && p.every(Number.isFinite)).map(p => [p[0],p[1]]);
 const raster = asset => asset && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(asset.dataUrl || '') ? asset : null;
+// Artwork has its own mapping from original image pixels to the materialized
+// part contour. Applying this only to the image keeps pin holes circular and
+// prevents a resized parent's texture transform from stretching its children.
+const artworkMatrixOf = part => Array.isArray(part.artworkMatrix) && part.artworkMatrix.length===6 && part.artworkMatrix.every(n=>typeof n==='number'&&Number.isFinite(n)) ? part.artworkMatrix : identity;
 const bounds = points => {
  if (!points.length) return {x:0,y:0,width:0,height:0,minX:0,minY:0,maxX:0,maxY:0};
  const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]),minX=Math.min(...xs),minY=Math.min(...ys),maxX=Math.max(...xs),maxY=Math.max(...ys);
@@ -25,7 +29,16 @@ const sub = (a,b) => [a[0]-b[0],a[1]-b[1]];
 const area = poly => poly.reduce((a,p,i)=>a+cross(p,poly[(i+1)%poly.length]),0)/2;
 const ccw = poly => area(poly)<0 ? [...poly].reverse() : poly;
 const distance = (a,b) => Math.hypot(a[0]-b[0],a[1]-b[1]);
-const onEdge = (p,a,b,epsilon=1e-7) => Math.abs(cross(sub(p,a),sub(b,a))) < epsilon*Math.max(1,distance(a,b)) && (p[0]-a[0])*(p[0]-b[0])+(p[1]-a[1])*(p[1]-b[1])<=epsilon;
+const onEdge = (p,a,b,epsilon=1e-7) => {
+ const edge=sub(b,a),offset=sub(p,a),length=distance(a,b);
+ if(length<=epsilon)return distance(p,a)<=epsilon;
+ const projection=offset[0]*edge[0]+offset[1]*edge[1];
+ // Cross products have area units. Scale the tolerance by the actual edge
+ // length, including sub-unit disk edges. A minimum length of one would turn
+ // both sides of a small reinforcement edge into "on the boundary" and erase
+ // that edge from the union.
+ return Math.abs(cross(offset,edge))<=epsilon*length && projection>=-epsilon*length && projection<=length*length+epsilon*length;
+};
 function inside(p,poly,strict=false) {
  let hit=false;
  for(let i=0,j=poly.length-1;i<poly.length;j=i++) {
@@ -113,7 +126,7 @@ function partMarkup(project,part,geometry,{prefix,showArt=true,cutOnly=false,sel
  const token=prefix+'-'+String(part.id).replace(/[^\w-]/g,'_'),asset=raster((project.assets||[]).find(a=>a.id===part.assetId));
  const fill=showArt?color(part.fill):'#25252a';
  const b=geometry.box,mask=`<mask id="${token}-holes" maskUnits="userSpaceOnUse" x="${f(b.x-1)}" y="${f(b.y-1)}" width="${f(b.width+2)}" height="${f(b.height+2)}"><rect x="${f(b.x-1)}" y="${f(b.y-1)}" width="${f(b.width+2)}" height="${f(b.height+2)}" fill="white"/>${geometry.holes.map(h=>`<circle cx="${f(h.point[0])}" cy="${f(h.point[1])}" r="${f(h.radius)}" fill="black"/>`).join('')}</mask>`;
- const contents=cutOnly?`<path d="${geometry.path}" fill="none" stroke="#000" stroke-width="${f(strokeWidth)}" fill-rule="evenodd" data-cut="outline-and-holes"/>`:`<defs><clipPath id="${token}"><path d="${geometry.outer}" clip-rule="nonzero"/></clipPath>${mask}</defs><g clip-path="url(#${token})" mask="url(#${token}-holes)"><path d="${geometry.outer}" fill="${fill}"/>${showArt&&asset?`<image href="${esc(asset.dataUrl)}" x="0" y="0" width="${f(asset.width)}" height="${f(asset.height)}" preserveAspectRatio="none"/>`:''}</g><path d="${geometry.path}" fill="none" stroke="${selected?'#bd492f':showArt?'#644a3b':'#25252a'}" stroke-width="${f(selected?strokeWidth*2:strokeWidth)}" fill-rule="evenodd"/>`;
+ const contents=cutOnly?`<path d="${geometry.path}" fill="none" stroke="#000" stroke-width="${f(strokeWidth)}" fill-rule="evenodd" data-cut="outline-and-holes"/>`:`<defs><clipPath id="${token}"><path d="${geometry.outer}" clip-rule="nonzero"/></clipPath>${mask}</defs><g clip-path="url(#${token})" mask="url(#${token}-holes)"><path d="${geometry.outer}" fill="${fill}"/>${showArt&&asset?`<image data-part-artwork="${esc(part.id)}" href="${esc(asset.dataUrl)}" x="0" y="0" width="${f(asset.width)}" height="${f(asset.height)}" preserveAspectRatio="none" transform="matrix(${artworkMatrixOf(part).map(f).join(' ')})"/>`:''}</g><path d="${geometry.path}" fill="none" stroke="${selected?'#bd492f':showArt?'#644a3b':'#25252a'}" stroke-width="${f(selected?strokeWidth*2:strokeWidth)}" fill-rule="evenodd"/>`;
  return `<g data-part-id="${esc(part.id)}"${interactive?` role="button" tabindex="0" aria-label="${esc(part.name||'Part')}"`:''} class="studio-part${selected?' is-selected':''}">${contents}<title>${esc(part.name||'Part')}</title></g>`;
 }
 

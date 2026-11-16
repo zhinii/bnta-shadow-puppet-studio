@@ -16,9 +16,20 @@ Artwork, cut contours and connections are separate. An ornate reference image ca
 
 ## Use imported artwork now
 
-Import the image, click around each moving piece, and choose **Finish part**. Select **Add a connection**, click the parent pivot, then the child pivot. Use the parts list to select a specific piece when images overlap. Holes and overlap tabs are generated from the connection settings. **Edit outline points** adjusts the boundary. **Shadow** hides the reference and shows the actual cut silhouette.
+These tools run locally and need no image-generation API:
+
+1. Import PNG/JPEG/WebP artwork. In **Prepare & export → Image to pieces**, use **Remove plain background** if needed, inspect the transparency comparison, and accept it. The original image remains available.
+2. Choose **Find silhouette pieces** for a transparent image or **Click to select a color region**. Review the boundaries before accepting. A connected character initially becomes one piece; these tools do not recognize anatomy.
+3. Select a piece and choose **Split into hinged pieces**. Click two points defining the cutting line, preview the result, and accept. The two pieces retain their artwork and share a pin connection with reinforcement tabs. Cuts producing multiple disconnected fragments are rejected.
+4. Change **Width** and **Length** in the selected-piece inspector. Its image, boundary and anchors stretch together; attached pieces follow the joint without stretching. **Set direction on the piece** defines the length axis for diagonal arms or tentacles. Changing that direction keeps the current shape and resets percentages to 100%.
+5. For separately extracted pieces, choose a parent under **Suggest a pivot connection** and review the proposed connection. This uses proximity, not anatomical recognition. Manual **Add a connection** lets you click the parent and child anchors instead.
+6. Add control-rod points, move joint angles, check **Shadow**, then print or export. Adding, splitting, resizing or deleting pieces preserves the physical scale of other pieces. **Print size → Height** deliberately scales the whole puppet.
+
+Manual tracing remains available: choose **Draw a custom part**, click around its outline, then **Finish part**. **Edit outline points** corrects a boundary. Paint details stay in the image; changing the backing color affects tabs and uncovered areas, not the image pixels. Width/length changes deform existing pixels; new costume details or hidden surfaces need image editing or new artwork.
 
 The original image does not contain artwork hidden behind a sleeve or arm. AI suggestions cannot recover the true hidden design; extend or reconstruct these areas deliberately. A single connected image is not automatically a functioning puppet.
+
+Background cleanup removes similar colors connected to the image edge; clothing touching that background can be affected. Adjust the tolerance and review before accepting. Interior transparent details are not automatically exported as internal cutouts. The extraction tools retain the original pixel coordinates, preserve concave outlines, and reject boundaries they cannot simplify safely.
 
 ## AI capabilities and current deployment
 
@@ -31,6 +42,8 @@ The older service still pins fixed-character instructions. It can sometimes prov
 The new service also compares each generated image against the exact student request using vision. It reports missing or uncertain features for student review. This is a visual critique, not proof of identity, historical accuracy, material strength or successful fabrication. These image paths have protocol tests; their live provider behavior must be verified after deployment.
 
 No API key is requested by or embedded in the browser. The Connection panel accepts a protected endpoint URL only. There is no unannounced fallback to another provider.
+
+Kimi is handling the generation API independently. [Image integration handoff](integration/IMAGE-HANDOFF.md) documents the current studio request and asset response, including how to supply an image for these local tools. The legacy `generateStudioImage` client addition is preserved; its `/api/puppet/image` response alone does not enable the v2 studio's generation controls.
 
 ## Save, print and continue
 
@@ -66,6 +79,9 @@ The build creates a dependency-free Worker at `dist/server/index.js`, a portable
 | File | Responsibility |
 | --- | --- |
 | `public/studio-model.mjs` | Arbitrary geometry, transforms, locks and fabrication checks |
+| `public/studio-parametric.mjs` | Width, length, axis and physical-scale controls |
+| `public/studio-image-tools.mjs` | Local background cleanup, region selection and outline extraction |
+| `public/studio-construction.mjs` | Piece splitting and proposed pivot connections |
 | `public/studio-render.mjs` | Clipped artwork, united contours, precise holes and print packs |
 | `public/studio-ai.mjs` | Exact prompt transport, capability checks, selected-piece scope, validation and one repair |
 | `public/studio-storage.mjs` | Portable projects, image import and IndexedDB saves |

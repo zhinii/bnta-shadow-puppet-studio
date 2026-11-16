@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createStudioProject, normalizeStudioProject, unitsPerMm, polygonArea} from '../public/studio-model.mjs';
+import {createStudioProject, normalizeStudioProject, unitsPerMm, polygonArea, transformPoint, partTransforms} from '../public/studio-model.mjs';
 import {renderStudioSvg, exportSheetSvg, exportPrintHtml, getFabricationMetrics, unionContours} from '../public/studio-render.mjs';
+import {resizePart} from '../public/studio-parametric.mjs';
 
 const pixel='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6VZsAAAAASUVORK5CYII=';
 function puppet() {
@@ -34,6 +35,18 @@ test('reinforcement outlines are united, without cuts through their overlaps',()
  assert.equal((cut.match(/data-cut="outline-and-holes"/g)||[]).length,2);
  assert.ok(!cut.includes('<circle'),'No separate overlapping tab disks create an interior cut.');
  assert.ok(!cut.includes('<image'));assert.ok(!cut.includes('<text'));
+});
+
+test('small reinforcement disks on a split edge form one closed contour at every artwork resolution',()=>{
+ for(const scale of [.5,1,16,100]){
+  const radius=6/7*scale,center=[45*scale,50*scale],disk=Array.from({length:96},(_,i)=>[center[0]+radius*Math.cos(i*2*Math.PI/96),center[1]+radius*Math.sin(i*2*Math.PI/96)]);
+  for(const polygon of [ [[20,10],[70,10],[70,50],[20,50]], [[20,50],[70,50],[70,90],[20,90]] ]){
+   const rectangle=polygon.map(([x,y])=>[x*scale,y*scale]),contours=unionContours([rectangle,disk]);
+   assert.equal(contours.length,1,'The tab must remain united to this side of the split.');
+   const expected=Math.abs(polygonArea(rectangle))+Math.abs(polygonArea(disk))/2;
+   assert.ok(Math.abs(Math.abs(polygonArea(contours[0]))-expected)<expected*1e-9,'Union retains exactly the external half of the reinforcement disk.');
+  }
+ }
 });
 
 test('export blocks detached joint tabs instead of delivering disconnected cutting geometry',()=>{
@@ -83,6 +96,50 @@ test('reference and tracing points remain visible before any cut part exists',()
  const svg=renderStudioSvg(p,{showConcept:true,draftPoints:[[10,20],[80,20],[50,70]]});
  assert.match(svg,/concept-reference/);assert.match(svg,/draft-contour/);assert.match(svg,/10,20 80,20 50,70/);
  assert.throws(()=>exportSheetSvg(p),/at least one cut part/);assert.throws(()=>exportPrintHtml(p),/at least one cut part/);
+});
+
+test('source artwork transforms independently inside the cut boundary on canvas and print',()=>{
+ const p=puppet();
+ p.parts[0].artworkMatrix=[1.5,0,0,1.2,-50,-90];
+ p.parts[0].polygon=[[ -50,-90],[100,-90],[100,510],[-50,510]];
+ p.parts[1].artworkMatrix=[1,0,0,1,0,0];
+ const stage=renderStudioSvg(p,{showConcept:true,showJoints:false}),sheet=exportSheetSvg(p),printed=exportPrintHtml(p);
+ for(const markup of [stage,sheet,printed]){
+  assert.match(markup,/<image data-part-artwork="body"[^>]* transform="matrix\(1\.5 0 0 1\.2 -50 -90\)"\/>/);
+  assert.match(markup,/<image data-part-artwork="tentacle"[^>]* transform="matrix\(1 0 0 1 0 0\)"\/>/);
+ }
+ const reference=stage.match(/<image class="concept-reference"[^>]*\/>/)[0];
+ assert.ok(!reference.includes('transform='),'Original reference remains in its source coordinate system.');
+ assert.ok(!stage.includes('<g transform="matrix(1.5 0 0 1.2 -50 -90)"'),'Artwork scale cannot affect the clipping mask or pin holes.');
+ const cut=exportSheetSvg(p,{cutOnly:true});
+ assert.ok(!cut.includes('data-part-artwork'));assert.ok(!cut.includes('<image'));
+});
+
+test('invalid raw artwork mappings cannot inject SVG attributes',()=>{
+ const p=puppet();p.parts[0].artworkMatrix=['1)" onload="bad',0,0,1,0,0];
+ const stage=renderStudioSvg(p,{showConcept:false});
+ assert.match(stage,/<image data-part-artwork="body"[^>]* transform="matrix\(1 0 0 1 0 0\)"\/>/);
+ assert.ok(!stage.includes('onload='));
+});
+
+test('parametric resize keeps texture, contours, moving children and physical pin size aligned',()=>{
+ const before=puppet(),scaleBefore=getFabricationMetrics(before).scaleMmPerUnit;
+ const resized=resizePart(before,'body',{width:.8,length:1.5}),body=resized.parts[0],child=resized.parts[1];
+ for(let i=0;i<body.polygon.length;i++){
+  const mapped=transformPoint(body.artworkMatrix,before.parts[0].polygon[i]);
+  assert.ok(Math.hypot(mapped[0]-body.polygon[i][0],mapped[1]-body.polygon[i][1])<1e-8,'Every source corner maps to its deformed cut boundary.');
+ }
+ assert.deepEqual(child.polygon,before.parts[1].polygon);
+ assert.deepEqual(child.artworkMatrix,before.parts[1].artworkMatrix);
+ const transforms=partTransforms(resized),joint=resized.joints[0];
+ assert.deepEqual(transformPoint(transforms.body,joint.parentAnchor),transformPoint(transforms.tentacle,joint.childAnchor),'The child follows the new parent pivot.');
+ const metrics=getFabricationMetrics(resized),sheet=exportSheetSvg(resized),cut=exportSheetSvg(resized,{cutOnly:true}),stage=renderStudioSvg(resized,{showJoints:false});
+ assert.ok(Math.abs(metrics.scaleMmPerUnit-scaleBefore)<1e-12);
+ assert.equal(metrics.parts[1].heightMm,getFabricationMetrics(before).parts[1].heightMm,'The child is not resized by its parent.');
+ assert.match(sheet,/<image data-part-artwork="body"[^>]*transform="matrix\(0\.8 0 0 1\.5 10 -125\)"/);
+ assert.match(stage,/<image data-part-artwork="tentacle"[^>]*transform="matrix\(1 0 0 1 0 0\)"/);
+ const radius=Number(cut.match(/a([\d.e+-]+) [\d.e+-]+ 0 1 0/)[1]);
+ assert.ok(Math.abs(radius*2*metrics.scaleMmPerUnit-before.holeMm)<1e-10,'Nonuniform artwork scaling does not turn a 3 mm pin into an ellipse.');
 });
 
 test('union preserves enclosed openings with the correct winding',()=>{

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createStudioProject} from '../public/studio-model.mjs';
+import {createStudioProject,normalizeStudioProject,applyStudioProposal,boundsOf} from '../public/studio-model.mjs';
 import {STUDIO_SYSTEM,STUDIO_RELAY,PLAN_RELAY,makeStudioRequest,makeDrawingPlanRequest,parseStudioResponse,getStudioCapabilities,requestStudioAI,validProtectedEndpoint} from '../public/studio-ai.mjs';
 import {handleStudioApi,studioConfig,studioChatPayload,studioImagePayload,validateStudioRequest} from '../server/studio-api.mjs';
 
@@ -24,6 +24,42 @@ test('existing relay receives the exact custom brief as advice with arbitrary po
   const r=makeDrawingPlanRequest(p,{task:'create',prompt});const message=JSON.parse(r.messages.at(-1).content);
   assert.equal(message.task,'discuss');assert.equal(message.scene.studentRequest,prompt);assert.ok(message.question.includes('polygon'));assert.ok(message.question.length<1600);assert.ok(!JSON.stringify(r).includes('Bearer'));
   assert.throws(()=>makeDrawingPlanRequest(p,{task:'segment',prompt:'Trace it',imageDataUrl:png}),/Image analysis/);
+});
+
+test('AI context retains resized artwork coordinates and dimensions without sending image bytes',()=>{
+  const p=createStudioProject();p.canvas={width:640,height:480};
+  p.parts=[{...square,artworkMatrix:[1.25,0,0,1.5,-50,-100],parameters:{width:1.25,length:1.5,axisAngle:30,origin:[400,200]}}];
+  const body=makeStudioRequest(p,{task:'refine',prompt:'Make this sleeve 20% longer',selectedPartId:'torso'});
+  assert.deepEqual(body.project.canvas,{width:640,height:480});
+  assert.deepEqual(body.project.parts[0].artworkMatrix,p.parts[0].artworkMatrix);
+  assert.deepEqual(body.project.parts[0].parameters,p.parts[0].parameters);
+  body.project.parts[0].parameters.origin[0]=0;body.project.parts[0].artworkMatrix[0]=99;
+  assert.equal(p.parts[0].parameters.origin[0],400);assert.equal(p.parts[0].artworkMatrix[0],1.25);
+  assert.match(STUDIO_SYSTEM,/current parameters.length multiplied by 1.2/);
+  assert.match(STUDIO_SYSTEM,/artworkMatrix.*read-only/);
+});
+
+test('AI dimension patches are bounded and cannot rewrite artwork mapping or combine geometric edits',()=>{
+  const response=parameters=>({reply:'Review this resized sleeve.',proposal:{parts:[{id:'sleeve',parameters}]}});
+  assert.deepEqual(parseStudioResponse(response({width:1.2,length:.75})).proposal.parts[0].parameters,{width:1.2,length:.75});
+  for(const parameters of [{width:'1.2'},{width:0},{length:5},{width:NaN},{axisAngle:90},{origin:[0,0]},{}])assert.throws(()=>parseStudioResponse(response(parameters)),/dimensions|parameters|protected/);
+  assert.throws(()=>parseStudioResponse({reply:'Move art.',proposal:{parts:[{id:'sleeve',artworkMatrix:[2,0,0,2,0,0]}]}}),/alignment is calculated/);
+  assert.throws(()=>parseStudioResponse({reply:'Both edits.',proposal:{parts:[{...square,parameters:{width:1.2}}]}}),/either dimension parameters/);
+});
+
+test('a selected parametric proposal resizes its source artwork through the model and keeps siblings untouched',async()=>{
+  const p=createStudioProject();p.assets=[{id:'reference',name:'Reference',width:800,height:1000,mime:'image/png',dataUrl:png}];
+  p.parts=[{...square,assetId:'reference'},{...square,id:'head',name:'Head',assetId:'reference'}];
+  const before=normalizeStudioProject(p);const snapshot=structuredClone(before);
+  const result=await requestStudioAI(before,{task:'refine',prompt:'Make this piece 20% wider; preserve its printed artwork.',selectedPartId:'torso'},{capabilities:{text:true,mode:'studio',endpoint:STUDIO_RELAY},fetcher:async(url,options)=>{
+    const sent=JSON.parse(options.body);assert.equal(sent.project.parts[0].parameters.width,1);assert.deepEqual(sent.project.parts[0].artworkMatrix,[1,0,0,1,0,0]);
+    return Response.json({reply:'Review a 20% wider coat.',proposal:{parts:[{id:'torso',parameters:{width:1.2}},{id:'head',parameters:{width:2}}]}});
+  }});
+  const after=applyStudioProposal(before,result.proposal);const resized=after.parts.find(part=>part.id==='torso');
+  assert.equal(result.proposal.parts.length,1);assert.equal(resized.parameters.width,1.2);assert.equal(resized.assetId,'reference');
+  assert.ok(Math.abs(boundsOf(resized.polygon).width-240)<1e-6);assert.ok(Math.abs(resized.artworkMatrix[0]-1.2)<1e-6);
+  assert.deepEqual(after.parts.find(part=>part.id==='head'),before.parts.find(part=>part.id==='head'));
+  assert.deepEqual(before,snapshot,'request and proposal validation never mutate the accepted project');
 });
 
 test('nested advisory plans become editable polygon proposals without invoking a fixed human template',()=>{

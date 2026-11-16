@@ -1,13 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createStudioProject, makePart} from '../public/studio-model.mjs';
+import {createStudioProject, makePart, partTransforms, transformPoint, unitsPerMm} from '../public/studio-model.mjs';
 import {serializeStudioProject, parseStudioProject} from '../public/studio-storage.mjs';
+import {deflateSync} from 'node:zlib';
+
+function fixturePng(raster) {
+  const crc=bytes=>{let c=0xffffffff;for(const b of bytes){c^=b;for(let i=0;i<8;i++)c=(c>>>1)^((c&1)?0xedb88320:0);}return (c^0xffffffff)>>>0;};
+  const chunk=(name,data)=>{const kind=Buffer.from(name),result=Buffer.alloc(data.length+12);result.writeUInt32BE(data.length);kind.copy(result,4);data.copy(result,8);result.writeUInt32BE(crc(Buffer.concat([kind,data])),data.length+8);return result;};
+  const header=Buffer.alloc(13);header.writeUInt32BE(raster.width);header.writeUInt32BE(raster.height,4);header[8]=8;header[9]=6;
+  const raw=Buffer.alloc((raster.width*4+1)*raster.height);for(let y=0;y<raster.height;y++)Buffer.from(raster.data.buffer,raster.data.byteOffset+y*raster.width*4,raster.width*4).copy(raw,y*(raster.width*4+1)+1);
+  return 'data:image/png;base64,'+Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(raw)),chunk('IEND',Buffer.alloc(0))]).toString('base64');
+}
+function rasterFixture({background=[255,255,255,0],rectangles=[]}={}) {
+  const width=100,height=100,data=new Uint8ClampedArray(width*height*4);
+  for(let i=0;i<data.length;i+=4)data.set(background,i);
+  for(const {x,y,w,h,color}of rectangles)for(let py=y;py<y+h;py++)for(let px=x;px<x+w;px++)data.set(color,(py*width+px)*4);
+  return {width,height,data};
+}
 
 // This harness verifies event wiring and state persistence; it is not a browser
 // rendering or physical-fabrication test.
 function browserHarness() {
   const rootListeners = new Map(), documentListeners = new Map(), files = new Map();
   const downloads = [], requests = [], records = new Map(), urls = new Map();
+  const rasters=new Map();let fixtureRaster=null;
   const previous = new Map(['document','window','localStorage','indexedDB','fetch','setTimeout','clearTimeout','createImageBitmap'].map(k=>[k,globalThis[k]]));
   const originalCreateURL = URL.createObjectURL, originalRevokeURL = URL.revokeObjectURL;
   const nativeTimeout = globalThis.setTimeout;
@@ -28,12 +44,12 @@ function browserHarness() {
     return ({'#app':root,'#save-status':status,'#toast':toast,'#puppet-canvas':canvas,'#puppet-canvas svg':svg,'#angle-output':angle,'#print-frame':printFrame})[selector] || files.get(selector.slice(1)) || null;
   },createElement(tag) {
     if(tag==='a')return {href:'',download:'',click(){downloads.push({name:this.download,blob:urls.get(this.href)});}};
-    if(tag==='canvas')return {width:0,height:0,getContext(){return {drawImage(){}};},toDataURL(){return PNG;}};
+    if(tag==='canvas'){let pixels=null;const canvas={width:0,height:0,getContext(){return {drawImage(decoded){pixels=structuredClone(decoded.raster||fixtureRaster);},getImageData(){return {data:new Uint8ClampedArray(pixels.data)};},createImageData(width,height){return {width,height,data:new Uint8ClampedArray(width*height*4)};},putImageData(image){pixels={width:canvas.width,height:canvas.height,data:new Uint8ClampedArray(image.data)};}};},toDataURL(){if(!pixels)return PNG;const value=fixturePng(pixels);rasters.set(value,structuredClone(pixels));return value;}};return canvas;}
     throw Error('Unexpected DOM element: '+tag);
   }};
   globalThis.window={addEventListener(){}};
   globalThis.localStorage={getItem(){return null;},setItem(){}};
-  globalThis.createImageBitmap=async()=>({width:100,height:100,close(){}});
+  globalThis.createImageBitmap=async blob=>{let raster=fixtureRaster;if(blob?.arrayBuffer){const key='data:image/png;base64,'+Buffer.from(await blob.arrayBuffer()).toString('base64');raster=rasters.get(key)||raster;}return {width:raster?.width||100,height:raster?.height||100,raster:raster?structuredClone(raster):null,close(){}};};
   globalThis.setTimeout=(fn,ms,...args)=>{let id;id=nativeTimeout(()=>{timers.delete(id);fn(...args);},ms<10000?1:ms);timers.add(id);return id;};
   globalThis.clearTimeout=id=>{timers.delete(id);previous.get('clearTimeout')(id);};
   URL.createObjectURL=blob=>{const url='blob:test-'+urls.size;urls.set(url,blob);return url;};
@@ -49,16 +65,19 @@ function browserHarness() {
     return {ok:true,status:200,json:async()=>capabilities};
   };
   const settle=()=>new Promise(resolve=>nativeTimeout(resolve,25));
-  return {root,status,requests,records,downloads,files,settle,
+  return {root,status,requests,records,downloads,files,settle,rasters,
+    error:()=>root.innerHTML.match(/class="error-banner" role="alert">([^<]*)/)?.[1]||'',
+    setRaster(value){fixtureRaster=structuredClone(value);const url=fixturePng(value);rasters.set(url,structuredClone(value));return url;},
     setResponse(fn){responseFactory=fn;},
     setCapabilities(value){capabilities={...capabilities,...value};},
     click:dataset=>rootListeners.get('click')({target:target({dataset})}),
     input:(id,value)=>rootListeners.get('input')({target:target({id,value,dataset:{}})}),
+    parameterInput:(key,value)=>rootListeners.get('input')({target:target({dataset:{paramField:key},value})}),
     change:el=>rootListeners.get('change')({target:target(el)}),
     submit:id=>rootListeners.get('submit')({target:{id},preventDefault(){}}),
     point:(x,y,partId=null)=>rootListeners.get('click')({target:target({canvas:true,partId}),clientX:x,clientY:y}),
     async openProject(project){const input=files.get('project-file');const text=serializeStudioProject(project);input.files=[{size:new TextEncoder().encode(text).length,text:async()=>text}];await input.listeners.get('change')({target:input});await settle();},
-    async importArtwork(){const input=files.get('artwork-file');const bytes=Uint8Array.from([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,100,0,0,0,100]);input.files=[{name:'Student artwork.png',type:'image/png',size:bytes.length,arrayBuffer:async()=>bytes.buffer}];await input.listeners.get('change')({target:input});await settle();},
+    async importArtwork(){const input=files.get('artwork-file');const bytes=fixtureRaster?Uint8Array.from(Buffer.from(fixturePng(fixtureRaster).split(',')[1],'base64')):Uint8Array.from([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,100,0,0,0,100]);input.files=[{name:'Student artwork.png',type:'image/png',size:bytes.length,arrayBuffer:async()=>bytes.buffer}];await input.listeners.get('change')({target:input});await settle();},
     async close(){await settle();for(const timer of timers)previous.get('clearTimeout')(timer);URL.createObjectURL=originalCreateURL;URL.revokeObjectURL=originalRevokeURL;for(const [key,value]of previous){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
   };
 }
@@ -109,6 +128,7 @@ test('artwork, hand-drawn parts and connections survive portable project export'
     await import('../public/studio-app.mjs?drawing');
     await h.settle();
     await h.importArtwork();
+    await h.click({action:'draw'});
     assert.match(h.root.innerHTML,/Trace the boundary/);
     for(const point of [[10,10],[40,10],[40,90],[10,90]])await h.point(...point);
     await h.click({action:'finish-part'});
@@ -120,18 +140,22 @@ test('artwork, hand-drawn parts and connections survive portable project export'
     const [parent,child]=project.parts;
     assert.equal(project.parts.length,2);
     assert.equal(parent.assetId,project.conceptAssetId);
+    const drawingScale=unitsPerMm(project);
     await h.click({action:'joint'});
-    await h.click({action:'select',id:parent.id});
     await h.point(30,40,parent.id);
-    await h.click({action:'select',id:child.id});
     await h.point(50,40,child.id);
     await h.settle();
     project=h.records.get('current');
     assert.equal(project.joints.length,1);
     assert.deepEqual(project.joints[0].parentAnchor,[30,40]);
     assert.deepEqual(project.joints[0].childAnchor,[50,40]);
+    assert.ok(Math.abs(unitsPerMm(project)-drawingScale)<1e-8);
+    assert.ok(Math.abs(project.joints[0].padRadius/unitsPerMm(project)-3)<1e-8,'default 3 mm overlap radius stays physical even on a 100 px image');
+    await h.change({dataset:{jointField:'padRadius'},type:'number',value:'4.2'});await h.settle();
+    project=h.records.get('current');
+    assert.ok(Math.abs(project.joints[0].padRadius-4.2*drawingScale)<1e-8,'inspector millimetres convert into the calibrated design coordinates');
+    assert.match(h.root.innerHTML,/data-joint-field="padRadius"[^>]*value="4.2"/);
     await h.click({action:'rod'});
-    await h.click({action:'select',id:parent.id});
     await h.point(30,70,parent.id);
     await h.settle();
     assert.equal(h.records.get('current').rods.length,1);
@@ -141,6 +165,7 @@ test('artwork, hand-drawn parts and connections survive portable project export'
     assert.equal(saved.assets[0].name,'Student artwork.png');
     assert.equal(saved.parts.length,2);
     assert.equal(saved.joints.length,1);
+    assert.ok(Math.abs(saved.joints[0].padRadius/unitsPerMm(saved)-4.2)<1e-8,'portable export retains the physical overlap radius');
     assert.equal(saved.rods.length,1);
     await h.openProject(saved);
     assert.equal(h.records.get('current').assets[0].dataUrl,PNG);
@@ -294,5 +319,140 @@ test('shadow view hides the source image and accepted same-frame image edits pre
     await h.settle();
     assert.equal(h.records.get('current').conceptAssetId,'source-image');
     assert.deepEqual(h.records.get('current').parts,project.parts);
+  } finally {await h.close();}
+});
+
+test('local image extraction, hinged splitting and parametric artwork resizing round-trip without AI', async () => {
+  const h=browserHarness();
+  const original=h.setRaster(rasterFixture({rectangles:[{x:20,y:10,w:50,h:80,color:[170,45,25,255]},{x:35,y:25,w:20,h:10,color:[20,80,190,255]}]}));
+  try {
+    await import('../public/studio-app.mjs?local-image-pipeline');await h.settle();await h.importArtwork();
+    assert.equal(h.records.get('current').assets[0].dataUrl,original);
+    await h.click({action:'extract-silhouette'});await h.settle();
+    assert.match(h.root.innerHTML,/Review the extracted cut boundaries/);
+    assert.equal(h.records.get('current').parts.length,0,'extraction is reviewable, not applied immediately');
+    await h.click({action:'accept'});await h.settle();
+    let project=h.records.get('current');assert.equal(project.parts.length,1);
+    assert.equal(project.parts[0].assetId,project.conceptAssetId);
+    await h.click({action:'split-part'});await h.point(10,50);await h.point(80,50);await h.click({action:'preview-split'});await h.settle();
+    assert.match(h.root.innerHTML,/Review the two pieces/);
+    assert.equal(h.records.get('current').parts.length,1);
+    await h.click({action:'accept'});await h.settle();
+    const split=structuredClone(h.records.get('current'));assert.equal(split.parts.length,2);assert.equal(split.joints.length,1);
+    assert.equal(split.parts[0].assetId,split.parts[1].assetId);
+    const joint=split.joints[0],scale=unitsPerMm(split),childBefore=split.parts.find(p=>p.id===joint.childId);
+    await h.click({action:'select',id:joint.parentId});
+    h.parameterInput('length','150');await h.settle();
+    assert.deepEqual(h.records.get('current').parts,split.parts,'slider input previews without persisting');
+    await h.change({dataset:{paramField:'length'},value:'150'});await h.settle();
+    const resized=structuredClone(h.records.get('current')),parent=resized.parts.find(p=>p.id===joint.parentId),child=resized.parts.find(p=>p.id===joint.childId);
+    assert.equal(parent.parameters.length,1.5);assert.notDeepEqual(parent.artworkMatrix,[1,0,0,1,0,0]);
+    assert.deepEqual(child.polygon,childBefore.polygon,'attached child artwork is not stretched');assert.deepEqual(child.artworkMatrix,childBefore.artworkMatrix);
+    assert.ok(Math.abs(unitsPerMm(resized)-scale)<1e-8,'resize preserves physical scale of other pieces');
+    const transforms=partTransforms(resized),changedJoint=resized.joints[0];
+    assert.deepEqual(transformPoint(transforms[joint.parentId],changedJoint.parentAnchor),transformPoint(transforms[joint.childId],changedJoint.childAnchor));
+    assert.equal(resized.assets[0].dataUrl,original,'source image bytes remain intact');
+    await h.click({action:'undo'});await h.settle();assert.deepEqual(h.records.get('current').parts,split.parts);
+    await h.click({action:'redo'});await h.settle();assert.deepEqual(h.records.get('current').parts,resized.parts);
+    await h.click({action:'export-art'});assert.equal(h.downloads.length,1,h.error());const svg=await h.downloads.at(-1).blob.text();assert.match(svg,/<image[^>]*transform="matrix\(/);assert.ok(svg.includes(original));
+    await h.click({action:'save-project'});const portable=parseStudioProject(await h.downloads.at(-1).blob.text());await h.openProject(portable);
+    project=h.records.get('current');assert.deepEqual(project.parts,resized.parts);assert.deepEqual(project.joints,resized.joints);assert.equal(project.assets[0].dataUrl,original);
+    assert.equal(h.requests.length,0,'the complete local pipeline never sends an AI request');
+  } finally {await h.close();}
+});
+
+test('background cleanup previews alpha changes and preserves the original until acceptance', async () => {
+  const h=browserHarness();
+  const input=rasterFixture({background:[255,255,255,255],rectangles:[{x:20,y:20,w:60,h:60,color:[150,30,20,255]},{x:40,y:40,w:20,h:20,color:[255,255,255,255]}]});
+  const original=h.setRaster(input);
+  try {
+    await import('../public/studio-app.mjs?background-cleanup');await h.settle();await h.importArtwork();
+    const artworkProject=structuredClone(h.records.get('current')),sourceId=artworkProject.conceptAssetId;
+    artworkProject.parts=[makePart('Editable piece',[[20,20],[80,20],[80,40],[20,40]],sourceId),makePart('Protected piece',[[20,60],[80,60],[80,80],[20,80]],sourceId)];
+    artworkProject.parts[1].locked=true;await h.openProject(artworkProject);
+    const before=structuredClone(h.records.get('current'));
+    await h.click({action:'view-shadow'});await h.change({dataset:{view:'concept'},checked:false});
+    await h.click({action:'remove-background'});await h.settle();
+    assert.match(h.root.innerHTML,/Review the transparent areas/);assert.equal(h.records.get('current').assets.length,1);assert.equal(h.records.get('current').assets[0].dataUrl,original);
+    assert.ok(h.root.innerHTML.includes(original));assert.ok(h.root.innerHTML.includes([...h.rasters.keys()].at(-1)),'image review shows both sources even when shadow/reference settings hide the main artwork');
+    await h.click({action:'reject'});assert.deepEqual(h.records.get('current'),before);
+    await h.click({action:'remove-background'});await h.click({action:'accept'});await h.settle();
+    const accepted=h.records.get('current'),cleaned=accepted.assets.find(a=>a.id===accepted.conceptAssetId);
+    assert.equal(accepted.assets.length,2);assert.equal(accepted.assets[0].dataUrl,original);assert.notEqual(cleaned.dataUrl,original);
+    assert.equal(accepted.parts[0].assetId,cleaned.id);assert.equal(accepted.parts[1].assetId,sourceId,'locked artwork retains its original image');
+    const pixels=h.rasters.get(cleaned.dataUrl);assert.equal(pixels.data[3],0,'edge-connected background is transparent');assert.equal(pixels.data[(50*100+50)*4+3],255,'enclosed white artwork survives');
+    await h.click({action:'undo'});await h.settle();assert.deepEqual(h.records.get('current').assets,before.assets);assert.equal(h.records.get('current').conceptAssetId,before.conceptAssetId);
+    assert.deepEqual(h.records.get('current').parts,before.parts);
+    assert.equal(h.requests.length,0);
+  } finally {await h.close();}
+});
+
+test('local resize protects locked descendants and a changed project cannot accept an old image proposal', async () => {
+  const h=browserHarness();
+  h.setRaster(rasterFixture({rectangles:[{x:20,y:10,w:50,h:80,color:[170,45,25,255]}]}));
+  try {
+    await import('../public/studio-app.mjs?locked-parameter-and-stale');await h.settle();
+    await h.click({action:'starter',kind:'figure'});await h.settle();
+    const project=h.records.get('current'),joint=project.joints.find(j=>j.parentId===project.parts[0].id)||project.joints[0];
+    await h.click({action:'select',id:joint.childId});await h.click({action:'lock'});await h.settle();
+    const before=structuredClone(h.records.get('current'));await h.click({action:'select',id:joint.parentId});
+    await h.change({dataset:{paramField:'length'},value:'130'});await h.settle();
+    assert.deepEqual(h.records.get('current').parts,before.parts);assert.deepEqual(h.records.get('current').joints,before.joints);assert.match(h.root.innerHTML,/locked/i);
+    await h.click({action:'new-project'});await h.importArtwork();await h.click({action:'extract-silhouette'});await h.settle();
+    assert.match(h.root.innerHTML,/Review the proposed design/);h.input('create-prompt','This prompt was changed while the image proposal was pending.');await h.settle();
+    await h.click({action:'accept'});await h.settle();
+    assert.equal(h.records.get('current').parts.length,0);assert.match(h.root.innerHTML,/project changed/i);assert.equal(h.requests.length,0);
+  } finally {await h.close();}
+});
+
+test('color selection, reviewed connection suggestions and drawn parameter direction work locally', async () => {
+  const h=browserHarness();
+  h.setRaster(rasterFixture({rectangles:[{x:15,y:15,w:60,h:30,color:[180,40,20,255]},{x:25,y:45,w:40,h:40,color:[30,70,180,255]}]}));
+  try {
+    await import('../public/studio-app.mjs?region-connection-axis');await h.settle();await h.importArtwork();
+    for(const point of [[35,30],[45,65]]){
+      const count=h.records.get('current').parts.length;
+      await h.click({action:'select-region'});await h.point(...point);await h.settle();
+      assert.equal(h.error(),'');assert.equal(h.records.get('current').parts.length,count,'region remains a proposal until accepted');
+      await h.click({action:'accept'});await h.settle();assert.equal(h.records.get('current').parts.length,count+1);
+    }
+    const before=structuredClone(h.records.get('current')),[parent,child]=before.parts;
+    assert.ok(parent.polygon.every(p=>p[1]<=45));assert.ok(child.polygon.every(p=>p[1]>=45),'color clicks produce distinct cut regions');
+    await h.change({dataset:{connectParent:''},value:parent.id});await h.click({action:'suggest-connection'});await h.settle();
+    assert.equal(h.error(),'');assert.equal(h.records.get('current').joints.length,0);
+    assert.match(h.root.innerHTML,/Review its position and movement/);
+    await h.click({action:'accept'});await h.settle();
+    const connected=structuredClone(h.records.get('current'));assert.equal(connected.joints.length,1);assert.equal(connected.joints[0].parentId,parent.id);assert.equal(connected.joints[0].childId,child.id);
+    await h.click({action:'parameter-axis'});await h.point(25,65);await h.point(65,65);await h.settle();
+    const directed=h.records.get('current'),part=directed.parts.find(p=>p.id===child.id);
+    assert.equal(part.parameters.axisAngle,-90);assert.deepEqual(part.polygon,child.polygon,'direction is a rebase, not a deformation');assert.deepEqual(part.artworkMatrix,child.artworkMatrix);
+    await h.change({dataset:{paramField:'length'},value:'125'});await h.settle();
+    const resized=h.records.get('current').parts.find(p=>p.id===child.id);
+    assert.equal(resized.parameters.length,1.25);assert.ok(Math.abs(resized.artworkMatrix[0]-1.25)<1e-8);assert.ok(Math.abs(resized.artworkMatrix[3]-1)<1e-8,'horizontal direction stretches the horizontal image axis');
+    assert.equal(h.requests.length,0);
+  } finally {await h.close();}
+});
+
+test('changing selection or importing artwork clears unfinished cuts and restores an editable image view', async () => {
+  const h=browserHarness();
+  const original=h.setRaster(rasterFixture({rectangles:[{x:10,y:10,w:30,h:80,color:[180,40,20,255]},{x:50,y:10,w:40,h:80,color:[30,70,180,255]}]}));
+  try {
+    await import('../public/studio-app.mjs?cancel-stale-cut');await h.settle();await h.importArtwork();
+    await h.click({action:'extract-silhouette'});await h.click({action:'accept'});await h.settle();
+    const before=structuredClone(h.records.get('current')),[first,second]=before.parts;
+    await h.click({action:'select',id:first.id});await h.click({action:'split-part'});await h.point(5,50);
+    assert.match(h.root.innerHTML,/class="trace-overlay"/);
+    await h.click({action:'select',id:second.id});
+    assert.doesNotMatch(h.root.innerHTML,/class="trace-overlay"|Place two points across the selected piece/);
+    await h.click({action:'split-part'});await h.point(95,50);await h.click({action:'preview-split'});
+    assert.doesNotMatch(h.root.innerHTML,/Review the two pieces/,'the previous piece contributes no old split point');
+    assert.deepEqual(h.records.get('current').parts,before.parts);
+    await h.point(45,50);await h.click({action:'preview-split'});assert.match(h.root.innerHTML,/Review the two pieces/);await h.click({action:'reject'});
+    await h.click({action:'split-part'});await h.point(45,50);await h.click({action:'view-shadow'});await h.change({dataset:{view:'concept'},checked:false});
+    await h.importArtwork();
+    assert.equal(h.error(),'');assert.doesNotMatch(h.root.innerHTML,/class="trace-overlay"|Place two points across the selected piece|data-action="finish-part"/);
+    assert.match(h.root.innerHTML,/class="active" data-action="view-art"/);assert.ok(h.root.innerHTML.includes(original));
+    await h.click({action:'preview-split'});assert.doesNotMatch(h.root.innerHTML,/Review the two pieces/);assert.deepEqual(h.records.get('current').parts,before.parts);
+    assert.equal(h.requests.length,0);
   } finally {await h.close();}
 });
