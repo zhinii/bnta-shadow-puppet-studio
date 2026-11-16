@@ -24,6 +24,24 @@ test('custom artwork is clipped to independent cut parts and pin holes are trans
  assert.ok(!shadow.includes('<image '));assert.match(shadow,/#25252a/);
 });
 
+test('interactive canvas controls expose selected state while previews and exports remain noninteractive',()=>{
+ const p=puppet(),svg=renderStudioSvg(p,{selectedPartId:'tentacle',selectedJointId:'pin'});
+ assert.match(svg,/^<svg\b[^>]*role="group"/,'The interactive canvas groups controls instead of flattening them into one image.');
+ const group=(markup,attribute,id)=>markup.match(new RegExp(`<g\\b[^>]*${attribute}="${id}"[^>]*>`))?.[0];
+ for(const [attribute,id,pressed] of [['data-part-id','body',false],['data-part-id','tentacle',true],['data-joint-id','pin',true]]){
+  const control=group(svg,attribute,id);
+  assert.match(control,/role="button"/);assert.match(control,/tabindex="0"/);
+  assert.match(control,new RegExp(`aria-pressed="${pressed}"`));
+ }
+ const unselected=renderStudioSvg(p);
+ assert.equal((unselected.match(/aria-pressed="false"/g)||[]).length,3);
+ const preview=renderStudioSvg(p,{interactive:false,selectedPartId:'tentacle',selectedJointId:'pin'});
+ assert.match(preview,/^<svg\b[^>]*role="img"/,'Read-only previews retain image semantics.');
+ for(const markup of [preview,exportSheetSvg(p),exportPrintHtml(p)]){
+  assert.doesNotMatch(markup,/role="button"|tabindex="0"|aria-pressed=/,'Read-only artwork must not advertise interactive controls.');
+ }
+});
+
 test('reinforcement outlines are united, without cuts through their overlaps',()=>{
  const rectangle=[[0,0],[10,0],[10,10],[0,10]],overlap=[[5,0],[15,0],[15,10],[5,10]],loops=unionContours([rectangle,overlap]);
  assert.equal(loops.length,1);assert.equal(Math.abs(polygonArea(loops[0])),150);

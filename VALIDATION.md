@@ -2,11 +2,13 @@
 
 ## Automated checks
 
-The image-to-parametric release passes **139 automated tests**. Reproduce with `npm run check`, `npm test`, `npm run build`, and `node scripts/smoke.mjs`.
+The image-to-parametric release passes **142 automated tests**, including **15 workflow tests**. Reproduce with `npm run check`, `npm test`, `npm run build`, and `node scripts/smoke.mjs`.
 
 Coverage includes arbitrary image-backed polygons; branched and chained connections; exact pivot coincidence under rotation; physical scale independent of pose; pin holes and united overlap tabs; invalid outlines and overlapping holes; locked parts and their ancestors; selected-piece AI edits; exact custom prompts; malformed, truncated and advice-only responses; one bounded AI repair; protected multimodal payloads; image retrieval and visual comparison; origin/request limits; secret exclusion; portable image round-trips; failed IndexedDB transactions; and the three-stage UI event workflow.
 
-The 13 workflow tests import artwork, trace/connect parts, add a control rod, export/reopen projects, and accept/undo text revisions. Additional real pixel fixtures exercise background removal review, preserved originals and locked artwork, connected silhouette extraction, color selection, splitting with a hinge, direction selection, width/length changes, attached-piece motion, SVG export, portable reload, stale proposals and selection/import tool resets. Local image operations make zero AI POST requests. These are DOM-double tests, not browser automation.
+The 15 workflow tests cover the complete sequence: generated artwork and custom prompt/preset transport; review, discard and acceptance; local silhouette extraction; splitting with a hinge; adding a control rod; manual width changes and a selected-piece natural-language length revision; proposal acceptance, undo/redo and joint posing; artwork/cut SVG export and print HTML preparation; and portable save/reopen with artwork, dimensions, connections and rods preserved. The generation route uses controlled relay responses and real PNG pixel fixtures in a DOM/canvas double. Text revisions send numeric geometry without image bytes, and local construction/export operations make no additional AI POST requests.
+
+Additional fixtures cover background-removal review, preserved originals and locked artwork, color-region selection, direction selection, attached-piece motion, stale proposals, and selection/import tool resets. New regressions ensure advice-only drawing responses remain visible without an Accept action, Enter/Space activate advertised SVG part/joint controls, keyboard selection requests focus restoration, and clicking a joint opens its child's movement controls without altering geometry. These tests verify event wiring and persistence, not actual browser focus, touch interaction, rendering or printing.
 
 Model tests verify stable physical scale when adding, removing, splitting and resizing parts, including a small first piece. Raster tests check enclosed white regions, concave boundaries, disconnected pieces and rejection of unsupported opaque/complex outlines. Renderer regressions verify one closed reinforced boundary at four image resolutions and exact circular pin-hole diameters after artwork deformation. The split/export flow initially exposed a sub-unit segment tolerance defect; it was fixed and is now covered.
 
@@ -37,13 +39,13 @@ Early tests exposed instruction conflicts, advice-only responses, zero-area deta
 
 The final repeated creation trial returned **3 structurally valid drafts out of 6 requests**: one footballer and two skirt designs. One footballer request timed out. Both tentacle cases still had invalid geometry after the repair and were rejected. This small trial measures structural validity, not visual fidelity or a general success rate. A separate live selected-sleeve revision passed and changed only that selected part.
 
-`/api/studio/status` returned **404**. The new image endpoint was not deployed on the protected Kimi host in this session. The local environment has no configured provider credential. Image analysis/generation/editing/evaluation tests use controlled provider responses and establish protocol handling only. They do not establish account authorization, output quality or actual live vision.
+At that earlier stage, `/api/studio/status` returned **404**, and the new image endpoint had not been deployed on the protected Kimi host. The local environment had no configured provider credential. Image analysis/generation/editing/evaluation tests then used controlled provider responses and established protocol handling only. They did not establish account authorization, output quality or actual live vision; the later real generation trials are documented separately above.
 
 The initial local image-tools release made no live generation requests. The later bridge described above connects Kimi's now-working image route while preserving its classic client. The provider service and model selection are unchanged. Placeholder replacements for the classic app and CSS were restored, and a later syntax typo was repaired.
 
 ## Remaining verification
 
-- Browser control returned `Transport closed` on both attempts. Actual layout, touch/keyboard interactions and print dialogs need browser verification. No screenshot-based QA is claimed.
+- Earlier browser-control attempts returned `Transport closed`. During the current audit, both browser control and the native computer connection were unavailable. Actual layout, touch/keyboard interactions, focus behavior and print dialogs still need browser verification. No live-browser or screenshot-based QA is claimed.
 - Physical material strength, hole clearance, layered movement, light transmission and rod control require a prototype with the chosen material.
 - Add and verify vision/image-editing capabilities separately. Test automatic image critique and selected-region revisions before advertising them. See `integration/IMAGE-HANDOFF.md` and `integration/STUDIO-V2-RELAY.md`.
 

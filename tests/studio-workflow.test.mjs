@@ -22,20 +22,21 @@ function rasterFixture({background=[255,255,255,0],rectangles=[]}={}) {
 // rendering or physical-fabrication test.
 function browserHarness() {
   const rootListeners = new Map(), documentListeners = new Map(), files = new Map();
-  const downloads = [], requests = [], records = new Map(), urls = new Map();
+  const downloads = [], requests = [], records = new Map(), urls = new Map(), focusedSelectors=[];
   const rasters=new Map();let fixtureRaster=null;
   const previous = new Map(['document','window','localStorage','indexedDB','fetch','setTimeout','clearTimeout','createImageBitmap'].map(k=>[k,globalThis[k]]));
   const originalCreateURL = URL.createObjectURL, originalRevokeURL = URL.revokeObjectURL;
   const nativeTimeout = globalThis.setTimeout;
   const timers = new Set();
-  const target = ({dataset={},canvas=false,partId=null,...rest}={}) => ({dataset,...rest,closest(selector) {
+  const target = ({dataset={},canvas=false,partId=null,jointId=null,...rest}={}) => ({dataset,...rest,closest(selector) {
     if(selector==='#puppet-canvas')return canvas ? this : null;
     if(selector==='[data-action]')return dataset.action ? this : null;
     if(selector==='[data-part-id]')return partId ? {dataset:{partId}} : null;
+    if(selector==='[data-joint-id]')return jointId ? {dataset:{jointId}} : null;
     if(selector==='[data-vertex-index]')return dataset.vertexIndex!==undefined ? this : null;
     return null;
   }});
-  const root = {innerHTML:'',addEventListener:(type,fn)=>rootListeners.set(type,fn),querySelector:()=>null};
+  const root = {innerHTML:'',addEventListener:(type,fn)=>rootListeners.set(type,fn),querySelector:selector=>/^\[data-(part|joint)-id=/.test(selector)?{focus(){focusedSelectors.push(selector);}}:null};
   const status = {textContent:''}, canvas = {innerHTML:''}, angle = {textContent:''}, toast = {textContent:'',classList:{add(){},remove(){}}};
   const svg = {createSVGPoint(){return {x:0,y:0,matrixTransform(){return {x:this.x,y:this.y};}};},getScreenCTM(){return {inverse(){return {};}};}};
   for(const name of ['project-file','artwork-file'])files.set(name,{value:'',files:[],listeners:new Map(),addEventListener(type,fn){this.listeners.set(type,fn);},click(){}});
@@ -66,7 +67,7 @@ function browserHarness() {
     return getResponseFactory(url);
   };
   const settle=()=>new Promise(resolve=>nativeTimeout(resolve,25));
-  return {root,status,requests,records,downloads,files,settle,rasters,
+  return {root,status,requests,records,downloads,files,settle,rasters,printFrame,focusedSelectors,
     error:()=>root.innerHTML.match(/class="error-banner" role="alert">([^<]*)/)?.[1]||'',
     setRaster(value){fixtureRaster=structuredClone(value);const url=fixturePng(value);rasters.set(url,structuredClone(value));return url;},
     setResponse(fn){responseFactory=fn;},
@@ -78,6 +79,8 @@ function browserHarness() {
     change:el=>rootListeners.get('change')({target:target(el)}),
     submit:id=>rootListeners.get('submit')({target:{id},preventDefault(){}}),
     point:(x,y,partId=null)=>rootListeners.get('click')({target:target({canvas:true,partId}),clientX:x,clientY:y}),
+    jointPoint:(x,y,jointId)=>rootListeners.get('click')({target:target({canvas:true,jointId}),clientX:x,clientY:y}),
+    key:(key,element={})=>{let prevented=false;documentListeners.get('keydown')({key,target:target({tagName:'g',...element}),preventDefault(){prevented=true;}});return prevented;},
     async openProject(project){const input=files.get('project-file');const text=serializeStudioProject(project);input.files=[{size:new TextEncoder().encode(text).length,text:async()=>text}];await input.listeners.get('change')({target:input});await settle();},
     async importArtwork(){const input=files.get('artwork-file');const bytes=fixtureRaster?Uint8Array.from(Buffer.from(fixturePng(fixtureRaster).split(',')[1],'base64')):Uint8Array.from([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,100,0,0,0,100]);input.files=[{name:'Student artwork.png',type:'image/png',size:bytes.length,arrayBuffer:async()=>bytes.buffer}];await input.listeners.get('change')({target:input});await settle();},
     async close(){await settle();for(const timer of timers)previous.get('clearTimeout')(timer);URL.createObjectURL=originalCreateURL;URL.revokeObjectURL=originalRevokeURL;for(const [key,value]of previous){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
@@ -498,9 +501,29 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
     await h.click({action:'redo'});await h.settle();await h.click({action:'step',step:'make'});
     await h.click({action:'extract-silhouette'});await h.click({action:'accept'});await h.settle();assert.equal(h.records.get('current').parts.length,2);
     await h.click({action:'split-part'});await h.point(10,50);await h.point(80,50);await h.click({action:'preview-split'});await h.click({action:'accept'});await h.settle();
-    const built=structuredClone(h.records.get('current'));assert.equal(built.parts.length,3);assert.equal(built.joints.length,1);assert.deepEqual(built.parts[0],before.parts[0]);assert.ok(built.parts.slice(1).every(p=>p.assetId===generatedId));
+    let built=structuredClone(h.records.get('current'));assert.equal(built.parts.length,3);assert.equal(built.joints.length,1);assert.deepEqual(built.parts[0],before.parts[0]);assert.ok(built.parts.slice(1).every(p=>p.assetId===generatedId));
+    const movingId=built.joints[0].childId;
+    await h.click({action:'rod'});await h.click({action:'select',id:movingId});await h.point(45,30,movingId);await h.settle();
+    assert.equal(h.records.get('current').rods[0].partId,movingId);
+    await h.click({action:'select',id:movingId});await h.change({dataset:{paramField:'width'},value:'125'});await h.settle();
+    const beforeRevision=structuredClone(h.records.get('current'));assert.equal(beforeRevision.parts.find(p=>p.id===movingId).parameters.width,1.25);
+    h.setResponse(()=>({reply:'Review a 20% length increase for the selected piece. Other parts and source artwork are preserved.',proposal:{parts:[{id:movingId,parameters:{length:1.2}}]}}));
+    await h.click({action:'step',step:'refine'});const revision='Make only the selected piece 20% longer. Keep the original artwork, other parts and hinge.';h.input('revision-prompt',revision);h.submit('refine-form');await h.settle();
+    assert.equal(h.error(),'');assert.equal(h.requests.length,3);assert.equal(h.requests[2].url,'https://6ilmssim2bz2s.kimi.site/api/puppet');
+    const textRequest=JSON.parse(h.requests[2].body.messages.at(-1).content);assert.equal(textRequest.scene.studentRequest,revision);assert.equal(textRequest.scene.selectedPart,movingId);assert.ok(!JSON.stringify(h.requests[2].body).includes('data:image'),'text revision sends numeric geometry without image bytes');
+    assert.deepEqual(h.records.get('current').parts,beforeRevision.parts,'natural-language resizing still waits for review');
+    await h.click({action:'accept'});await h.settle();
+    const revised=structuredClone(h.records.get('current')),moving=revised.parts.find(p=>p.id===movingId);
+    assert.equal(moving.parameters.length,1.2);assert.equal(moving.parameters.width,1.25);assert.notDeepEqual(moving.artworkMatrix,beforeRevision.parts.find(p=>p.id===movingId).artworkMatrix);assert.deepEqual(revised.parts.filter(p=>p.id!==movingId),beforeRevision.parts.filter(p=>p.id!==movingId));assert.deepEqual(revised.assets,beforeRevision.assets);
+    await h.click({action:'undo'});await h.settle();assert.deepEqual(h.records.get('current').parts,beforeRevision.parts);assert.deepEqual(h.records.get('current').rods,beforeRevision.rods);
+    await h.click({action:'redo'});await h.settle();await h.click({action:'step',step:'make'});await h.change({dataset:{jointField:'angle'},value:'30'});await h.settle();
+    built=structuredClone(h.records.get('current'));assert.equal(built.joints[0].angle,30);assert.equal(built.rods.length,1);
+    await h.click({action:'view-shadow'});assert.doesNotMatch(h.root.innerHTML,/<image\b/);await h.click({action:'view-art'});
+    await h.click({action:'export-art'});assert.equal(h.error(),'');assert.match(h.downloads.at(-1).name,/-artwork\.svg$/);const art=await h.downloads.at(-1).blob.text();assert.ok(art.includes(generated));assert.match(art,/<image[^>]*transform="matrix\(/);
+    await h.click({action:'export-cut'});assert.match(h.downloads.at(-1).name,/-cut\.svg$/);assert.doesNotMatch(await h.downloads.at(-1).blob.text(),/<image\b/);
+    await h.click({action:'print'});assert.equal(h.error(),'');assert.ok(h.printFrame.srcdoc.includes(generated));assert.match(h.printFrame.srcdoc,/50 mm/,'print preparation includes a physical calibration mark');
     await h.click({action:'save-project'});const saved=parseStudioProject(await h.downloads.at(-1).blob.text());await h.openProject(saved);
-    assert.deepEqual(h.records.get('current').parts,built.parts);assert.deepEqual(h.records.get('current').joints,built.joints);assert.deepEqual(h.records.get('current').assets,built.assets);assert.equal(h.requests.length,2,'local extraction, splitting and persistence need no additional AI calls');
+    assert.deepEqual(h.records.get('current').parts,built.parts);assert.deepEqual(h.records.get('current').joints,built.joints);assert.deepEqual(h.records.get('current').rods,built.rods);assert.deepEqual(h.records.get('current').assets,built.assets);assert.equal(h.requests.length,3,'only two explicit generations and one text revision use AI');
   } finally {await h.close();}
 });
 
@@ -516,5 +539,34 @@ test('a delayed generated image cannot replace work changed while generation is 
     complete({dataUrl:generated,model:'configured-image-model',kind:'reference'});await pending;await h.settle();
     assert.match(h.error(),/design changed while AI was working/i);assert.deepEqual(h.records.get('current'),changed);assert.equal(changed.assets.length,0);assert.doesNotMatch(h.root.innerHTML,/data-action="accept"/);
     await h.click({action:'accept'});await h.settle();assert.deepEqual(h.records.get('current'),changed);
+  } finally {await h.close();}
+});
+
+test('a drawing-plan response containing advice without editable shapes remains visible', async () => {
+  const h=browserHarness();h.setGetResponse(legacyImageStatus);
+  const advice='Try tracing the two sleeves from a side-view reference; no editable outline measurements were returned.';
+  h.setResponse(()=>({reply:advice}));
+  try {
+    await import('../public/studio-app.mjs?advice-only-create');await h.settle();
+    h.input('create-prompt','Draft an articulated historical scholar with wide sleeves.');await h.settle();
+    const before=structuredClone(h.records.get('current'));await h.click({action:'create-plan'});await h.settle();
+    assert.equal(h.requests.length,2,'the text transport attempts one repair before presenting the advice');
+    assert.deepEqual(h.records.get('current'),before);assert.doesNotMatch(h.root.innerHTML,/data-action="accept"/);
+    assert.ok(h.root.innerHTML.includes(advice),'an advice-only reply is shown on the current screen instead of disappearing');
+  } finally {await h.close();}
+});
+
+test('keyboard part and joint buttons and clicking a joint select the correct inspector without changing geometry', async () => {
+  const h=browserHarness();
+  try {
+    await import('../public/studio-app.mjs?keyboard-and-mouse-selection');await h.settle();await h.click({action:'starter',kind:'figure'});await h.settle();
+    const before=structuredClone(h.records.get('current')),joint=before.joints[0];
+    assert.equal(h.key('Enter',{partId:joint.parentId}),true,'Enter activates the advertised SVG part button');
+    assert.ok(h.root.innerHTML.includes(`class="part-item selected" data-action="select" data-id="${joint.parentId}"`));assert.equal(h.focusedSelectors.at(-1),`[data-part-id="${joint.parentId}"]`,'keyboard selection restores focus after rendering');
+    assert.equal(h.key(' ',{jointId:joint.id}),true,'Space activates the joint and prevents page scrolling');
+    assert.ok(h.root.innerHTML.includes(`class="part-item selected" data-action="select" data-id="${joint.childId}"`));assert.match(h.root.innerHTML,/class="joint-control"/);assert.equal(h.focusedSelectors.at(-1),`[data-joint-id="${joint.id}"]`);
+    h.key(' ',{partId:joint.parentId});await h.jointPoint(0,0,joint.id);
+    assert.ok(h.root.innerHTML.includes(`class="part-item selected" data-action="select" data-id="${joint.childId}"`),'clicking the joint marker opens its child movement controls');
+    await h.settle();assert.deepEqual(h.records.get('current'),before,'selection creates no geometry or undo-history edit');assert.equal(h.requests.length,0);
   } finally {await h.close();}
 });

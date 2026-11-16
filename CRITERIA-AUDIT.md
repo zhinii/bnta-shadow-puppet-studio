@@ -32,4 +32,6 @@ The acceptance criteria come from the supplied character examples and the reques
 
 ## Release judgment
 
+The UI/UX audit added visible advice-only replies, keyboard activation and selected-state semantics for canvas parts/joints, and mouse joint selection. All 142 automated tests pass. The broader student-facing layout changes remain recommendations in [UI-UX-AUDIT.md](UI-UX-AUDIT.md); no live screen or tablet verification is claimed.
+
 The generate-or-import → review → local pieces/hinges/parameters → export workflow is ready for user testing, with automated checks and real generated-image geometry trials. It still needs an actual browser and physical prototype check. Automatic anatomical separation, hidden artwork reconstruction and dependable prompt matching remain incomplete. Image generation now works; it does not itself solve those later stages. The supplied reference characters remain acceptance scenarios, not verified physical puppets.
