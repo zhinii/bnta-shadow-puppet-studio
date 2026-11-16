@@ -1,6 +1,6 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.2**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.3**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
 [Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality list](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md)
 
@@ -33,7 +33,7 @@ Accepting the selection creates editable cut outlines. A connected figure may st
 
 After cleanup is accepted, the app automatically prepares a **Make it move** review. The local geometry tool finds possible narrow bends. One bounded AI request chooses useful points from those candidates using the student brief and outlines; if that request is unavailable, times out or returns an invalid selection, the app labels its local outline-based suggestions honestly. An existing editable design can start the same review with **Prepare joints**.
 
-The proposed joints appear as numbered dots. Select a dot and use **Try this joint** to inspect its movement. Drag a dot, use **Move dot** and tap its new position, or adjust a focused dot with arrow keys; Shift makes a larger nudge. **Add dot** and **Remove dot** let you change the plan. Edits rebuild the proposal from the original character, so moving or removing a dot does not leave abandoned cuts behind. These edits and movement tests run locally without another AI request.
+The proposed joints appear as numbered dots. Select a dot and use **Try this joint** to inspect its movement. **Zoom to this joint** shows the overlap detail; **See whole puppet** returns to the full character without resetting the trial angle. Drag a dot, use **Move dot** and tap its new position, or adjust a focused dot with arrow keys; Shift makes a larger nudge. **Add dot** and **Remove dot** let you change the plan. Edits rebuild the proposal from the original character, so moving or removing a dot does not leave abandoned cuts behind. These edits and movement tests run locally without another AI request.
 
 All unsuitable dots must be moved or removed before **Use these joints** is available. Accepting applies the whole plan in one undo step and retains its original resting pose, not the slider's test angle. **Keep original** discards the plan. With no remaining dots, **Make a still puppet** continues without adding joints. The plan supports up to 12 dots and remains subject to the 80-piece project limit.
 
@@ -54,7 +54,7 @@ The simple flow leaves detailed controls collapsed:
 - **Ask AI for a change:** request a selected-piece geometry revision and review it before applying. New costume details or hidden surfaces require image editing or new artwork, not a numeric size change.
 - **View tools:** Artwork/Shadow, joint/reference visibility, zoom, Fit, pan and Redo. Outline points support keyboard adjustment as well as dragging.
 
-Adding, splitting, resizing or deleting pieces preserves the physical scale of other pieces. Changing the print height deliberately scales the whole puppet.
+Adding, splitting, resizing or deleting pieces preserves the physical scale of other pieces. Changing the print height deliberately scales the puppet contours; the separately specified pin-hole diameter remains in millimetres.
 
 The joint defaults are starting points for a paper prototype, not universal material standards. Suggested pin joints use a ±60° range, while the batch review tests ±45° around the resting pose. Their overlap radius is based on the pin-hole radius plus the larger of 2 mm or twice the selected material thickness. Material settings and advanced joint controls can be adjusted, but the on-screen range does not establish collision-free or mechanically safe movement.
 

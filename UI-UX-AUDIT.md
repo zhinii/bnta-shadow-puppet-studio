@@ -1,7 +1,7 @@
 # UI/UX re-audit — simplicity first
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
-## Current v0.7.2 audit and verdict
+## Current v0.7.3 audit and verdict
 
 **Verification:** 231 automated tests pass, including 37 workflow tests; syntax, production build and Worker smoke checks pass.
 
@@ -21,7 +21,9 @@
 | Responsive corrections | Geometry builds avoid repeatedly copying full artwork payloads | First image-backed horse plan reduced from about 3.65 s to 268 ms locally; not a phone benchmark |
 | Settings recovery | Validation is visible inside the modal, corrected values clear old errors, Escape closes the modal without resetting joint review | Automated error/recovery/focus regressions |
 | Fresh sessions | Closing/reloading does not restore a design; explicit project download/open remains | Automated lifecycle checks and observed blank live reloads |
-| Make usable output | Physical sizing, cut/artwork SVG, A4 print document, calibration and assembly order are implemented | Automated exports; historical manual-flow browser export checks; current physical prototype outstanding |
+| Make usable output | Physical sizing, cut/artwork SVG, A4 print document, calibration and assembly order are implemented | Automated exports; v0.7.2 browser starter motion, Make, print-document and Cut SVG checks; physical prototype outstanding |
+
+A final v0.7.2 live local-starter journey verified piece selection, 35° motion, Make, printable connection instructions, Cut SVG download and a blank reload. A malformed settings URL exposed one additional raw technical error; the follow-up patch replaces it with readable bilingual guidance.
 
 Two real generated horses were inspected during this audit. The second reached an AI-selected three-joint review; its selected regions exposed the semantic-selection weakness recorded above. Browser file selection repeatedly stalled in the test tool, so current live file-import verification remains incomplete. This is not evidence that the application import handler failed. No phone, tablet, independent student session or physical assembly result is claimed.
 

@@ -1,6 +1,6 @@
 # Validation · 16 November 2026
 
-## v0.7.2 automatic joint planning
+## v0.7.3 automatic joint planning
 
 The new default chain is generated-image acceptance or first artwork upload → cleanup review → cleanup acceptance → automatic joint-plan review. Existing pieces are not silently rebuilt when a new image arrives. Each cleanup and plan still requires its own explicit acceptance; automatic progression prepares the next proposal rather than committing it.
 
@@ -10,11 +10,19 @@ AI chooses only from bounded, measured local candidates. The current protected r
 
 Magenta mark detection runs locally during planning; black detection is explicitly requested because eyes, buttons and decoration are ambiguous. Detection keeps source pixels intact. Embedded marks remain in exported artwork; editing-overlay numbers are not painted into the image. Geometry checks govern whether any detected mark can become a joint.
 
-**Current verification status:** 231 automated tests pass, including 37 workflow tests. Syntax checks, the production build, generated Worker syntax and the 22-asset Worker smoke checks pass. Live generation, subject cleanup and a three-joint review were observed on the preceding v0.7.1 build. That test revealed incorrect semantic choices and the wide-neck limit, which v0.7.2 addresses in code and regressions. The final close-up/modal/selection refinements are not claimed as fully browser-verified. Browser file-chooser automation repeatedly stalled; current live import, phone/tablet touch, independent student use and physical assembly remain unverified. Automatic approval review rejected an additional live Kimi planner request on project-data transmission authorization grounds; it was not repeated.
+**Current verification status:** 231 automated tests pass, including 37 workflow tests. Syntax checks, the production build, generated Worker syntax and the 22-asset Worker smoke checks pass. Live generation, subject cleanup and a three-joint review were observed on the preceding v0.7.1 build. That test revealed incorrect semantic choices and the wide-neck limit, which v0.7.2 addresses in code and regressions. The batch close-up and revised AI selection are not claimed as fully browser-verified. A live v0.7.2 local starter test passed piece selection, 35° sleeve motion, Make, print-document preparation with all eight numbered connections, Cut SVG download and a blank reload. The downloaded SVG parsed successfully (nine cut paths; millimetre dimensions). The operating-system print dialog and physical print were not verified. A malformed settings URL exposed a raw browser error, addressed in the following patch. Browser file-chooser automation repeatedly stalled; current live import, phone/tablet touch, independent student use and physical assembly remain unverified. Automatic approval review rejected an additional live Kimi planner request on project-data transmission authorization grounds; it was not repeated.
 
 ### Real generated horse regression
 
-The live generation/cleanup journey produced a 399-vertex horse but initially found no automatic joints. Infinite-line checks were crossing unrelated limbs and mane details. v0.7.2 uses the finite interior section containing each proposed dot, preserves both original contour arcs and rejects invalid or area-changing cuts. Manual whole-line splitting retains its original behavior. The exact image-free outline is retained in `tests/fixtures/generated-horse-outline.puppet.json`. With a 12-candidate budget, eight valid candidates include the upper neck/head and front legs; all replay successfully, with unchanged area (296322 artwork units²), artwork associations and physical scale. Keeping large artwork payloads out of repeated geometry copies reduced this fixture’s full-image plan build from about 3.65 seconds to 268 milliseconds in the development environment. These are measured local results, not mobile performance claims.
+The live generation/cleanup journey produced a 399-vertex horse but initially found no automatic joints. Infinite-line checks were crossing unrelated limbs and mane details. v0.7.2 uses the finite interior section containing each proposed dot, preserves both original contour arcs and rejects invalid or area-changing cuts. Manual whole-line splitting retains its original behavior. The exact image-free outline is retained in `tests/fixtures/generated-horse-outline.puppet.json`. With a 12-candidate budget, a bounded set of valid candidates includes the upper neck/head and front legs; all replay successfully, with unchanged area (296322 artwork units²), artwork associations and physical scale. Keeping large artwork payloads out of repeated geometry copies reduced this fixture’s full-image plan build from about 3.65 seconds to 268 milliseconds in the development environment. These are measured local results, not mobile performance claims.
+
+### Current interface evidence
+
+These screenshots show the v0.7.2 local construction starter, not an AI-generated character.
+
+![Refine: selected sleeve and movement slider](validation/v072-refine.jpg)
+
+![Make: height and primary print action](validation/v072-make.jpg)
 
 ## Previous v0.6.1 joint workflow verification
 

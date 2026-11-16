@@ -945,18 +945,32 @@ test('AI connection errors stay inside the dialog and Escape preserves the joint
     const closeupBox=h.planMarkup().match(/viewBox="([^"]+)"/)[1];await h.click({action:'settings'});
     assert.match(modal(),/role="dialog"/);assert.equal(h.focusedSelectors.at(-1),'#relay-url');
     let connectionChecks=0;h.setGetResponse(()=>{connectionChecks++;return {ok:true,status:200,json:async()=>({version:2,text:true,vision:false,imageGeneration:false,status:'Connected.'})};});
-    h.setRelayUrl('http://relay.example/api/studio');await h.click({action:'save-endpoint'});
-    assert.match(modal(),/role="alert">Use an HTTPS protected relay URL\./,'the invalid URL message appears inside the active dialog');
-    assert.equal(connectionChecks,0,'invalid endpoints are rejected before attempting a connection');
-    assert.equal(h.preferences.has('bnta-studio-endpoint'),false);
+    for(const value of ['invalid','http://relay.example/api/studio']){
+      h.setRelayUrl(value);await h.click({action:'save-endpoint'});
+      assert.match(modal(),/role="alert">Use an HTTPS protected relay URL\./,'malformed and insecure URLs receive readable guidance inside the active dialog');
+      assert.doesNotMatch(modal(),/Invalid URL|construct.*URL/);assert.deepEqual(h.project(),before);
+      assert.equal(connectionChecks,0,'invalid endpoints are rejected before attempting a connection');
+      assert.equal(h.preferences.has('bnta-studio-endpoint'),false);
+    }
     h.setRelayUrl('https://relay.example/api/studio');await h.click({action:'save-endpoint'});
     assert.equal(connectionChecks,1);assert.equal(h.preferences.get('bnta-studio-endpoint'),'https://relay.example/api/studio');
     assert.doesNotMatch(modal(),/role="alert"/,'a corrected endpoint clears its stale validation error');
+    h.setRelayUrl('invalid');await h.click({action:'save-endpoint'});
+    assert.equal(h.preferences.get('bnta-studio-endpoint'),'https://relay.example/api/studio','malformed input cannot replace the saved endpoint');
+    assert.match(modal(),/id="relay-url"[^>]*value="https:\/\/relay.example\/api\/studio"/,'the active endpoint also stays valid after rejection');
+    assert.equal(connectionChecks,1);assert.deepEqual(h.project(),before);
     assert.equal(h.key('Escape',{tagName:'INPUT'}),true);assert.equal(modal(),'');
     assert.equal(h.focusedSelectors.at(-1),'#ai-status-button','closing returns focus to the connection control');
     assert.match(h.root.innerHTML,/<output id="plan-angle-output">27°<\/output>/,'Escape dismisses only the dialog without resetting the trial');
     assert.equal(h.planMarkup().match(/viewBox="([^"]+)"/)[1],closeupBox);assert.deepEqual(h.project(),before);
+    await h.click({action:'dismiss-error'});assert.equal(h.error(),'');
     await h.click({action:'accept'});assert.ok(h.project().joints.every(joint=>joint.angle===0));
+    await h.click({action:'language'});const accepted=h.project();await h.click({action:'settings'});
+    h.setRelayUrl('invalid');await h.click({action:'save-endpoint'});
+    assert.match(modal(),/role="alert">请使用 HTTPS 中继地址。/,'malformed URL guidance follows the interface language');
+    assert.equal(h.preferences.get('bnta-studio-endpoint'),'https://relay.example/api/studio');assert.equal(connectionChecks,1);assert.deepEqual(h.project(),accepted);
+    h.key('Escape',{tagName:'INPUT'});await h.click({action:'dismiss-error'});await h.click({action:'step',step:'make'});await h.click({action:'step',step:'refine'});
+    assert.equal(h.error(),'','dismissed endpoint errors do not reappear when changing stages');assert.equal(connectionChecks,1);assert.deepEqual(h.project(),accepted);
   } finally {await h.close();}
 });
 

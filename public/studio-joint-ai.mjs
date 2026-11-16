@@ -1,6 +1,6 @@
 import {getStudioCapabilities,studioEndpoint,validProtectedEndpoint,makeStudioRequest} from './studio-ai.mjs';
 import {pointInPolygon,boundsOf,polygonArea,unitsPerMm} from './studio-model.mjs';
-import {suggestJointAt} from './studio-construction.mjs?v=0.7.2';
+import {suggestJointAt} from './studio-construction.mjs?v=0.7.3';
 
 // AI may choose among measured candidates, never supply replacement artwork,
 // arbitrary new cuts or unvalidated coordinates. Local geometry remains final.
