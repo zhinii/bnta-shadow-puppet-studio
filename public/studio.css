@@ -566,3 +566,18 @@ html[lang=zh] .empty-canvas h2 { font-size: 30px; }
   .joint-preview svg { height: clamp(260px, 42dvh, 420px); }
   .joint-review > h2 { font-size: 22px; }
 }
+
+.plan-canvas { min-height: 300px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); overflow: hidden; touch-action: none; }
+.plan-canvas > svg { display: block; width: 100%; height: clamp(320px, 51dvh, 620px); }
+.plan-canvas.placing { cursor: crosshair; }
+.plan-marker { cursor: pointer; outline: none; }
+.plan-marker:focus-visible circle:nth-child(2) { stroke: var(--ink); }
+.plan-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 12px 0; }
+.plan-tools button { min-height: 44px; }
+.plan-review .joint-test { margin: 8px auto 18px; }
+.plan-issue { color: #923b29; padding: 12px; border: 1px solid #d8a38c; border-radius: 10px; }
+@media (max-width: 599px) {
+ .plan-canvas > svg { height: clamp(300px, 46dvh, 440px); }
+ .plan-tools { gap: 4px; }
+ .plan-tools button { padding-left: 12px; padding-right: 12px; }
+}

@@ -1,13 +1,13 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.6.1**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.0**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
 [Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/)
 
 ## Design your own character
 
 1. **Create:** describe your own historical, modern, fictional or real-world character and choose **Create character**. Optional style fields and construction templates stay under **Choose a style or starting shape**. You can also upload PNG/JPEG/WebP artwork.
-2. **Refine:** choose **Remove extras** and review the character. Choose **Add a joint**, then tap once where a narrow limb, neck or tail should bend. In **Try your joint**, move the slider to inspect the overlap, then choose **Use this joint**. Add another joint only if needed.
+2. **Refine:** review the character and props to keep. Accepting that cleanup automatically prepares a plan of numbered movement dots. In **Make it move**, adjust or remove dots, try each joint, then choose **Use these joints** once for the whole plan.
 3. **Make:** set the **print height**, check the geometry, and choose **Print puppet**. Material settings and SVG exports are under **Materials & file options**.
 
 The canvas presents one next action at a time. The default review shows the result; **Compare with original** switches to the original, and **Show result** returns to the proposal. Accept or keep the original before continuing. There is no required four-step Refine submenu or default three-way comparison.
@@ -16,11 +16,11 @@ The first screen contains no authored character or story. The former decoration 
 
 Artwork, cut contours and connections are separate. Imported or generated artwork retains texture and colors inside editable cut contours. Characters are not restricted to ten human body parts: a character can contain up to 80 pieces with arbitrary connection trees.
 
-**Project** provides New, Open, Download and AI connection settings. Work stays in the open session only. Download before closing or reloading. The desktop joint flow and cut download have been checked live. Tablet, operating-system print-dialog and physical assembly still need verification; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
+**Project** provides New, Open, Download and AI connection settings. Work stays in the open session only. Download before closing or reloading. The previous v0.6.1 desktop joint flow and cut download were checked live. The new v0.7.0 automatic-plan interface is awaiting browser verification; tablet, operating-system print-dialog and physical assembly also remain unverified; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
 
 ## Keep the character, then add movement
 
-**Remove extras** runs locally without an AI request. It removes a connected plain background and proposes keeping the largest connected foreground region. This is a starting selection, not semantic character recognition. A separate hand, prop, foot or intentional ornament may initially be excluded; decoration touching the character may remain attached.
+Uploading artwork into an empty project, or accepting its first generated image, automatically opens the character cleanup review. Existing built pieces are preserved until you deliberately choose **Remove extras** to rebuild them. Cleanup runs locally without an AI request. It removes a connected plain background and proposes keeping the largest connected foreground region. This is a starting selection, not semantic character recognition. A separate hand, prop, foot or intentional ornament may initially be excluded; decoration touching the character may remain attached.
 
 Review the result before accepting:
 
@@ -31,11 +31,17 @@ Review the result before accepting:
 
 Accepting the selection creates editable cut outlines. A connected figure may still be one piece; the tool does not identify anatomical limbs or reconstruct hidden artwork.
 
-**Add a joint → tap where it should bend → Try your joint → Use this joint** is the default movement flow. The app looks for a simple, narrow cross-section near the tap and proposes a cut, a shared pivot, and rounded overlap material on **both** pieces. The moving piece starts in front of the retained piece. In review, a solid blue outline marks the back tab and a dashed orange outline marks the front tab. Both pieces have matching holes through the same pivot.
+After cleanup is accepted, the app automatically prepares a **Make it move** review. The local geometry tool finds possible narrow bends. One bounded AI request chooses useful points from those candidates using the student brief and outlines; if that request is unavailable, times out or returns an invalid selection, the app labels its local outline-based suggestions honestly. An existing editable design can start the same review with **Prepare joints**.
 
-Move the review slider to test the proposed range before accepting. This test changes only the preview; **Use this joint** retains the proposal's original resting pose. **Adjust joint** offers **Swap front / back** and **Choose another spot**. Broad sections, disconnected fragments, fragile slivers or nearby existing pins may prevent a proposal; try a narrower section or the optional manual tools.
+The proposed joints appear as numbered dots. Select a dot and use **Try this joint** to inspect its movement. Drag a dot, use **Move dot** and tap its new position, or adjust a focused dot with arrow keys; Shift makes a larger nudge. **Add dot** and **Remove dot** let you change the plan. Edits rebuild the proposal from the original character, so moving or removing a dot does not leave abandoned cuts behind. These edits and movement tests run locally without another AI request.
 
-For already separate pieces, choose **Join two existing pieces**, then tap each piece once. The app proposes matching anchors from the geometry and opens the same joint review. You do not have to place two precise pivot points. The suggested join still needs visual review; it does not infer anatomy or intended motion.
+All unsuitable dots must be moved or removed before **Use these joints** is available. Accepting applies the whole plan in one undo step and retains its original resting pose, not the slider's test angle. **Keep original** discards the plan. With no remaining dots, **Make a still puppet** continues without adding joints. The plan supports up to 12 dots and remains subject to the 80-piece project limit.
+
+Small round magenta marks inside the retained artwork can seed the plan automatically. Under **About these suggestions**, black-dot detection is available explicitly because eyes, buttons and decorations can resemble joint marks. Every detected mark is still a suggestion to review. Image detection leaves the source pixels intact: embedded colored or black marks remain in the artwork and exported pieces. The numbered editing overlay is separate and is not printed as artwork.
+
+Each ready dot creates a shared pivot and rounded overlap material on **both** resulting pieces. The moving piece starts in front of its retained piece. Selecting a ready dot shows the solid blue back-tab outline and dashed orange front-tab outline; **Swap front / back** changes that joint’s layer order and keeps the choice while the plan is rebuilt. Broad sections, fragile slivers, disconnected fragments or nearby existing pins may prevent a proposal. This is geometric construction, not anatomical recognition or hidden-artwork reconstruction.
+
+Manual construction remains available under **More editing tools → Place one joint myself**: tap a narrow section and review a close-up of the joint. The solid blue outline marks the back tab, and the dashed orange outline marks the front tab; **Adjust joint** offers **Swap front / back** and **Choose another spot**. For already separate pieces, **Join two existing pieces** takes one tap on each piece and proposes matching anchors for review. Exact two-point cuts and two-anchor placement remain advanced alternatives.
 
 Both overlap tabs are united with their own piece's outer cut boundary, so cutting does not detach the tabs. The print guide labels the back and front pieces at each connection. Keep both tabs, punch the matching holes, and pass one paper fastener through the layers loosely enough for movement. Existing artwork stays intact; these added material tabs do not reconstruct hidden image content.
 
@@ -44,13 +50,13 @@ Both overlap tabs are united with their own piece's outer cut boundary, so cutti
 The simple flow leaves detailed controls collapsed:
 
 - **Adjust this piece:** rename or lock it, change Width and Length, edit its outline, choose artwork, change layers, or adjust joint settings. Width/length changes stretch the image, boundary and anchors together; attached pieces follow without stretching. **Set direction on the piece** defines the length axis for diagonal limbs. It preserves the current shape and resets percentages to 100%.
-- **More editing tools:** manually choose a character, find all detected shapes, select a color region, remove a plain background, draw a piece, draw a two-point cut line, place two joint anchors manually, or add a control rod. Detected shapes can include lettering and decoration; keep only what you need. Manual tools remain available when the simple joint suggestion does not fit.
+- **More editing tools:** suggest another joint plan, place a single joint, manually choose a character, find all detected shapes, select a color region, remove a plain background, draw a piece, draw a two-point cut line, place two joint anchors manually, or add a control rod. Detected shapes can include lettering and decoration; keep only what you need. Manual tools remain available when the simple joint suggestion does not fit.
 - **Ask AI for a change:** request a selected-piece geometry revision and review it before applying. New costume details or hidden surfaces require image editing or new artwork, not a numeric size change.
 - **View tools:** Artwork/Shadow, joint/reference visibility, zoom, Fit, pan and Redo. Outline points support keyboard adjustment as well as dragging.
 
 Adding, splitting, resizing or deleting pieces preserves the physical scale of other pieces. Changing the print height deliberately scales the whole puppet.
 
-The joint defaults are starting points for a paper prototype, not universal material standards. The one-tap proposal uses a ±60° trial range and an overlap radius based on the pin-hole radius plus the larger of 2 mm or twice the selected material thickness. Material settings and advanced joint controls can be adjusted, but the on-screen range does not establish collision-free or mechanically safe movement.
+The joint defaults are starting points for a paper prototype, not universal material standards. Suggested pin joints use a ±60° range, while the batch review tests ±45° around the resting pose. Their overlap radius is based on the pin-hole radius plus the larger of 2 mm or twice the selected material thickness. Material settings and advanced joint controls can be adjusted, but the on-screen range does not establish collision-free or mechanically safe movement.
 
 The design principles follow classroom fabrication guidance: the [Natural History Museum of Los Angeles County](https://nhm.org/learning-resource/make-your-own-dinosaur-shadow-puppet) describes overlapping moving limbs, holes/fasteners and control rods; the [Pitt Rivers Museum activity](https://www.prm.ox.ac.uk/sites/default/files/prm/documents/media/shadow_puppets.pdf) reinforces joint ends and leaves paper fasteners loose enough to move. The app's numeric defaults are implementation choices, not dimensions prescribed by those resources.
 
@@ -58,7 +64,7 @@ The original image cannot supply artwork hidden behind a sleeve or arm. Extend o
 
 ## AI capabilities and current deployment
 
-**Image generation is connected to the new editor.** In Create, enter a custom prompt, optionally choose a style or starting shape, and select **Create character**. Review the image in the main workspace, then accept it to continue in Refine with **Remove extras**. Existing pieces keep their original artwork until you deliberately replace or rebuild them.
+**Image generation is connected to the new editor.** In Create, enter a custom prompt, optionally choose a style or starting shape, and select **Create character**. Review the image in the main workspace. In an empty project, accepting it automatically opens the local character cleanup review; accepting cleanup then prepares the joint plan. Existing pieces keep their original artwork until you deliberately replace or rebuild them.
 
 The browser uses Kimi's protected `/api/puppet/image` route. Its portable image response is decoded, resized to at most 1600 pixels on the longest side and held as a normal project asset in memory. It is included when you explicitly download the project. The adapter makes one generation request and does not silently repeat paid calls after a failure. Earlier verified provider responses identified `wan2.7-image-pro`.
 
@@ -71,6 +77,8 @@ When there is room, image guidance asks for one complete character and only requ
 Generation, image editing and vision are separate capabilities. The working Kimi route generates new artwork from text; it does not inspect the current image or automatically identify body parts. **Image editing, image analysis and AI anatomical separation remain unavailable through this route.** Local extraction, manual correction, splitting and parametric controls remain available after acceptance.
 
 A successful image response does not establish prompt accuracy. In live tests, the footballer matched the main requested features, but the six-tentacle scholar had eight visible tentacles. The current review asks students to check limbs, costume and requested props; anatomy and appendage counts still need their judgment. Automatic visual evaluation is not claimed. The v0.5.1 panda verification attempt timed out before an HTTP response, so it produced no fresh image or prompt-quality evidence. The earlier trials do not validate the hotfix or its optional prompt guidance.
+
+**AI-assisted joint planning is separate from image generation.** It sends candidate IDs, the student's brief and measured outlines to the protected text relay. AI may select existing candidates; it cannot replace the artwork or supply unchecked geometry. The current live route does not receive image pixels for this task. One live horse-planning request selected the supplied neck and foreleg candidates in about 8.2 seconds; this is a single text/outline trial, not a visual-anatomy or success-rate test. A future vision-capable route can include a reference image only when that capability is advertised.
 
 Text cutting plans still use the older `/api/puppet` assistant in compatibility mode and may need correction. The client validates geometry and makes at most one text-plan repair request before rejecting unusable shapes. This does not apply to paid image generation.
 
@@ -114,6 +122,9 @@ The build creates a dependency-free Worker at `dist/server/index.js`, a portable
 | `public/studio-parametric.mjs` | Width, length, axis and physical-scale controls |
 | `public/studio-image-tools.mjs` | Local background cleanup, region selection and outline extraction |
 | `public/studio-construction.mjs` | One-tap joint suggestions, piece splitting and proposed pivot connections |
+| `public/studio-joint-plan.mjs` | Bounded candidate search and batch rebuilding from original geometry |
+| `public/studio-joint-ai.mjs` | One bounded AI candidate-selection request and honest local fallback |
+| `public/studio-joint-markers.mjs` | Local magenta/optional black mark detection without changing source pixels |
 | `public/studio-render.mjs` | Clipped artwork, united contours, precise holes and print packs |
 | `public/studio-ai.mjs` | Exact prompt transport, capability checks, selected-piece scope, validation and one repair |
 | `public/studio-storage.mjs` | Portable project files, image import and cleanup of former session snapshots |

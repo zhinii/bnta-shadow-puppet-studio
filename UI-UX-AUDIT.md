@@ -1,7 +1,39 @@
 # UI/UX re-audit — simplicity first
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
-## Current v0.6.1 joint revision
+## Current v0.7.0 automatic movement review
+
+The default path now advances from character cleanup to a proposed joint plan automatically. The student sees numbered movement dots on the character, adjusts only what is needed, tries the selected joint and accepts the whole plan once. First image import and acceptance of a first generated image open cleanup review automatically. Accepting that review starts planning; existing built pieces are never silently replaced by a newly generated image.
+
+| Student task | Default interface | Optional detail |
+| --- | --- | --- |
+| Keep the intended character | Cleanup result, original comparison and one acceptance | Keep a missing prop or choose another subject |
+| Review movement locations | Numbered dots on the character | Add, remove, drag, Move dot + tap, or arrow-key adjustment |
+| Test movement | One slider and both overlap outlines for the selected ready joint | Trial pose remains temporary; front/back order can be swapped |
+| Resolve an unsuitable cut | Move or remove the indicated dot | Manual construction remains under More editing tools |
+| Finish the plan | One Use these joints action after every dot is valid | One undo restores the original pre-plan geometry |
+| Use image marks | Small round magenta marks seed candidates | Black-dot search is explicit because eyes/buttons can match |
+
+A failed dot blocks plan acceptance instead of silently omitting a requested movement. Empty plans can continue as still puppets. The next task appears automatically, but cleanup and joint-plan changes remain separate reviewed decisions. Marker changes rebuild locally and do not send repeated AI requests.
+
+The current relay chooses among measured candidates using the brief and outlines. It has not seen the image. Magenta/black detection is local mark detection, not anatomical recognition, and retains all embedded source marks. Physical overlap material is constructed on both pieces; hidden artwork is not reconstructed.
+
+**Verification status:** v0.7.0 integrated counts, build/smoke results and browser observations are pending. One live text/outline horse-planning response returned a valid neck/foreleg candidate selection in about 8.2 seconds. This does not validate rendered usability, marker dragging on real devices, full automatic-image flow or physical assembly. Earlier v0.6.1 desktop screenshots below document the manual flow only.
+
+Acceptance checks for the automatic interface:
+
+- After accepting cleanup, students reach the dot plan without choosing construction tools.
+- Numbered dots remain readable and touchable at phone width; selection and errors are identifiable without color alone.
+- Add, move, drag, arrow-key adjustment and deletion preserve the original committed project until acceptance.
+- Every invalid dot can be found and corrected or removed; no rejected marker silently disappears from the plan.
+- Selecting or editing a dot does not trigger another AI request.
+- Trial movement never becomes the accepted resting pose; one undo removes the complete accepted plan.
+- Both overlap outlines remain distinct and the selected front/back choice survives later dot edits.
+- A cancelled request, new session or newer editing task cannot be overwritten by a late planner response.
+- Embedded marker pixels remain visible as artwork; editing overlays are absent from cutting/exported artwork.
+- Verify the entire chain in a live browser, then check touch/focus, real printing and a paper prototype.
+
+## Previous v0.6.1 joint revision
 
 The latest feedback identifies two linked problems: placing pivots is difficult, and the student must understand which material lies over and under the joint. The default flow is now **Add a joint → tap where it should bend → Try your joint → Use this joint**. The app chooses a simple narrow cross-section and builds the shared pivot and both overlap tabs. The student reviews the result instead of locating two exact anchors.
 

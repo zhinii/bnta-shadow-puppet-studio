@@ -1,8 +1,20 @@
 # Validation · 16 November 2026
 
-## v0.6.1 joint workflow verification
+## v0.7.0 automatic joint planning
 
-The current change replaces the default two-point cut with **Add a joint → tap once → Try your joint → Use this joint**. A local geometric search proposes a narrow cut, a shared pivot, reinforced overlap on both pieces and an initial front/back order. Joining existing pieces takes one tap on each piece and proposes their anchors automatically. Manual two-point cuts and two-anchor placement remain advanced tools.
+The new default chain is generated-image acceptance or first artwork upload → cleanup review → cleanup acceptance → automatic joint-plan review. Existing pieces are not silently rebuilt when a new image arrives. Each cleanup and plan still requires its own explicit acceptance; automatic progression prepares the next proposal rather than committing it.
+
+The plan presents numbered dots with add, move, remove, drag and keyboard adjustment. The selected joint shows both overlap layers and can be tested in a temporary preview. Its front/back order can be swapped and retained while the plan is rebuilt. Edits rebuild from the original pre-plan geometry, and do not make further AI calls. All invalid dots must be corrected or removed before the plan can be accepted. One acceptance commits the entire plan in one undo step, preserving the resting pose. A plan with no remaining dots can continue as a still puppet.
+
+AI chooses only from bounded, measured local candidates. The current protected relay uses the student's brief and outline data, not image pixels. A live horse-planning request returned a valid selection of the supplied neck and foreleg candidates in **8.176 seconds**. That single request establishes a working selection contract; it does not establish visual recognition, anatomical accuracy or a general success rate. Provider failure, timeout and invalid selection fall back to explicitly labelled local geometry suggestions; cancellation must not install a fallback.
+
+Magenta mark detection runs locally during planning; black detection is explicitly requested because eyes, buttons and decoration are ambiguous. Detection keeps source pixels intact. Embedded marks remain in exported artwork; editing-overlay numbers are not painted into the image. Geometry checks govern whether any detected mark can become a joint.
+
+**Current verification status:** full v0.7.0 automated totals, build/smoke results and browser observations are pending integrated verification. Earlier v0.6.1 screenshots and test counts below remain historical evidence for the manual joint flow. The new automatic UI, marker drag/focus behavior and full generated-image journey are not yet claimed as browser-verified. Physical assembly, material strength and print-dialog operation still require separate checks.
+
+## Previous v0.6.1 joint workflow verification
+
+The v0.6.1 change replaced the default two-point cut with **Add a joint → tap once → Try your joint → Use this joint**. A local geometric search proposes a narrow cut, a shared pivot, reinforced overlap on both pieces and an initial front/back order. Joining existing pieces takes one tap on each piece and proposes their anchors automatically. Manual two-point cuts and two-anchor placement remain advanced tools.
 
 Joint review opens with a close-up of the shared pivot and can switch to the whole puppet without changing geometry or the trial angle. It distinguishes the back tab with a solid blue outline and the front tab with a dashed orange outline. Its range slider changes a preview copy; accepting a joint retains the original resting pose. Front/back swapping is explicit. Both printed pieces retain their actual unioned material tabs and matching circular holes; guide annotations are not extra cut lines. The assembly guide names Back and Front for every connection and explains aligned holes and loosely fastened paper pins.
 
@@ -83,10 +95,10 @@ The initial local image-tools release made no live generation requests. The late
 
 ## Remaining verification
 
-- Earlier browser-control attempts returned `Transport closed`, and the previous audit could not establish rendered usability. v0.6.1 now has the live desktop observations recorded above. Actual phone/tablet interactions, focus behavior and print dialogs remain separate checks; source tests do not establish them.
+- Earlier browser-control attempts returned `Transport closed`, and the previous audit could not establish rendered usability. v0.6.1 has the historical live desktop observations recorded above; the new v0.7.0 automatic interface is awaiting browser verification. Actual phone/tablet interactions, focus behavior and print dialogs remain separate checks; source tests do not establish them.
 - Physical material strength, hole clearance, layered movement, light transmission and rod control require a prototype with the chosen material.
 - Add and verify vision/image-editing capabilities separately. Test automatic image critique and selected-region revisions before advertising them. See `integration/IMAGE-HANDOFF.md` and `integration/STUDIO-V2-RELAY.md`.
 
 GitHub Pages publishes the browser application; its successful deployment does not deploy or certify the separate AI service.
 
-The final workflow checks include centred zoom and bounded zoom levels; panning without geometry changes; pointer capture, unrelated-pointer rejection and cancellation; 44-pixel vertex hit regions; keyboard and Shift nudges with stable physical scale; pending-review edit isolation; and a cancelled older AI request completing after a new session starts. Open panels and focused controls are preserved across rendering. Reset also clears the print iframe and transient notices. The live desktop joint flow has now been checked as recorded above; physical operation and phone/tablet interaction remain unverified.
+The final workflow checks include centred zoom and bounded zoom levels; panning without geometry changes; pointer capture, unrelated-pointer rejection and cancellation; 44-pixel vertex hit regions; keyboard and Shift nudges with stable physical scale; pending-review edit isolation; and a cancelled older AI request completing after a new session starts. Open panels and focused controls are preserved across rendering. Reset also clears the print iframe and transient notices. The earlier v0.6.1 desktop joint flow was checked as recorded above; the v0.7.0 automatic flow awaits browser verification; physical operation and phone/tablet interaction remain unverified.
