@@ -1,5 +1,5 @@
 import {normalizeStudioProject,partTransforms,transformPoint,inverseMatrix,unitsPerMm,boundsOf,polygonArea,pointInPolygon,validateStudio} from './studio-model.mjs';
-import {suggestJointAt} from './studio-construction.mjs?v=0.7.1';
+import {suggestJointAt,JOINT_SECTION_MAX_MM} from './studio-construction.mjs?v=0.7.2';
 
 const EPS=1e-7,MAX_MARKERS=12,MAX_PARTS_TO_SCAN=12,MAX_TRIALS=24;
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
@@ -58,7 +58,7 @@ export function suggestJointMarkers(project,{maxMarkers=6}={}){
   // Candidate trials need contours only; do not duplicate large image assets.
   const sketch=normalizeStudioProject({...p,assets:[],conceptAssetId:null,parts:[{...part,assetId:null,x:0,y:0,rotation:0}],joints:[],rods:[],revisions:[],heightMm:physicalHeight});
   sketches.set(part.id,sketch);
-  const pins=p.joints.filter(j=>j.parentId===part.id||j.childId===part.id).map(j=>j.parentId===part.id?j.parentAnchor:j.childAnchor),minWidth=(p.holeMm+2*Math.max(2,p.materialMm*2))*mm,maxWidth=Math.min(60*mm,Math.max(box.width,box.height)*.65),minMovingArea=Math.max(area*.012,Math.PI*(minWidth/2)**2*4);
+  const pins=p.joints.filter(j=>j.parentId===part.id||j.childId===part.id).map(j=>j.parentId===part.id?j.parentAnchor:j.childAnchor),minWidth=(p.holeMm+2*Math.max(2,p.materialMm*2))*mm,maxWidth=Math.min(JOINT_SECTION_MAX_MM*mm,Math.max(box.width,box.height)*.65),minMovingArea=Math.max(area*.012,Math.PI*(minWidth/2)**2*4);
   for(let direction=0;direction<8;direction++){
    const angleDegrees=direction*22.5,radians=angleDegrees*Math.PI/180,normal=[-Math.sin(radians),Math.cos(radians)],projections=part.polygon.map(point=>point[0]*normal[0]+point[1]*normal[1]),min=Math.min(...projections),max=Math.max(...projections);
    for(let band=1;band<10;band++){

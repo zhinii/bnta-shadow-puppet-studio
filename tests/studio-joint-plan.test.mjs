@@ -119,6 +119,28 @@ test('the horse AI shortlist includes a valid head/neck branch and all wider can
  for(const selected of [[neck,front],[front,neck]])assert.deepEqual(buildJointPlan(p,selected).markers.map(m=>m.status),['ready','ready'],'The requested neck and front leg must also work without the unused shortlist markers.');
 });
 
+test('the second generated horse keeps a wide neck and foreleg in its bounded shortlist and replays either order',()=>{
+ const p=JSON.parse(readFileSync(new URL('./fixtures/generated-horse-wide-neck-outline.puppet.json',import.meta.url),'utf8'));
+ assert.equal(p.parts[0].polygon.length,469);assert.equal(p.assets.length,0);
+ // The source fixture contains only the real outline. A tiny stand-in checks
+ // artwork identity and placement without storing the generated image payload.
+ p.assets=[{id:'art',name:'Source',mime:'image/png',dataUrl:png,width:1024,height:1024}];p.conceptAssetId='art';p.parts[0].assetId='art';p.parts[0].artworkMatrix=[1.1,.1,0,1.2,-4,8];
+ const original=JSON.stringify(p),outline=p.parts[0].polygon,scale=unitsPerMm(p),markers=suggestJointMarkers(p,{maxMarkers:12});
+ const neck=markers.find(m=>m.point[0]>330&&m.point[0]<420&&m.point[1]>330&&m.point[1]<430),front=markers.find(m=>m.point[0]<440&&m.point[1]>650);
+ assert.ok(neck,'The 74–80 mm head/neck branch must remain available.');assert.ok(front,'A front-leg bend must remain available.');
+ assert.ok(markers.length<=12);assert.deepEqual(markers,suggestJointMarkers(p,{maxMarkers:12}));
+ for(const selected of [markers,[neck,front],[front,neck]]){
+  const result=buildJointPlan(p,selected);assert.ok(result.markers.every(m=>m.status==='ready'));assert.equal(result.jointIds.length,selected.length);
+  assert.equal(validateStudio(result.project).filter(issue=>issue.level==='error').length,0);assert.ok(result.warnings.some(w=>w.includes('section is broad')));
+  near(result.project.parts.reduce((sum,part)=>sum+Math.abs(polygonArea(part.polygon)),0),Math.abs(polygonArea(outline)));near(unitsPerMm(result.project),scale);
+  assert.deepEqual(result.project.assets,p.assets);assert.equal(result.project.conceptAssetId,'art');
+  for(const part of result.project.parts){assert.equal(part.assetId,'art');assert.deepEqual(part.artworkMatrix,p.parts[0].artworkMatrix);}
+  for(const point of outline)assert.ok(result.project.parts.some(part=>pointInPolygon(point,part.polygon)));
+  for(let x=115;x<=935;x+=37)for(let y=156;y<=902;y+=37)assert.equal(result.project.parts.some(part=>pointInPolygon([x,y],part.polygon)),pointInPolygon([x,y],outline),'Finite cuts must preserve limbs and gaps.');
+ }
+ assert.equal(JSON.stringify(p),original);
+});
+
 test('batch geometry restores distinct artwork mappings and saved revisions exactly once',()=>{
  const p=character();p.assets.push({...p.assets[0],id:'other-art',name:'Other source'});p.parts.push({...makePart('Other',rect(160,0,24,180),'other-art'),id:'other'});
  p.revisions=[{id:'revision',label:'Before movement',createdAt:'2026-11-16',snapshot:{parts:structuredClone(p.parts),joints:[],rods:[],heightMm:p.heightMm}}];

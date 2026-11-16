@@ -1,8 +1,8 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.1**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.2**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
-[Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/)
+[Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality list](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md)
 
 ## Design your own character
 
@@ -16,7 +16,7 @@ The first screen contains no authored character or story. The former decoration 
 
 Artwork, cut contours and connections are separate. Imported or generated artwork retains texture and colors inside editable cut contours. Characters are not restricted to ten human body parts: a character can contain up to 80 pieces with arbitrary connection trees.
 
-**Project** provides New, Open, Download and AI connection settings. Work stays in the open session only. Download before closing or reloading. The previous v0.6.1 desktop joint flow and cut download were checked live. The new v0.7.1 automatic-plan interface is awaiting browser verification; tablet, operating-system print-dialog and physical assembly also remain unverified; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
+**Project** provides New, Open, Download and AI connection settings. Work stays in the open session only. Download before closing or reloading. Live image generation, cleanup and automatic joint review were checked. The final audit fixes have automated regression coverage; live file import, phone/tablet touch, operating-system print-dialog and physical assembly remain unverified; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
 
 ## Keep the character, then add movement
 
@@ -50,7 +50,7 @@ Both overlap tabs are united with their own piece's outer cut boundary, so cutti
 The simple flow leaves detailed controls collapsed:
 
 - **Adjust this piece:** rename or lock it, change Width and Length, edit its outline, choose artwork, change layers, or adjust joint settings. Width/length changes stretch the image, boundary and anchors together; attached pieces follow without stretching. **Set direction on the piece** defines the length axis for diagonal limbs. It preserves the current shape and resets percentages to 100%.
-- **More editing tools:** suggest another joint plan, place a single joint, manually choose a character, find all detected shapes, select a color region, remove a plain background, draw a piece, draw a two-point cut line, place two joint anchors manually, or add a control rod. Detected shapes can include lettering and decoration; keep only what you need. Manual tools remain available when the simple joint suggestion does not fit.
+- **More editing tools:** suggest another joint plan, place a single joint, manually choose a character, find silhouette pieces, select a color region, remove a plain background, draw a piece, draw a two-point cut line, place two joint anchors manually, or add a control rod. Detected shapes can include lettering and decoration; keep only what you need. Manual tools remain available when the simple joint suggestion does not fit.
 - **Ask AI for a change:** request a selected-piece geometry revision and review it before applying. New costume details or hidden surfaces require image editing or new artwork, not a numeric size change.
 - **View tools:** Artwork/Shadow, joint/reference visibility, zoom, Fit, pan and Redo. Outline points support keyboard adjustment as well as dragging.
 
@@ -78,7 +78,7 @@ Generation, image editing and vision are separate capabilities. The working Kimi
 
 A successful image response does not establish prompt accuracy. In live tests, the footballer matched the main requested features, but the six-tentacle scholar had eight visible tentacles. The current review asks students to check limbs, costume and requested props; anatomy and appendage counts still need their judgment. Automatic visual evaluation is not claimed. The v0.5.1 panda verification attempt timed out before an HTTP response, so it produced no fresh image or prompt-quality evidence. The earlier trials do not validate the hotfix or its optional prompt guidance.
 
-**AI-assisted joint planning is separate from image generation.** It sends candidate IDs, the student's brief and measured outlines to the protected text relay. AI may select existing candidates; it cannot replace the artwork or supply unchecked geometry. The current live route does not receive image pixels for this task. One live horse-planning request selected the supplied neck and foreleg candidates in about 8.2 seconds; this is a single text/outline trial, not a visual-anatomy or success-rate test. A future vision-capable route can include a reference image only when that capability is advertised.
+**AI-assisted joint planning is separate from image generation.** It sends candidate IDs, the student's brief and measured outlines to the protected text relay. AI may select existing candidates; it cannot replace the artwork or supply unchecked geometry. The current live route does not receive image pixels for this task. One controlled live horse-planning request selected the supplied neck and foreleg candidates in about 8.2 seconds. A later full browser journey selected unrelated regions instead. The final selection prompt now emphasizes the requested movements and supplies measured region descriptors; those refinements are locally tested but have no confirmed new live result. These trials do not establish visual anatomy recognition or a general success rate. A future vision-capable route can include a reference image only when that capability is advertised.
 
 Text cutting plans still use the older `/api/puppet` assistant in compatibility mode and may need correction. The client validates geometry and makes at most one text-plan repair request before rejecting unusable shapes. This does not apply to paid image generation.
 

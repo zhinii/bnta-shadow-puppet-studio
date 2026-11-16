@@ -1,6 +1,9 @@
 import {normalizeStudioProject,studioId,partTransforms,transformPoint,inverseMatrix,unitsPerMm,neutralProjectBounds,polygonArea,pointInPolygon,distanceToBoundary,selfIntersects,validateStudio} from './studio-model.mjs';
 
 const EPS=1e-7;
+// Finite paper-prototype heuristics, not material-strength limits. Broader
+// sections remain reviewable when they separate a smaller branch of the shape.
+export const JOINT_SECTION_REVIEW_MM=60,JOINT_SECTION_MAX_MM=90;
 const copy=value=>JSON.parse(JSON.stringify(value));
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 const cross=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
@@ -127,7 +130,7 @@ export function splitPart(project,partId,lineStart,lineEnd,{connect=true,type='p
 }
 
 /**
- * Turn a tap on a narrow section into a reviewable pin joint. This is a local
+ * Turn a tap on a local section into a reviewable pin joint. This is a local
  * geometric suggestion, not anatomical recognition. The finite interior chord
  * around the tap splits the original boundary into two arcs; unrelated limbs
  * crossing the same infinite line remain intact. angleDegrees fixes the cut direction for a
@@ -144,7 +147,7 @@ export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
  if(padRadius>300)fail('This image needs a larger print size before adding a joint.','JOINT_SIZE_LIMIT');
  const xs=part.polygon.map(p=>p[0]),ys=part.polygon.map(p=>p[1]),longest=Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys));
  // Classroom paper-prototype defaults, not a material-strength certification.
- const maxWidth=Math.min(60*mm,longest*.65),minArea=Math.PI*padRadius*padRadius,maxSnap=Math.max(8*mm,padRadius*1.5);
+ const reviewWidth=JOINT_SECTION_REVIEW_MM*mm,maxWidth=Math.min(JOINT_SECTION_MAX_MM*mm,longest*.65),totalArea=Math.abs(polygonArea(part.polygon)),minArea=Math.PI*padRadius*padRadius,maxSnap=Math.max(8*mm,padRadius*1.5);
  const nearbyPins=before.joints.filter(j=>j.parentId===partId||j.childId===partId).map(j=>j.parentId===partId?j.parentAnchor:j.childAnchor);
  const minPinSpacing=(before.holeMm+webMm)*mm;
  if(nearbyPins.some(p=>distance(p,localPoint)<minPinSpacing))fail('There is already a joint here. Tap farther along the part.','JOINT_TOO_CLOSE');
@@ -154,12 +157,15 @@ export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
   const radians=angle*Math.PI/180,a=localPoint,b=[a[0]+Math.cos(radians),a[1]+Math.sin(radians)];
   const section=interiorSection(part.polygon,a,b,localPoint);if(!section)continue;
   const {hits,pieces:[positive,negative]}=section;
-  if([positive,negative].some(points=>Math.abs(polygonArea(points))<minArea))continue;
+  const smallArea=Math.min(Math.abs(polygonArea(positive)),Math.abs(polygonArea(negative)));
+  if(smallArea<minArea)continue;
   const pivot=[(hits[0][0]+hits[1][0])/2,(hits[0][1]+hits[1][1])/2],width=distance(...hits),snap=distance(pivot,localPoint);
   if(snap>maxSnap)continue;
-  if(width>maxWidth){broad=true;continue;}
+  // Allow wide necks and garments while declining broad cuts through two
+  // similarly sized body halves. A manual split is still available for those.
+  if(width>maxWidth||width>reviewWidth&&smallArea>totalArea*.35){broad=true;continue;}
   if(nearbyPins.some(p=>distance(p,pivot)<minPinSpacing)){nearPin=true;continue;}
-  candidates.push({hits,pivot,angle,score:width+snap*2});
+  candidates.push({hits,pivot,angle,width,score:width+snap*2});
  }
  candidates.sort((a,b)=>a.score-b.score||a.angle-b.angle);
  const best=candidates[0];
@@ -180,6 +186,7 @@ export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
  restorePhysicalScale(p,mm);
  const normalized=normalizeStudioProject(p);ensureLockedUnchanged(before,normalized);ensureGeometry(normalized);
  const warnings=result.warnings;
+ if(best.width>reviewWidth)warnings.push(before.language==='zh'?`此关节截面较宽（${(best.width/mm).toFixed(1)} 毫米）。请用纸样检查运动、重叠和刚度。`:`This joint section is broad (${(best.width/mm).toFixed(1)} mm). Review its motion, overlap and stiffness with a paper prototype.`);
  return {...result,project:normalized,cutLine,pivot:[...best.pivot],angleDegrees:best.angle,warnings};
 }
 

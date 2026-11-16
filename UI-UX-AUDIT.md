@@ -1,37 +1,31 @@
 # UI/UX re-audit — simplicity first
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
-## Current v0.7.1 automatic movement review
+## Current v0.7.2 audit and verdict
 
-The default path now advances from character cleanup to a proposed joint plan automatically. The student sees numbered movement dots on the character, adjusts only what is needed, tries the selected joint and accepts the whole plan once. First image import and acceptance of a first generated image open cleanup review automatically. Accepting that review starts planning; existing built pieces are never silently replaced by a newly generated image.
+**Verification:** 231 automated tests pass, including 37 workflow tests; syntax, production build and Worker smoke checks pass.
 
-| Student task | Default interface | Optional detail |
+**Verdict:** the software supports the requested three-process design workflow and is ready for a supervised trial. Fully automatic anatomical rigging and independent student usability are not established. AI proposes movement; students still review the character and joint positions. See [FUNCTIONALITY.md](FUNCTIONALITY.md) for the complete inventory.
+
+| Goal or usability issue | Finding and correction | Evidence / remaining limit |
 | --- | --- | --- |
-| Keep the intended character | Cleanup result, original comparison and one acceptance | Keep a missing prop or choose another subject |
-| Review movement locations | Numbered dots on the character | Add, remove, drag, Move dot + tap, or arrow-key adjustment |
-| Test movement | One slider and both overlap outlines for the selected ready joint | Trial pose remains temporary; front/back order can be swapped |
-| Resolve an unsuitable cut | Move or remove the indicated dot | Manual construction remains under More editing tools |
-| Finish the plan | One Use these joints action after every dot is valid | One undo restores the original pre-plan geometry |
-| Use image marks | Small round magenta marks seed candidates | Black-dot search is explicit because eyes/buttons can match |
+| Simple Create → Refine → Make | Generation/upload advances to cleanup review; accepting cleanup prepares the joint plan. Advanced tools stay collapsed | Automated workflow checks; live generation, cleanup and joint-review observations |
+| Custom prompts retained | Added an explicit generation-brief assignment so an undo-restored brief cannot displace the visible prompt | Exact English/Chinese prompt transport, rejection and cleanup regressions |
+| Automatic splitting on real characters | The first detailed horse initially had zero suggestions because an infinite cut crossed unrelated limbs. Finite local sections preserve original contour arcs | Exact 399-point real outline fixture; all retained candidates replay without area loss |
+| Wide necks and garments | A second horse had a valid 74–80 mm neck but exceeded the earlier 60 mm limit. Expanded to a bounded 90 mm branch section with area guard and review warning | Exact 469-point fixture; head/foreleg replay, 80 mm garment, torso rejection, 95 mm rejection |
+| Follow requested movements | A live text-only selection chose unrelated body regions. Tightened minimum requested-movement selection and added measured candidate-region descriptors | Local payload/selection tests pass; revised semantic selection has no new confirmed live result |
+| Easy joint corrections | Numbered dots support add/move/remove, drag and keyboard. Invalid positions visibly block acceptance | Pointer, keyboard, invalid placement, cancellation and stale-response regressions |
+| Clear front/back overlaps | Selected joint shows both material outlines, layer swap and temporary movement | Chain-order regressions, geometry/export tests; no physical strength claim |
+| Small joint detail | Added selected-joint close-up and whole-puppet toggle, preserving trial angle and accepted geometry | Automated viewBox/pose/focus regression; real phone/touch use remains unverified |
+| Unnecessary controls | Removed duplicate silhouette extraction while retaining one reachable extraction action in each relevant stage | Existing-image/locked-piece workflow regression |
+| Responsive corrections | Geometry builds avoid repeatedly copying full artwork payloads | First image-backed horse plan reduced from about 3.65 s to 268 ms locally; not a phone benchmark |
+| Settings recovery | Validation is visible inside the modal, corrected values clear old errors, Escape closes the modal without resetting joint review | Automated error/recovery/focus regressions |
+| Fresh sessions | Closing/reloading does not restore a design; explicit project download/open remains | Automated lifecycle checks and observed blank live reloads |
+| Make usable output | Physical sizing, cut/artwork SVG, A4 print document, calibration and assembly order are implemented | Automated exports; historical manual-flow browser export checks; current physical prototype outstanding |
 
-A failed dot blocks plan acceptance instead of silently omitting a requested movement. Empty plans can continue as still puppets. The next task appears automatically, but cleanup and joint-plan changes remain separate reviewed decisions. Marker changes rebuild locally and do not send repeated AI requests.
+Two real generated horses were inspected during this audit. The second reached an AI-selected three-joint review; its selected regions exposed the semantic-selection weakness recorded above. Browser file selection repeatedly stalled in the test tool, so current live file-import verification remains incomplete. This is not evidence that the application import handler failed. No phone, tablet, independent student session or physical assembly result is claimed.
 
-The current relay chooses among measured candidates using the brief and outlines. It has not seen the image. Magenta/black detection is local mark detection, not anatomical recognition, and retains all embedded source marks. Physical overlap material is constructed on both pieces; hidden artwork is not reconstructed.
-
-**Verification status:** v0.7.1 passes 224 automated tests, including 35 workflow tests, plus syntax, build and 22-asset smoke checks. Browser observations are pending. One live text/outline horse-planning response returned a valid neck/foreleg candidate selection in about 8.2 seconds. This does not validate rendered usability, marker dragging on real devices, full automatic-image flow or physical assembly. Earlier v0.6.1 desktop screenshots below document the manual flow only.
-
-Acceptance checks for the automatic interface:
-
-- After accepting cleanup, students reach the dot plan without choosing construction tools.
-- Numbered dots remain readable and touchable at phone width; selection and errors are identifiable without color alone.
-- Add, move, drag, arrow-key adjustment and deletion preserve the original committed project until acceptance.
-- Every invalid dot can be found and corrected or removed; no rejected marker silently disappears from the plan.
-- Selecting or editing a dot does not trigger another AI request.
-- Trial movement never becomes the accepted resting pose; one undo removes the complete accepted plan.
-- Both overlap outlines remain distinct and the selected front/back choice survives later dot edits.
-- A cancelled request, new session or newer editing task cannot be overwritten by a late planner response.
-- Embedded marker pixels remain visible as artwork; editing overlays are absent from cutting/exported artwork.
-- Verify the entire chain in a live browser, then check touch/focus, real printing and a paper prototype.
+Automatic approval review rejected an additional live Kimi planner test, citing insufficient authorization for sending project geometry to that destination. The request was not repeated. Revised AI selection is therefore reported as locally tested rather than live verified.
 
 ## Previous v0.6.1 joint revision
 

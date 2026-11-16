@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {createStudioProject,makePart,addConnection,normalizeStudioProject,partTransforms,transformPoint,polygonArea,unitsPerMm,validateStudio,jointGeometry,pointInPolygon,selfIntersects} from '../public/studio-model.mjs';
 import {splitPart,suggestConnection,suggestJointAt} from '../public/studio-construction.mjs';
 
@@ -158,6 +159,31 @@ test('joint suggestions reject broad body cuts, locked pieces, outside taps and 
  const result=suggestJointAt(narrow,'sleeve',[12,85]);
  assert.throws(()=>suggestJointAt(result.project,'sleeve',[12,83]),{code:'JOINT_TOO_CLOSE'});
  assert.throws(()=>suggestJointAt(narrow,'sleeve',[12,85],{angleDegrees:NaN}),{code:'INVALID_CUT'});
+});
+
+test('wide garment branches remain reviewable while broad halves and over-limit sections reject',()=>{
+ const p=sheet(rect(0,0,80,240));p.heightMm=240;
+ const result=suggestJointAt(p,'sleeve',[40,180]);
+ assert.deepEqual(result.pivot,[40,180]);assert.match(result.warnings.join(' '),/broad \(80\.0 mm\).*paper prototype/);
+ near(result.project.parts.reduce((sum,part)=>sum+Math.abs(polygonArea(part.polygon)),0),80*240);near(unitsPerMm(result.project),unitsPerMm(p));
+ assert.throws(()=>suggestJointAt(p,'sleeve',[40,120]),{code:'JOINT_SECTION_TOO_BROAD'},'A wider body must not be suggested as two similar halves.');
+ const overLimit=sheet(rect(0,0,95,300));overLimit.heightMm=300;
+ assert.throws(()=>suggestJointAt(overLimit,'sleeve',[47.5,240]),{code:'JOINT_SECTION_TOO_BROAD'},'The expanded width remains bounded.');
+ assert.throws(()=>suggestJointAt(result.project,'sleeve',[40,178]),{code:'JOINT_TOO_CLOSE'});
+ const zh=structuredClone(p);zh.language='zh';assert.match(suggestJointAt(zh,'sleeve',[40,180]).warnings.join(' '),/80\.0 毫米.*纸样/);
+});
+
+test('the generated 469-vertex horse accepts its actual wide neck without admitting a torso half-cut',()=>{
+ const p=JSON.parse(readFileSync(new URL('./fixtures/generated-horse-wide-neck-outline.puppet.json',import.meta.url),'utf8')),part=p.parts[0],original=JSON.stringify(p),scale=unitsPerMm(p);
+ assert.equal(part.polygon.length,469);assert.equal(p.assets.length,0);
+ const result=suggestJointAt(p,part.id,[350,320]),width=Math.hypot(result.cutLine[1][0]-result.cutLine[0][0],result.cutLine[1][1]-result.cutLine[0][1])/scale;
+ assert.ok(width>60&&width<90);assert.match(result.warnings.join(' '),/section is broad/);
+ const head=result.project.parts.find(piece=>piece.id===result.partIds[1]),body=result.project.parts.find(piece=>piece.id===part.id);
+ assert.ok(pointInPolygon([200,290],head.polygon));assert.ok(pointInPolygon([550,500],body.polygon));
+ near(result.project.parts.reduce((sum,piece)=>sum+Math.abs(polygonArea(piece.polygon)),0),Math.abs(polygonArea(part.polygon)));near(unitsPerMm(result.project),scale);
+ assert.ok(result.project.parts.every(piece=>!selfIntersects(piece.polygon)));assert.equal(validateStudio(result.project).filter(issue=>issue.level==='error').length,0);
+ assert.throws(()=>suggestJointAt(p,part.id,[530,510]),{code:'JOINT_SECTION_TOO_BROAD'});
+ assert.equal(JSON.stringify(p),original);
 });
 
 test('an explicit angle selects only the interior chord containing the tapped limb',()=>{

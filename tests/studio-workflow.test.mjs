@@ -40,8 +40,11 @@ function primaryActions(markup) {
   return actions;
 }
 function jointPlanCandidates(body) {
-  const prefix='Candidate markers in each part’s local coordinates: ';
-  if(typeof body.prompt==='string'&&body.prompt.includes(prefix))return JSON.parse(body.prompt.slice(body.prompt.indexOf(prefix)+prefix.length));
+  const prefix='Candidate table columns: [id,localPoint,cutAngle,position,smallerRegionAreaFraction,smallerRegionBounds]. ';
+  if(typeof body.prompt==='string'&&body.prompt.includes(prefix)){
+    const groups=JSON.parse(body.prompt.slice(body.prompt.indexOf(prefix)+prefix.length));
+    return groups.flatMap(group=>group.rows.map(([id,point,angleDegrees])=>({id,partId:group.partId,point,...(angleDegrees===null?{}:{angleDegrees})})));
+  }
   const message=body.messages?.findLast(message=>message.role==='user');
   if(typeof message?.content==='string'){
     try{const content=JSON.parse(message.content);if(content.scene?.operation==='joint-plan')return content.scene.studio.candidates;}catch{}
@@ -73,6 +76,7 @@ function browserHarness() {
   }});
   const root = {_html:'',get innerHTML(){return this._html;},set innerHTML(value){this._html=value;canvas.innerHTML=value.match(/<div id="puppet-canvas">([\s\S]*?)<\/div>/)?.[1]||'';planCanvas.innerHTML=value.match(/<div\b[^>]*\bid="plan-canvas"[^>]*>([\s\S]*?)<\/div>/)?.[1]||'';jointPreview.innerHTML=value.match(/<div class="joint-preview" id="joint-preview">([\s\S]*?)<\/div>/)?.[1]||'';reviewAngle.textContent=value.match(/<output id="review-angle-output">([^<]*)<\/output>/)?.[1]||'';promptBudget.textContent=value.match(/<p id="prompt-budget"[^>]*>([^<]*)<\/p>/)?.[1]||'';promptBudget.hidden=!value.includes('id="prompt-budget"');},addEventListener:(type,fn)=>rootListeners.set(type,fn),querySelector:selector=>/^\[data-(?:(part|joint)-id|vertex-index|plan-marker)=/.test(selector)?{focus(){focusedSelectors.push(selector);}}:null};
   const status = {textContent:''}, canvas = {innerHTML:''},planCanvas={innerHTML:'',getBoundingClientRect:()=>rect(),setPointerCapture(id){captures.push(id);},releasePointerCapture(id){releases.push(id);}},jointPreview={innerHTML:''},reviewAngle={textContent:''}, angle = {textContent:''},promptBudget={textContent:'',hidden:false}, toast = {textContent:'',classList:{add(){},remove(){}}};
+  const relayInput={value:'',focus(){focusedSelectors.push('#relay-url');}};
   const rect=()=>({left:0,top:0,width:800,height:600,right:800,bottom:600});
   const canvasWrap={getBoundingClientRect:rect,setPointerCapture(id){captures.push(id);},releasePointerCapture(id){releases.push(id);},focus(){focusedSelectors.push('#canvas-wrap');}};
   const svg = {getBoundingClientRect:rect,createSVGPoint(){return {x:0,y:0,matrixTransform(){return {x:this.x,y:this.y};}};},getScreenCTM(){return {inverse(){return {};}};}};
@@ -83,6 +87,8 @@ function browserHarness() {
     if(['#joint-preview','#review-angle-output'].includes(selector)&&!root.innerHTML.includes('id="joint-preview"'))return null;
     if(['#plan-canvas','#plan-canvas svg'].includes(selector)&&!root.innerHTML.includes('id="plan-canvas"'))return null;
     if(selector==='#review-heading')return {focus(){focusedSelectors.push(selector);}};
+    if(selector==='#relay-url')return root.innerHTML.includes('id="relay-url"')?relayInput:null;
+    if(selector==='#ai-status-button')return {focus(){focusedSelectors.push(selector);}};
     if(selector==='.canvas-panel')return {scrollIntoView(options){scrollRequests.push(options);}};
     if(/^\[data-vertex-index=/.test(selector))return {focus(){focusedSelectors.push(selector);},setAttribute(){},getBoundingClientRect:rect};
     if(/^\[data-plan-marker=/.test(selector))return {focus(){focusedSelectors.push(selector);},setAttribute(){},getBoundingClientRect:rect};
@@ -133,6 +139,7 @@ function browserHarness() {
     setPlanResponse(fn){planResponseFactory=fn;},
     setPlanPostResponse(fn){planPostResponseFactory=fn;},
     setGetResponse(fn){getResponseFactory=fn;},
+    setRelayUrl(value){relayInput.value=value;},
     setCapabilities(value){capabilities={...capabilities,...value};},
     click:dataset=>rootListeners.get('click')({target:target({dataset})}),
     input:(id,value)=>rootListeners.get('input')({target:target({id,value,dataset:{}})}),
@@ -577,7 +584,7 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
     await h.click({action:'step',step:'refine'});assert.doesNotMatch(h.root.innerHTML,/data-action="edit-image"/);assert.doesNotMatch(h.root.innerHTML,/data-action="analyze"/,'unavailable image services do not add dead-end controls');
     h.input('revision-prompt','Make the costume green.');await h.click({action:'edit-image'});assert.match(h.error(),/Image editing is not connected/);assert.equal(h.requests.length,2,'unsupported pixel edits never make a request');
     await h.click({action:'dismiss-error'});await h.click({action:'undo'});await h.settle();assert.deepEqual(h.project().assets,before.assets);assert.deepEqual(h.project().parts,before.parts);
-    await h.click({action:'redo'});await h.settle();await h.click({action:'step',step:'refine'});assert.match(h.root.innerHTML,/data-action="extract-silhouette"/,'advanced extraction remains available for an image beside protected existing pieces');
+    await h.click({action:'redo'});await h.settle();await h.click({action:'step',step:'refine'});assert.equal((h.root.innerHTML.match(/data-action="extract-silhouette"/g)||[]).length,1,'one advanced extraction action remains available for an image beside protected existing pieces');
     await h.click({action:'extract-silhouette'});await h.click({action:'accept'});await h.settle();assert.equal(h.project().parts.length,2);
     assert.match(h.root.innerHTML,/data-action="rod"/);
     await h.click({action:'split-part'});await h.point(10,50);await h.point(80,50);await h.click({action:'preview-split'});await h.click({action:'accept'});await h.settle();
@@ -893,6 +900,66 @@ test('front and back choices remain consistent through a multi-joint chain after
   } finally {await h.close();}
 });
 
+test('automatic joint review zooms to the selected pin without changing its trial movement or accepted construction', async () => {
+  const h=browserHarness();h.setPlanResponse(()=>({selectedIds:[]}));
+  const viewBox=()=>h.planMarkup().match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+  const construction=()=>Array.from(h.planMarkup().matchAll(/<g transform="matrix\([^"]+\)">|<path d="[^"]+"/g),match=>match[0]);
+  try {
+    await h.start('joint-plan-closeup');await h.settle();
+    const project=createStudioProject();project.canvas={width:100,height:300};project.parts=[makePart('Long arm',[[0,0],[30,0],[30,300],[0,300]])];
+    await h.openProject(project);const before=h.project();await h.click({action:'prepare-joints'});
+    for(const y of [75,225]){await h.click({action:'plan-add'});await h.planPoint(15,y);}
+    const ids=h.planMarkers(),pin=h.planLocation(ids[0]);assert.equal(ids.length,2);
+    await h.planPoint(...pin,{marker:ids[0]});h.planInput(32);
+    const wholeBox=viewBox(),trialConstruction=construction();
+    assert.match(h.root.innerHTML,/data-action="plan-view"[^>]*>Zoom to this joint/);
+    await h.click({action:'plan-view'});const closeupBox=viewBox();
+    assert.ok(closeupBox[3]<wholeBox[3],'the selected pin has a closer inspection view');
+    assert.ok(Math.abs(closeupBox[0]+closeupBox[2]/2-pin[0])<1e-6);assert.ok(Math.abs(closeupBox[1]+closeupBox[3]/2-pin[1])<1e-6,'the close-up centers the selected pin rather than another joint');
+    assert.match(h.root.innerHTML,/<output id="plan-angle-output">32°<\/output>/);
+    assert.match(h.root.innerHTML,/data-action="plan-view"[^>]*>See whole puppet/);
+    assert.deepEqual(construction(),trialConstruction,'zoom changes framing without changing proposed contours or trial transforms');
+    assert.deepEqual(h.project(),before,'the accepted character remains untouched during inspection');
+    await h.click({action:'plan-view'});assert.deepEqual(viewBox(),wholeBox);assert.deepEqual(construction(),trialConstruction);
+    await h.click({action:'plan-view'});assert.deepEqual(viewBox(),closeupBox);
+    h.planInput(-18);assert.deepEqual(viewBox(),closeupBox,'trial movement keeps the pin centered at a stable zoom');assert.notDeepEqual(construction(),trialConstruction);
+    await h.click({action:'plan-view'});assert.match(h.root.innerHTML,/<output id="plan-angle-output">-18°<\/output>/);
+    await h.click({action:'plan-view'});await h.click({action:'plan-move'});
+    assert.match(h.root.innerHTML,/data-action="plan-view"[^>]*>Zoom to this joint/,'moving a marker returns to the whole character for placement');
+    await h.click({action:'plan-cancel'});h.planInput(21);await h.click({action:'plan-view'});
+    assert.deepEqual(h.project(),before);assert.equal(h.requests.length,1,'inspection and local marker changes require no additional AI request');
+    await h.click({action:'accept'});const accepted=h.project();
+    assert.equal(accepted.parts.length,3);assert.equal(accepted.joints.length,2);assert.ok(accepted.joints.every(joint=>joint.angle===0),'acceptance preserves the unposed construction rather than the trial angle');
+    assert.deepEqual(accepted.joints.map(joint=>joint.parentAnchor[1]).sort((a,b)=>a-b),[75,225]);
+    await h.click({action:'undo'});assert.deepEqual(h.project(),before,'one undo restores the character before the joint plan');
+  } finally {await h.close();}
+});
+
+test('AI connection errors stay inside the dialog and Escape preserves the joint trial underneath', async () => {
+  const h=browserHarness();h.setPlanResponse(candidates=>({selectedIds:[candidates[0].id]}));
+  const modal=()=>h.root.innerHTML.match(/<section class="settings-card"[\s\S]*?<\/section>/)?.[0]||'';
+  try {
+    await h.start('joint-plan-settings');await h.settle();
+    const project=createStudioProject();project.canvas={width:100,height:240};project.parts=[makePart('Long arm',[[0,0],[30,0],[30,240],[0,240]])];
+    await h.openProject(project);const before=h.project();await h.click({action:'prepare-joints'});h.planInput(27);await h.click({action:'plan-view'});
+    const closeupBox=h.planMarkup().match(/viewBox="([^"]+)"/)[1];await h.click({action:'settings'});
+    assert.match(modal(),/role="dialog"/);assert.equal(h.focusedSelectors.at(-1),'#relay-url');
+    let connectionChecks=0;h.setGetResponse(()=>{connectionChecks++;return {ok:true,status:200,json:async()=>({version:2,text:true,vision:false,imageGeneration:false,status:'Connected.'})};});
+    h.setRelayUrl('http://relay.example/api/studio');await h.click({action:'save-endpoint'});
+    assert.match(modal(),/role="alert">Use an HTTPS protected relay URL\./,'the invalid URL message appears inside the active dialog');
+    assert.equal(connectionChecks,0,'invalid endpoints are rejected before attempting a connection');
+    assert.equal(h.preferences.has('bnta-studio-endpoint'),false);
+    h.setRelayUrl('https://relay.example/api/studio');await h.click({action:'save-endpoint'});
+    assert.equal(connectionChecks,1);assert.equal(h.preferences.get('bnta-studio-endpoint'),'https://relay.example/api/studio');
+    assert.doesNotMatch(modal(),/role="alert"/,'a corrected endpoint clears its stale validation error');
+    assert.equal(h.key('Escape',{tagName:'INPUT'}),true);assert.equal(modal(),'');
+    assert.equal(h.focusedSelectors.at(-1),'#ai-status-button','closing returns focus to the connection control');
+    assert.match(h.root.innerHTML,/<output id="plan-angle-output">27°<\/output>/,'Escape dismisses only the dialog without resetting the trial');
+    assert.equal(h.planMarkup().match(/viewBox="([^"]+)"/)[1],closeupBox);assert.deepEqual(h.project(),before);
+    await h.click({action:'accept'});assert.ok(h.project().joints.every(joint=>joint.angle===0));
+  } finally {await h.close();}
+});
+
 test('moving and dragging an automatic dot recomputes its cut direction for a differently oriented limb', async () => {
   const h=browserHarness();h.setPlanResponse(candidates=>({selectedIds:[candidates.find(marker=>marker.angleDegrees===90&&marker.point[0]>60).id]}));
   try {
@@ -1015,23 +1082,35 @@ test('joint dots drag with a stable pointer offset and support cancellation and 
   } finally {await h.close();}
 });
 
-test('a newly generated image continues through cleanup and joint planning without extra setup actions', async () => {
+test('a generated character retains its exact custom request through cleanup and joint planning without committing rejected ideas', async () => {
   const h=browserHarness();h.setGetResponse(legacyImageStatus);
   const generated=h.setRaster(rasterFixture({rectangles:[{x:40,y:10,w:8,h:80,color:[180,70,25,255]}]}));
   h.setResponse(()=>({dataUrl:generated,model:'configured-image-model',kind:'reference'}));
   try {
     await h.start('generated-image-auto-construction');await h.settle();
-    h.input('create-prompt','A long narrow puppet arm with two bending points.');await h.click({action:'generate-image'});
+    const prompt='A long narrow puppet arm with two bending points: one elbow and one wrist. Keep the shoulder fixed. 保留手腕活动。';
+    await h.change({dataset:{field:'brief.kind'},value:'human'});h.input('create-prompt',prompt);
+    await h.click({action:'undo'});const before=h.project();
+    assert.equal(before.brief.keywords,'','undo restores the accepted brief before the setting change');
+    assert.ok(h.root.innerHTML.includes(prompt),'the visible creation request survives the design undo');
+    await h.click({action:'generate-image'});assert.deepEqual(h.project(),before,'generation keeps the current brief unchanged until review');
+    await h.click({action:'reject'});assert.deepEqual(h.project(),before,'rejecting new artwork cannot install its replacement brief');
+    await h.click({action:'generate-image'});
     assert.match(h.root.innerHTML,/Is this your character\?/);assert.equal(h.project().assets.length,0);
     await h.click({action:'accept'});
+    assert.equal(h.project().brief.keywords,prompt,'accepted artwork retains the exact request used to generate it');
     assert.equal(h.project().assets.length,1);assert.equal(h.project().parts.length,0);assert.match(h.root.innerHTML,/Keep this character\?/,'using the generated artwork starts its cleanup review');
     await h.click({action:'accept'});
     assert.equal(h.error(),'');assert.equal(h.project().parts.length,1);assert.equal(h.project().joints.length,0);assert.match(h.root.innerHTML,/id="plan-canvas"/);
     const count=h.planMarkers().length;assert.ok(count>0);const cleaned=h.project();
-    assert.equal(h.requests.length,2);assert.equal(h.requests.filter(request=>request.planning).length,1,'the chain generates pixels once and selects joint candidates once');
+    assert.equal(cleaned.brief.keywords,prompt,'character cleanup preserves movement requirements');
+    const plans=h.requests.filter(request=>request.planning);assert.equal(h.requests.length,3);assert.equal(plans.length,1,'the accepted character starts one planning request after the rejected generation');
+    const planningContext=JSON.parse(plans[0].body.messages.findLast(message=>message.role==='user').content);
+    assert.equal(planningContext.scene.studentRequest,prompt,'joint selection receives the original movement request verbatim');
+    assert.equal(planningContext.scene.studio.brief.keywords,prompt);
     await h.click({action:'accept'});assert.equal(h.project().joints.length,count);assert.equal(h.project().parts.length,count+1);
     await h.click({action:'undo'});assert.deepEqual(h.project(),cleaned);await h.settle();
-    assert.equal(h.planMarkup(),'');assert.equal(h.requests.length,2,'undo and render cannot start planning again');
+    assert.equal(h.planMarkup(),'');assert.equal(h.requests.length,3,'undo and render cannot start planning again');
   } finally {await h.close();}
 });
 
