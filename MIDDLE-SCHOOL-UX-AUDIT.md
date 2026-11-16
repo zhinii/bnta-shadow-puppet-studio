@@ -1,6 +1,6 @@
 # Middle-school usability audit · 17 November 2026
 
-Scope: the v0.7.5 interface, source and automated workflow checks, plus the supplied panda screenshot. This is an expert inspection, not a test with children. The screenshot does not include the saved project, so the retained-background diagnosis remains an inference.
+Scope: an initial v0.7.5 interface/source audit and the supplied panda screenshot, followed by independent inspection of the v0.7.6 implementation and workflow regressions. Published desktop evidence is recorded in [VALIDATION.md](VALIDATION.md). This is an expert inspection, not a test with children. The screenshot does not include the saved project, so the retained-background diagnosis remains an inference.
 
 ## Verdict before this revision
 

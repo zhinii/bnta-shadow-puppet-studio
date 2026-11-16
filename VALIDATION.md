@@ -4,11 +4,27 @@
 
 **Automated:** all **250 tests pass**, including **45 workflow tests**, plus syntax, build, generated Worker syntax and the 22-asset smoke check. Four new pixel-tool regressions cover selected connected backgrounds, enclosed white artwork, disconnected props, gradients, invalid taps, remove-everything protection and transparent margins. Four new workflow regressions cover visible selection/review, cancellation/undo, suspect-rectangle gating and intentional shapes, repair from joint planning, stale results and protected pieces. A cross-module regression reproduces the retained-background knee rejection and verifies that the same knee coordinate works after actual silhouette extraction, including unioned overlap contours and matching pin holes.
 
-**User-visible correction:** cleanup has a visible **Tap background to remove** action, source-image tap mode, Cancel, optional removal adjustment, checkerboard transparency, a green cut edge, original comparison and Undo last removal. Changes remain a draft until accepted. A suspected opaque rectangle pauses movement planning; deliberately rectangular objects require an explicit choice. **Fix background** provides recovery from failed or empty image joint plans. Generated-picture approval is **Use this picture**; cleanup approval is **Continue to movement**.
+**User-visible correction:** cleanup has a visible **Tap background to remove** action, source-image tap mode, Cancel, optional removal adjustment, checkerboard transparency, a green cut edge, original comparison and Undo last removal. Changes remain a draft until accepted. A suspected opaque rectangle pauses movement planning; flagged rectangular images require an explicit whole-shape choice if intentional. **Fix background** provides recovery from failed or empty image joint plans. Generated-picture approval is **Use this picture**; cleanup approval is **Continue to movement**.
 
 The supplied panda screenshot does not contain the saved project, so its exact stored contour is unconfirmed. The regression establishes the observed failure mechanism with authored pixel data. Expert findings, implemented repairs and the remaining student-trial protocol are in [MIDDLE-SCHOOL-UX-AUDIT.md](MIDDLE-SCHOOL-UX-AUDIT.md).
 
-**Verification limits at publication:** the browser's file-chooser automation has not successfully populated this fixture in the app, and Chromium policy blocks DevTools/phone emulation. These are test-environment limits, not proof of an application import failure. Real phone touch, independent student use and physical assembly remain unverified. Live desktop observations for this release will be recorded separately below.
+**Verification limits:** the browser's file-chooser automation has not successfully populated this fixture in the app, and Chromium policy blocks DevTools/phone emulation. These are test-environment limits, not proof of an application import failure. Real phone touch, independent student use and physical assembly remain unverified.
+
+### Published v0.7.6 desktop workflow
+
+One fresh live test used this newly authored prompt (204 / 800 characters):
+
+> A panda wearing red overalls, standing upright as a simple shadow puppet. Two arms held away from its body and two separated legs. Bold black outlines and flat colors on a plain white background. No text.
+
+Generation returned a panda with red overalls, two separated arms and legs, and no visible text. **Use this picture** opened **Remove the background** with focus on the heading. Automatic cleanup displayed checkerboard transparency and the actual green cut edge. **Tap background to remove** opened the original-image view with the short tap instruction and Cancel. Clicking the white space produced a review with the surrounding background removed and enclosed white face/clothing details retained. The browser input call timed out, but the following state inspection confirmed the completed removal and **Undo last removal**. Undo returned to the preceding cleanup proposal.
+
+**Continue to movement** produced four geometrically valid proposed joints. The selected arm visibly rotated to 45° using **Try this joint**. **Use these joints** committed five pieces/four joints; **Ready to make** reached the height and print screen. This establishes one successful generated-image → cleanup → background tap/undo → joint review/movement → Make journey. It does not establish anatomical accuracy for arbitrary characters or a general success rate. Printing/export was not repeated in this live v0.7.6 check; earlier output checks remain separately recorded below.
+
+![Published v0.7.6 background review with checkerboard and actual cut edge](validation/v076-background-review.jpg)
+
+![Published v0.7.6 arm movement at 45 degrees](validation/v076-joint-movement.jpg)
+
+![Published v0.7.6 Make step after accepting four joints](validation/v076-make-step.jpg)
 
 ## v0.7.5 continuation checks
 
