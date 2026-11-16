@@ -1,6 +1,6 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual, component-based Chinese shadow-puppet design prototype. Students develop a story, design a character, rehearse movement, and export templates for a physical prototype.
+A bilingual, component-based Chinese shadow-puppet design prototype. Students start with an unnamed, plain puppet and follow **Shape → Style → Test → Make**. Story is optional and begins empty.
 
 ## Run locally
 
@@ -12,31 +12,33 @@ Requires Node.js 22 or newer. There are no npm dependencies.
 npm start
 ```
 
-Open `http://127.0.0.1:4237`. The default AI transport reuses the protected Kimi-hosted endpoint from `zhinii/bnta-robotics/six-axis-agent/agent.mjs`:
+Open `http://127.0.0.1:4237`. The AI transport preserves the dedicated protected Kimi puppet endpoint configured in the repository:
 
-`https://s52xzsn2ztf64.kimi.site/api/chat`
+`https://6ilmssim2bz2s.kimi.site/api/puppet`
 
 The host is Kimi Sites; this URL alone does **not** identify the underlying model provider. The request retains the six-axis client's OpenAI-compatible envelope and Qwen model hint. The hosted relay remains authoritative about the model and secret it uses.
 
-The same-origin `/api/puppet` adapter forwards requests to that relay without copying its API key. GitHub Pages serves the repository-root entry page and uses the original relay from the browser. If the Kimi host rejects the new origin or pins robot-only instructions, update its source as explained in [integration/KIMI-RELAY.md](integration/KIMI-RELAY.md). This repository cannot publish changes to Kimi itself.
+The same-origin `/api/puppet` adapter forwards requests to that relay without copying its API key. GitHub Pages serves the repository-root entry page and uses the protected puppet relay from the browser. If the Kimi host rejects the new origin or pins robot-only instructions, update its source as explained in [integration/KIMI-RELAY.md](integration/KIMI-RELAY.md). This repository cannot publish changes to Kimi itself.
 
 For a separate server-side Qwen connection, copy `.env.example` to `.env` and set `ALIBABA_API_KEY`, `ALIBABA_BASE_URL`, and `ALIBABA_MODEL`. Supported aliases are `QIANWEN_API_KEY` and `DASHSCOPE_API_KEY`. Never place credentials in `public/`, JSON project files, GitHub, or hosting manifests.
 
 ## Implemented
 
 - English / Chinese interface, responsive student workspace.
-- Shared story editor with AI draft and character-extraction proposals.
-- Up to 12 characters; storyteller, courier and inventor starting designs.
+- Optional empty project story, AI drafts based on a student-supplied idea, and individually accepted character suggestions.
+- Up to 12 puppets, each starting as a plain, unnamed connected template. No seeded story or characters.
 - Ten separately editable body parts with nine hierarchical connections.
-- Appearance controls: clothing, hair/headwear, palette, decorative pattern.
-- Per-part width, length, angle and AI shape lock.
+- Visual choices for hair, face shape, costume and pattern; age-related facial details and colors. Gender is explicitly descriptive metadata, not an automatic visual preset.
+- Per-part width, length and angle; independent garment sleeve width, sleeve length and hem length. Feature locks protect face, body, costume and props from AI.
 - Freehand decoration on a selected part; clipped to its outline.
 - Five prop types, attachment choice, drag positioning, size and rotation.
-- AI design proposals rendered before acceptance; undo / redo.
+- Optional AI assistant with Before / Proposed previews, normalized per-field change checkboxes, no-op detection, local lock enforcement and stale-proposal rejection; undo / redo.
 - Wave, walk and reading previews, plus custom joint angles.
-- Browser autosave, project JSON import/export, last 12 named revision snapshots.
+- Browser autosave, project JSON import/export, last 12 revision snapshots in a Versions drawer.
 - Transparent PNG, complete SVG, scaled A4 parts sheets, separate props and an assembly guide. Browser Print can save the multipage pack as PDF.
 - Request size limits, bounded upstream destination, timeouts, per-process request throttles, schema normalization, safe SVG output.
+
+Existing saved projects are preserved. Use **New project** to start a blank design; Undo can restore the preceding project. Downloads transfer projects between devices. Costume edits retain bone lengths and joint positions; short sleeves and hems preserve the joint connection areas. Oversized A4 pieces are flagged before print/export, with a suggested smaller height.
 
 ## Scope and limitations
 

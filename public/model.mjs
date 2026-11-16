@@ -20,19 +20,20 @@ export const num=(v,min,max,fallback)=>Number.isFinite(Number(v))?Math.min(max,M
 export const color=(v,fallback='#b94731')=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v:fallback;
 export const textValue=(v,max=1000)=>typeof v==='string'?v.slice(0,max):'';
 const pick=(v,values,fallback)=>values.includes(v)?v:fallback;
-export function createCharacter(template='scholar'){
- const spec={scholar:{name:'柳青 · Liu Qing',role:'A curious storyteller / 好奇的说书人',hair:'bun',clothing:'robe',pattern:'floral',palette:'vermilion'},courier:{name:'小刘 · Xiao Liu',role:'A helpful courier / 热心的快递员',hair:'cap',clothing:'jacket',pattern:'geometric',palette:'jade'},explorer:{name:'小明 · Xiaoming',role:'A young inventor / 小小发明家',hair:'short',clothing:'tunic',pattern:'cloud',palette:'indigo'}}[template]||{};
- const [primary,secondary,accent]=PALETTES[spec.palette||'vermilion'];
- return {id:uid(),name:spec.name||'New character',role:spec.role||'',age:'adult',gender:'unspecified',brief:'',action:'Raise one hand to greet a neighbour. / 举手向邻居问好。',hair:spec.hair||'bun',clothing:spec.clothing||'robe',pattern:spec.pattern||'floral',primary,secondary,accent,skin:'#e9b978',hairColor:'#263c35',parts:Object.fromEntries(PARTS.map(p=>[p.id,{width:1,length:1,angle:0,locked:false,strokes:[]}])),accessories:[],reflection:''};
+export function createCharacter(){
+ return {id:uid(),name:'',role:'',age:'adult',gender:'unspecified',brief:'',action:'',hair:'none',clothing:'base',pattern:'plain',faceShape:'neutral',primary:'#d2c8b6',secondary:'#beb5a6',accent:'#8b8172',skin:'#ded5c4',hairColor:'#4d5049',garment:{sleeveWidth:1,sleeveLength:1,hemLength:1},locks:{face:false,body:false,costume:false,props:false},parts:Object.fromEntries(PARTS.map(p=>[p.id,{width:1,length:1,angle:0,locked:false,strokes:[]}])),accessories:[],reflection:''};
 }
-export function createProject(){return {schemaVersion:1,id:uid(),title:'A story in light / 光影里的故事',story:{setting:'Beijing hutongs, spring / 春日的北京胡同',theme:'Unexpected kindness / 不期而遇的善意',script:'',duration:3},characters:[createCharacter()],selected:0,height:280,hole:3,language:'en',revisions:[]};}
+export function createProject(){return {schemaVersion:1,id:uid(),title:'',story:{setting:'',theme:'',script:'',duration:3},characters:[createCharacter()],selected:0,height:280,hole:3,language:'en',revisions:[]};}
 export function normalizeCharacter(raw){
  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('Invalid character');
  const c=createCharacter(); c.id=textValue(raw.id,80)||uid();
  for(const key of ['name','role','brief','action','reflection'])c[key]=textValue(raw[key],key==='name'?100:2000);
- c.name ||= 'Untitled character';
+
  c.age=pick(raw.age,['child','teen','adult','elder'],'adult');c.gender=pick(raw.gender,['female','male','unspecified'],'unspecified');
- c.hair=pick(raw.hair,['bun','short','long','cap'],'bun');c.clothing=pick(raw.clothing,['robe','tunic','jacket'],'robe');c.pattern=pick(raw.pattern,['floral','cloud','geometric','plain'],'floral');
+ c.hair=pick(raw.hair,['none','bun','short','long','cap'],'none');c.clothing=pick(raw.clothing,['base','robe','tunic','jacket'],'base');c.pattern=pick(raw.pattern,['floral','cloud','geometric','plain'],'plain');
+ c.faceShape=pick(raw.faceShape,['neutral','soft','angular'],'neutral');
+ c.garment={sleeveWidth:num(raw.garment?.sleeveWidth,.8,1.6,1),sleeveLength:num(raw.garment?.sleeveLength,.65,1.3,1),hemLength:num(raw.garment?.hemLength,.7,1.35,1)};
+ c.locks=Object.fromEntries(['face','body','costume','props'].map(k=>[k,raw.locks?.[k]===true]));
  for(const key of ['primary','secondary','accent','skin','hairColor'])c[key]=color(raw[key],c[key]);
  for(const id of PART_IDS){const p=raw.parts?.[id]||{};c.parts[id]={width:num(p.width,.65,1.5,1),length:num(p.length,.7,1.3,1),angle:num(p.angle,-150,150,0),locked:p.locked===true,strokes:Array.isArray(p.strokes)?p.strokes.slice(0,40).map(st=>({color:color(st.color,c.accent),points:Array.isArray(st.points)?st.points.slice(0,250).filter(pt=>Array.isArray(pt)&&pt.length===2&&pt.every(Number.isFinite)).map(([x,y])=>[num(x,-100,100,0),num(y,-140,200,0)]):[]})).filter(st=>st.points.length>1):[]};}
  c.accessories=Array.isArray(raw.accessories)?raw.accessories.slice(0,8).map(a=>({id:textValue(a.id,80)||uid(),type:pick(a.type,['fan','letter','lantern','sword','bag'],'letter'),parent:pick(a.parent,PART_IDS,'forearmFront'),x:num(a.x,-180,180,0),y:num(a.y,-180,220,70),scale:num(a.scale,.4,2,1),angle:num(a.angle,-180,180,0),color:color(a.color,c.accent)})):[];
@@ -46,17 +47,41 @@ export function normalizeProject(raw){
  p.revisions=Array.isArray(raw.revisions)?raw.revisions.slice(-12).flatMap(r=>{try{return [{id:textValue(r.id,80)||uid(),date:textValue(r.date,60),note:textValue(r.note,250),character:normalizeCharacter(r.character)}];}catch{return [];}}):[];
  return p;
 }
+const DESIGN_FIELDS=['name','role','brief','action','age','gender','hair','clothing','pattern','faceShape','primary','secondary','accent','skin','hairColor'];
+const FACE_FIELDS=['age','faceShape','hair','skin','hairColor'];
+const COSTUME_FIELDS=['clothing','pattern','primary','secondary','accent'];
 export function applyDesign(c,proposal,selectedPart=null){
  const next=clone(c),patch=proposal?.design;
  if(!patch||typeof patch!=='object'||Array.isArray(patch))throw Error('The assistant returned no valid design.');
- const allowed=['name','role','brief','action','age','gender','hair','clothing','pattern','primary','secondary','accent','skin','hairColor'];
- if(!selectedPart)for(const key of allowed)if(patch[key]!==undefined)next[key]=patch[key];
- for(const id of PART_IDS){if(c.parts[id].locked||(selectedPart&&id!==selectedPart))continue;const delta=patch.parts?.[id];if(delta&&typeof delta==='object')for(const key of ['width','length','angle'])if(delta[key]!==undefined)next.parts[id][key]=delta[key];}
- if(!selectedPart&&Array.isArray(patch.accessories))next.accessories=patch.accessories;
+ const locks=c.locks||{};
+ if(!selectedPart)for(const key of DESIGN_FIELDS){
+  if(locks.face&&FACE_FIELDS.includes(key)||locks.costume&&COSTUME_FIELDS.includes(key))continue;
+  if(patch[key]!==undefined)next[key]=patch[key];
+ }
+ for(const id of PART_IDS){if(c.parts[id].locked||locks.body||(id==='head'&&locks.face)||(selectedPart&&id!==selectedPart))continue;const delta=patch.parts?.[id];if(delta&&typeof delta==='object')for(const key of ['width','length','angle'])if(delta[key]!==undefined)next.parts[id][key]=delta[key];}
+ if(!selectedPart&&!locks.costume&&patch.garment&&typeof patch.garment==='object')for(const k of ['sleeveWidth','sleeveLength','hemLength'])if(patch.garment[k]!==undefined)next.garment[k]=patch.garment[k];
+ if(!selectedPart&&!locks.props&&Array.isArray(patch.accessories))next.accessories=patch.accessories;
  const normalized=normalizeCharacter(next);normalized.id=c.id;
- // Shape locks protect dimensions and joint angles; palette remains character-wide.
- for(const id of PART_IDS)if(c.parts[id].locked){normalized.parts[id]=clone(c.parts[id]);}
+ for(const id of PART_IDS)if(c.parts[id].locked||locks.body||(id==='head'&&locks.face))normalized.parts[id]=clone(c.parts[id]);
  return normalized;
+}
+// Compare normalized, locally permitted values rather than trusting the AI's prose.
+export function designChanges(before,after){
+ const changes=[],add=(path,a,b)=>{if(JSON.stringify(a)!==JSON.stringify(b))changes.push({path,before:a,after:b});};
+ for(const k of DESIGN_FIELDS)add(k,before[k],after[k]);
+ for(const k of ['sleeveWidth','sleeveLength','hemLength'])add('garment.'+k,before.garment[k],after.garment[k]);
+ for(const id of PART_IDS)for(const k of ['width','length','angle'])add('parts.'+id+'.'+k,before.parts[id][k],after.parts[id][k]);
+ const props=x=>x.map(({id,...rest})=>rest);
+ if(JSON.stringify(props(before.accessories))!==JSON.stringify(props(after.accessories)))add('accessories',before.accessories,after.accessories);
+ return changes;
+}
+export function applySelectedChanges(c,proposal,selectedPart,paths){
+ const candidate=applyDesign(c,proposal,selectedPart),patch={};
+ for(const change of designChanges(c,candidate))if(paths.includes(change.path)){
+  const keys=change.path.split('.');let target=patch;
+  for(const k of keys.slice(0,-1))target=target[k]??=( {} );target[keys.at(-1)]=clone(change.after);
+ }
+ return applyDesign(c,{design:patch},selectedPart);
 }
 export function anchors(c,id){
  const p=PARTS.find(p=>p.id===id),v=c.parts[id];
@@ -70,7 +95,7 @@ export function transforms(c,angles={}){
  const out={};for(const p of PARTS){const [x,y]=localAnchor(c,p.id),a=(angles[p.id]??c.parts[p.id].angle)*Math.PI/180;const ca=Math.cos(a),sa=Math.sin(a);if(!p.parent){out[p.id]={x:0,y:0,a};continue;}const parent=out[p.parent],cp=Math.cos(parent.a),sp=Math.sin(parent.a);out[p.id]={x:parent.x+cp*x-sp*y,y:parent.y+sp*x+cp*y,a:parent.a+a};}return out;
 }
 export function pose(name,t=0){if(name==='wave')return {upperArmFront:-115+Math.sin(t*3)*10,forearmFront:-45+Math.sin(t*5)*20,upperArmBack:12,forearmBack:-12,head:Math.sin(t*2)*3};if(name==='walk')return {thighFront:Math.sin(t*3)*25,thighBack:-Math.sin(t*3)*25,shinFront:Math.max(0,Math.sin(t*3))*30,shinBack:Math.max(0,-Math.sin(t*3))*30,upperArmFront:-Math.sin(t*3)*18,upperArmBack:Math.sin(t*3)*18};if(name==='read')return {upperArmFront:-55,forearmFront:-70,upperArmBack:-40,forearmBack:-80,head:12};return {};}
-export function partBounds(c,id){const p=PARTS.find(p=>p.id===id),v=c.parts[id];if(id==='head')return {x:-60*v.width,y:-118*v.length,w:120*v.width,h:128*v.length};if(id==='torso')return {x:-48*v.width,y:-14*v.length,w:96*v.width,h:180*v.length};return {x:-32*v.width,y:-13*v.length,w:72*v.width,h:(p.length+35)*v.length};}
+export function partBounds(c,id){const p=PARTS.find(p=>p.id===id),v=c.parts[id];if(id==='head')return {x:-60*v.width,y:-118*v.length,w:120*v.width,h:128*v.length};if(id==='torso')return {x:-48*v.width,y:-14*v.length,w:96*v.width,h:Math.max(180,170*c.garment.hemLength+14)*v.length};if(id.startsWith('upper'))return {x:-32*c.garment.sleeveWidth*v.width,y:-13*v.length,w:64*c.garment.sleeveWidth*v.width,h:Math.max(p.length+35,p.length*c.garment.sleeveLength+30)*v.length};return {x:-32*v.width,y:-13*v.length,w:72*v.width,h:(p.length+35)*v.length};}
 export function physicalScale(c,height){return height/(115*c.parts.head.length+141*c.parts.torso.length+91*Math.max(c.parts.thighFront.length,c.parts.thighBack.length)+111*Math.max(c.parts.shinFront.length,c.parts.shinBack.length));}
 export function layoutPrint(c,height=280){
  const scale=physicalScale(c,height),pages=[[]];let x=10,y=27,row=0;

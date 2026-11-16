@@ -1,28 +1,17 @@
-# Build validation — 16 November 2026
+# Studio redesign validation — 2026-11-16
 
 ## Passed
 
-- JavaScript syntax checks for application, model, renderer, agent, server adapter and built Worker.
-- 11 automated tests: project round trip; hierarchical joint transforms; shape locks and selected-part edits; untrusted project content; A4 page bounds; relay envelope; truncated/robot-only response rejection; input/origin limits; secret exclusion; protected Kimi forwarding; six-view rendering and character creation using a minimal DOM double.
-- Built Worker in-process smoke test: all six public assets, missing route and API status.
-- Self-contained HTML build parsed successfully.
+- JavaScript syntax checks for app, model, renderer, client and server.
+- 20 automated tests: blank initial state, legacy-project migration, visible age/face edits, independent garments, stable joints, enforced feature/part locks, selective AI acceptance, ignored unsupported edits, printable contours and A4 oversize guard, prop pagination, project round trips, safe imports, response validation and server request protections.
+- UI state tests with a minimal DOM double: Shape, Style, Test, Make, optional Story, My puppets, empty character creation, Before / Proposed review, partial acceptance, saved versions, restore, print and Chinese labels.
+- Generated HTML structure: matched container tags and no duplicate SVG IDs across nine captured states.
+- Dependency-free build, offline combined-source parse and built-server asset/status smoke checks.
 
-## Not verified
+## Verification limits
 
-- Real-browser rendering, pointer/touch interaction, PNG download and print-dialog behavior: browser connection unavailable.
-- Live Kimi inference: the execution environment could not resolve the Kimi hostname. Mocked transport checks do not establish a live connection.
-- Physical material, hole sizes, fasteners, control rods and translucency: require classroom prototyping.
+- Browser connection returned Transport closed, so there is no live visual, touch, keyboard or print-dialog verification in this session. UI state tests are not browser tests.
+- A live request to the configured Kimi puppet endpoint failed with ENOTFOUND (hostname resolution unavailable here). Mocked AI replies establish frontend behavior only. The relay URL already configured on GitHub was preserved.
+- Physical materials, joints, lighting and control rods still need a classroom prototype. Animation does not simulate those properties.
 
-## Deployment status
-
-- The user created the public GitHub repository `zhinii/bnta-shadow-puppet-studio`. Source synchronization uses the authenticated GitHub connector.
-- Root `index.html`, `public/` assets and `.nojekyll` support direct publication from `main` / `(root)`. The custom Pages workflow was removed. The remaining Actions workflow only checks source on pushes and pull requests.
-- A private ChatGPT Site was registered, but no version was published. Git source synchronization failed because the execution environment could not resolve its hosting Git endpoint.
-- The existing robot repository and live Kimi service were not changed. The new studio reuses the robot client's configured Kimi URL and includes a separate puppet adapter for its maintainer if server-side instructions are pinned.
-
-## Continue
-
-1. Extract the archive and open `START-HERE.html` to try the manual studio immediately.
-2. Run `npm start` for the localhost version, or deploy the source when network access is available.
-3. Under repository **Settings > Pages**, choose **Deploy from a branch**, **main**, **/(root)**, then **Save**. Publication still requires this repository setting; the GitHub connector cannot change it.
-4. Test AI in the studio. If the protected relay enforces robot instructions, follow `integration/KIMI-RELAY.md` to add the puppet route while preserving the robot route.
+GitHub Pages continues to serve main / (root), without a custom deployment workflow.
