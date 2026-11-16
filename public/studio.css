@@ -548,3 +548,21 @@ html[lang=zh] .empty-canvas h2 { font-size: 30px; }
 
 /* Keep request progress and recovery beside the action on phones. */
 #create-form > .error-banner, #create-form > .busy-banner, #create-form > .notice-banner { margin-top: 12px; margin-bottom: 0; }
+
+/* A single joint review keeps construction choices next to the puppet. */
+.joint-review > h2 { margin: 0 0 8px; font: 600 24px/1.3 var(--sans); }
+.joint-preview { border: 1px solid var(--line); border-radius: 18px; background: var(--paper); overflow: hidden; }
+.joint-preview svg { display: block; width: 100%; height: clamp(280px, 47dvh, 600px); }
+.joint-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px 24px; margin: 10px 0 16px; font-size: 14px; }
+.joint-legend span { display: inline-flex; align-items: center; gap: 8px; }
+.joint-legend span::before { content: ''; width: 22px; border-top: 3px solid #246b91; }
+.joint-legend .front-layer::before { border-top: 3px dashed #c5542d; }
+.joint-test { max-width: 520px; margin: 0 auto; }
+.joint-test .field { margin-bottom: 4px; }
+.joint-test .fine-print { margin: 0 0 12px; }
+.joint-review > .advanced-controls { margin-top: 12px; }
+.mode-place-joint, .mode-join-pieces { cursor: crosshair; }
+@media (max-width: 599px) {
+  .joint-preview svg { height: clamp(260px, 42dvh, 420px); }
+  .joint-review > h2 { font-size: 22px; }
+}

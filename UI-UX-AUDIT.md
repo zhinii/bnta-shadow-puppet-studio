@@ -1,7 +1,32 @@
 # UI/UX re-audit — simplicity first
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
-## v0.5.1 prompt and counter correction
+## Current v0.6.0 joint revision
+
+The latest feedback identifies two linked problems: placing pivots is difficult, and the student must understand which material lies over and under the joint. The default flow is now **Add a joint → tap where it should bend → Try your joint → Use this joint**. The app chooses a simple narrow cross-section and builds the shared pivot and both overlap tabs. The student reviews the result instead of locating two exact anchors.
+
+| Task | Current simple flow | Optional correction |
+| --- | --- | --- |
+| Make a connected limb bend | Tap once on a narrow limb, neck or tail; inspect the proposed joint | Choose another spot; manual cut line under More editing tools |
+| Connect separate pieces | Choose Join two existing pieces, then tap each piece once | Manual two-anchor placement under More editing tools |
+| Understand the overlapping material | Solid blue back-tab outline, dashed orange front-tab outline, one shared hole | Swap front / back under Adjust joint |
+| Check motion | Move the review slider through the proposed range | Accept keeps the original resting pose; Keep original discards the proposal |
+| Assemble | Keep both printed overlap tabs; use the labelled Back/Front order and matching hole numbers | Test a paper fastener loosely enough for rotation |
+
+This reduces precision work while retaining the student's choice of bend location and acceptance. It does not identify anatomy automatically. Failed narrow-section searches leave the design unchanged and offer a new location or manual construction. Added tabs supply physical material, not reconstructed artwork from behind a sleeve or limb. Numeric defaults are paper-prototype heuristics, not universal material standards.
+
+**Verification status:** v0.6.0 passes 186 automated tests, including 26 workflow tests, plus syntax, production build and Worker smoke checks. Current browser observations remain pending. The historical records below do not establish current phone layout, real touch accuracy or physical assembly. The review must still be checked at 390 px, with keyboard/touch and a printed prototype.
+
+Additional acceptance checks for this revision:
+
+- A student can create the first joint with one canvas tap after choosing Add a joint.
+- Both overlapping material layers remain distinguishable around the shared hole, including when the two tab boundaries coincide.
+- The motion slider tests a temporary preview; accepting does not accidentally save the test angle.
+- Front/back swapping agrees with the assembled artwork and printed connection guide.
+- Failed suggestions explain the next action without requiring the student to understand anchors, graph direction or polygon intersections.
+- Manual cut lines, precise anchors and numerical settings stay outside the default task.
+
+## Previous v0.5.1 prompt and counter correction
 
 The panda screenshot exposed an oversized generation request: 37 characters of student text became 1,335 after internal instructions. The legacy image adapter now uses the classic client's 800-character complete-prompt budget, preserves student text and selected settings, and adds compact guidance only if it fits. The optional v2/text route still accepts 4,000 characters. Oversized required content is rejected locally; raw service codes become readable English/Chinese messages.
 
@@ -44,7 +69,7 @@ The new three-screen concept board is a design target, not a live screenshot or 
 - Fresh-session behavior remains: no automatic project save/restore, with explicit Download/Open.
 - Test the complete journey in a real browser, on a phone/tablet, and with one printed paper prototype. Source-level and simulated-event checks remain supporting evidence.
 
-## Implementation status
+## Previous v0.5 implementation status
 The v0.5 interface is implemented. Only Create, Refine and Make remain in the main navigation. View tools, the full parts list, piece properties, AI revision and advanced construction tools are closed by default. Refine has a dominant canvas and a compact selected-piece panel; the four-substep rail and canvas counts/dimensions are removed. Review offers a large result, optional original comparison and one Use/Apply action. Make places height and optional material/file settings before Print. Project holds explicit Download/Open, fresh-session information and AI connection settings.
 
 The default image path now isolates the largest connected foreground region as a proposal, instead of converting every detached mark into a puppet piece. Students can pick another character or retain a separate prop. Original pixels remain available, any locked part blocks rebuilding, replacement of existing pieces/joints/rods is disclosed before acceptance, and Undo restores the prior construction. Selection keeps original coordinates and refuses silent truncation. Touching decoration is still attached; opaque framed backgrounds may require manual tracing. This is connected-region selection, not anatomical recognition.
@@ -59,7 +84,7 @@ The browser connection remains unavailable. The concept board is not a screensho
 ## Previous v0.4 implementation record
 
 
-## Current release
+## Historical v0.4 release
 
 The interface has been revised around the supplied Create and Refine concepts. It keeps the warm visual style and three core processes: **Create → Refine → Make**. Construction is now guided within Refine, the canvas is the main workspace, and design proposals use a large review view with visible decisions.
 
@@ -92,7 +117,7 @@ These changes do not establish complete accessibility conformance. Modal navigat
 
 ## Workflow evidence and limits
 
-The current release passes **158 automated tests**, including **19 event-workflow tests**. These include fresh-session lifecycle, explicit file round-trips, AI reset races, review isolation and editing/navigation regressions. See [VALIDATION.md](VALIDATION.md) for the verification details.
+That v0.4 release passed **158 automated tests**, including **19 event-workflow tests**. These include fresh-session lifecycle, explicit file round-trips, AI reset races, review isolation and editing/navigation regressions. See [VALIDATION.md](VALIDATION.md) for the verification details.
 
 The workflow under test is generation → review/accept → local extraction → split and hinge → control rod → manual and natural-language parameters → pose → artwork/cut SVG and calibrated print HTML → download → fresh session → explicit file import. Rejection, undo/redo, locks and failure handling are also covered. Provider responses and the DOM/canvas are simulated in event-workflow tests.
 

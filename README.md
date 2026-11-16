@@ -1,13 +1,13 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.6.0**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
 [Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/)
 
 ## Design your own character
 
 1. **Create:** describe your own historical, modern, fictional or real-world character and choose **Create character**. Optional style fields and construction templates stay under **Choose a style or starting shape**. You can also upload PNG/JPEG/WebP artwork.
-2. **Refine:** choose **Remove extras**, review the proposed character, then **Add movement**. Tap two points across a knee, elbow, neck or another narrow section, preview the joint, and accept it. A compact angle control lets you try the movement. Add another joint if needed.
+2. **Refine:** choose **Remove extras** and review the character. Choose **Add a joint**, then tap once where a narrow limb, neck or tail should bend. In **Try your joint**, move the slider to inspect the overlap, then choose **Use this joint**. Add another joint only if needed.
 3. **Make:** set the **print height**, check the geometry, and choose **Print puppet**. Material settings and SVG exports are under **Materials & file options**.
 
 The canvas presents one next action at a time. The default review shows the result; **Compare with original** switches to the original, and **Show result** returns to the proposal. Accept or keep the original before continuing. There is no required four-step Refine submenu or default three-way comparison.
@@ -29,18 +29,30 @@ Review the result before accepting:
 - Use **Compare with original** to check that limbs, costume details and requested props remain.
 - Accept only after the selection is complete. Rebuilding an existing character replaces its pieces, joints and rod points; this is disclosed in the review and can be undone. Locked pieces must be unlocked before rebuilding.
 
-Accepting the selection creates editable cut outlines. A connected figure may still be one piece; the tool does not identify anatomical limbs or reconstruct hidden artwork. **Add movement** starts the two-point split tool. The cut must cross one narrow section twice. Review the resulting two pieces, their shared pivot and reinforcement tabs before accepting. Cuts producing multiple disconnected fragments are rejected. Try the selected joint's angle, then use **Add another joint** or continue to Make.
+Accepting the selection creates editable cut outlines. A connected figure may still be one piece; the tool does not identify anatomical limbs or reconstruct hidden artwork.
+
+**Add a joint → tap where it should bend → Try your joint → Use this joint** is the default movement flow. The app looks for a simple, narrow cross-section near the tap and proposes a cut, a shared pivot, and rounded overlap material on **both** pieces. The moving piece starts in front of the retained piece. In review, a solid blue outline marks the back tab and a dashed orange outline marks the front tab. Both pieces have matching holes through the same pivot.
+
+Move the review slider to test the proposed range before accepting. This test changes only the preview; **Use this joint** retains the proposal's original resting pose. **Adjust joint** offers **Swap front / back** and **Choose another spot**. Broad sections, disconnected fragments, fragile slivers or nearby existing pins may prevent a proposal; try a narrower section or the optional manual tools.
+
+For already separate pieces, choose **Join two existing pieces**, then tap each piece once. The app proposes matching anchors from the geometry and opens the same joint review. You do not have to place two precise pivot points. The suggested join still needs visual review; it does not infer anatomy or intended motion.
+
+Both overlap tabs are united with their own piece's outer cut boundary, so cutting does not detach the tabs. The print guide labels the back and front pieces at each connection. Keep both tabs, punch the matching holes, and pass one paper fastener through the layers loosely enough for movement. Existing artwork stays intact; these added material tabs do not reconstruct hidden image content.
 
 ## Optional editing tools
 
 The simple flow leaves detailed controls collapsed:
 
 - **Adjust this piece:** rename or lock it, change Width and Length, edit its outline, choose artwork, change layers, or adjust joint settings. Width/length changes stretch the image, boundary and anchors together; attached pieces follow without stretching. **Set direction on the piece** defines the length axis for diagonal limbs. It preserves the current shape and resets percentages to 100%.
-- **More editing tools:** manually choose a character, find all detected shapes, select a color region, remove a plain background, draw a piece, join two pieces, or add a control rod. Detected shapes can include lettering and decoration; keep only what you need. A suggested connection uses proximity, not anatomical recognition.
+- **More editing tools:** manually choose a character, find all detected shapes, select a color region, remove a plain background, draw a piece, draw a two-point cut line, place two joint anchors manually, or add a control rod. Detected shapes can include lettering and decoration; keep only what you need. Manual tools remain available when the simple joint suggestion does not fit.
 - **Ask AI for a change:** request a selected-piece geometry revision and review it before applying. New costume details or hidden surfaces require image editing or new artwork, not a numeric size change.
 - **View tools:** Artwork/Shadow, joint/reference visibility, zoom, Fit, pan and Redo. Outline points support keyboard adjustment as well as dragging.
 
 Adding, splitting, resizing or deleting pieces preserves the physical scale of other pieces. Changing the print height deliberately scales the whole puppet.
+
+The joint defaults are starting points for a paper prototype, not universal material standards. The one-tap proposal uses a ±60° trial range and an overlap radius based on the pin-hole radius plus the larger of 2 mm or twice the selected material thickness. Material settings and advanced joint controls can be adjusted, but the on-screen range does not establish collision-free or mechanically safe movement.
+
+The design principles follow classroom fabrication guidance: the [Natural History Museum of Los Angeles County](https://nhm.org/learning-resource/make-your-own-dinosaur-shadow-puppet) describes overlapping moving limbs, holes/fasteners and control rods; the [Pitt Rivers Museum activity](https://www.prm.ox.ac.uk/sites/default/files/prm/documents/media/shadow_puppets.pdf) reinforces joint ends and leaves paper fasteners loose enough to move. The app's numeric defaults are implementation choices, not dimensions prescribed by those resources.
 
 The original image cannot supply artwork hidden behind a sleeve or arm. Extend or reconstruct these areas deliberately. Backing color affects tabs and uncovered areas rather than the image pixels. Background cleanup can affect similar-colored clothing touching the background. Interior transparent details remain artwork and are not automatically exported as internal cutouts. Local tools preserve concave outlines and reject boundaries they cannot simplify safely.
 
@@ -101,7 +113,7 @@ The build creates a dependency-free Worker at `dist/server/index.js`, a portable
 | `public/studio-model.mjs` | Arbitrary geometry, transforms, locks and fabrication checks |
 | `public/studio-parametric.mjs` | Width, length, axis and physical-scale controls |
 | `public/studio-image-tools.mjs` | Local background cleanup, region selection and outline extraction |
-| `public/studio-construction.mjs` | Piece splitting and proposed pivot connections |
+| `public/studio-construction.mjs` | One-tap joint suggestions, piece splitting and proposed pivot connections |
 | `public/studio-render.mjs` | Clipped artwork, united contours, precise holes and print packs |
 | `public/studio-ai.mjs` | Exact prompt transport, capability checks, selected-piece scope, validation and one repair |
 | `public/studio-storage.mjs` | Portable project files, image import and cleanup of former session snapshots |

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createStudioProject,makePart,addConnection,normalizeStudioProject,partTransforms,transformPoint,polygonArea,unitsPerMm,validateStudio} from '../public/studio-model.mjs';
-import {splitPart,suggestConnection} from '../public/studio-construction.mjs';
+import {createStudioProject,makePart,addConnection,normalizeStudioProject,partTransforms,transformPoint,polygonArea,unitsPerMm,validateStudio,jointGeometry,pointInPolygon,selfIntersects} from '../public/studio-model.mjs';
+import {splitPart,suggestConnection,suggestJointAt} from '../public/studio-construction.mjs';
 
 const rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} != ${b}`);
@@ -96,4 +96,78 @@ test('small traced components below 50 mm retain their physical scale when split
  const separate=splitPart(p,'sleeve',[-20,100],[120,100],{connect:false});
  const connected=suggestConnection(separate.project,...separate.partIds);
  near(unitsPerMm(connected.project),scale);assert.ok(connected.project.heightMm<50);
+});
+
+test('one tap selects the short cross-section and retains the larger body without changing pixels or scale',()=>{
+ const p=sheet(rect(0,0,24,120));p.heightMm=120;p.parts[0].artworkMatrix=[1.2,0,0,1.1,-5,8];
+ const original=JSON.stringify(p),result=suggestJointAt(p,'sleeve',[12,85]),body=result.project.parts.find(p=>p.id==='sleeve'),moving=result.project.parts.find(p=>p.id===result.partIds[1]);
+ near(result.angleDegrees,0);assert.deepEqual(result.pivot,[12,85]);
+ assert.ok(Math.abs(polygonArea(body.polygon))>Math.abs(polygonArea(moving.polygon)));
+ assert.ok(pointInPolygon([12,10],body.polygon));assert.ok(pointInPolygon([12,110],moving.polygon));
+ assert.equal(result.project.assets[0].dataUrl,p.assets[0].dataUrl);
+ for(const part of result.project.parts)assert.deepEqual(part.artworkMatrix,p.parts[0].artworkMatrix);
+ near(unitsPerMm(result.project),unitsPerMm(p));assert.equal(JSON.stringify(p),original);
+ assert.ok(moving.z>body.z);assert.equal(validateStudio(result.project).filter(x=>x.level==='error').length,0);
+});
+
+test('an arbitrary animal silhouette splits at the tapped narrow leg without cutting the body',()=>{
+ const outline=[[0,0],[120,0],[120,60],[100,60],[100,160],[80,160],[80,60],[0,60]],p=sheet(outline);p.heightMm=160;
+ const result=suggestJointAt(p,'sleeve',[90,110]),joint=result.project.joints.find(j=>j.id===result.jointId);
+ assert.deepEqual(result.pivot,[90,110]);assert.equal(joint.type,'pivot');assert.equal(joint.min,-60);assert.equal(joint.max,60);
+ assert.ok(pointInPolygon([20,20],result.project.parts[0].polygon));
+ assert.ok(result.project.parts.every(p=>!selfIntersects(p.polygon)));
+ near(result.project.parts.reduce((sum,p)=>sum+Math.abs(polygonArea(p.polygon)),0),Math.abs(polygonArea(outline)));
+ assert.equal(validateStudio(result.project).filter(x=>x.level==='error').length,0);
+});
+
+test('both cut pieces receive real positive overlap around the same pin throughout the preview range',()=>{
+ const p=sheet(rect(0,0,24,120));p.heightMm=120;p.materialMm=1.5;
+ const result=suggestJointAt(p,'sleeve',[12,85]),joint=result.project.joints.find(j=>j.id===result.jointId),geometry=jointGeometry(result.project,joint);
+ assert.equal(geometry.sides.length,2);near(geometry.padRadius-geometry.holeRadius,3*unitsPerMm(p));
+ assert.deepEqual(joint.parentAnchor,joint.childAnchor);
+ for(const side of geometry.sides){
+  const part=result.project.parts.find(p=>p.id===side.partId);
+  assert.ok(pointInPolygon(side.anchor,part.polygon));
+  // Each circular tab crosses the new boundary into the other piece's side.
+  const radius=geometry.padRadius*.75;
+  assert.ok([[side.anchor[0],side.anchor[1]-radius],[side.anchor[0],side.anchor[1]+radius]].some(point=>!pointInPolygon(point,part.polygon)));
+ }
+ for(const angle of [-60,-30,0,30,60]){
+  joint.angle=angle;const transforms=partTransforms(result.project),a=transformPoint(transforms[joint.parentId],joint.parentAnchor),b=transformPoint(transforms[joint.childId],joint.childAnchor);
+  near(a[0],b[0]);near(a[1],b[1]);
+ }
+});
+
+test('a posed chain preserves the incoming side, descendants, control rods and locked artwork',()=>{
+ const p=chain();p.parts.find(p=>p.id==='hand').locked=true;
+ const before=partTransforms(p),hand=structuredClone(p.parts.find(p=>p.id==='hand')),result=suggestJointAt(p,'sleeve',[50,65]),after=partTransforms(result.project),newId=result.partIds[1];
+ assert.equal(result.project.joints.find(j=>j.id==='shoulder').childId,'sleeve');
+ assert.equal(result.project.joints.find(j=>j.id==='wrist').parentId,newId);assert.equal(result.project.rods[0].partId,newId);
+ // Incoming attachment wins over the larger-area heuristic for connected parts.
+ assert.ok(Math.abs(polygonArea(result.project.parts.find(p=>p.id==='sleeve').polygon))<Math.abs(polygonArea(result.project.parts.find(p=>p.id===newId).polygon)));
+ sameMatrix(before.sleeve,after.sleeve);sameMatrix(before.sleeve,after[newId]);sameMatrix(before.hand,after.hand);
+ assert.deepEqual(result.project.parts.find(p=>p.id==='hand'),hand);near(unitsPerMm(result.project),unitsPerMm(p));
+});
+
+test('joint suggestions reject broad body cuts, locked pieces, outside taps and nearby existing pins',()=>{
+ const broad=sheet(rect(0,0,100,100));broad.heightMm=100;
+ assert.throws(()=>suggestJointAt(broad,'sleeve',[50,50]),{code:'JOINT_SECTION_TOO_BROAD'});
+ const narrow=sheet(rect(0,0,24,120));narrow.heightMm=120;
+ assert.throws(()=>suggestJointAt(narrow,'sleeve',[40,85]),{code:'INVALID_JOINT_POINT'});
+ narrow.parts[0].locked=true;assert.throws(()=>suggestJointAt(narrow,'sleeve',[12,85]),{code:'LOCKED_PART'});narrow.parts[0].locked=false;
+ const result=suggestJointAt(narrow,'sleeve',[12,85]);
+ assert.throws(()=>suggestJointAt(result.project,'sleeve',[12,83]),{code:'JOINT_TOO_CLOSE'});
+ assert.throws(()=>suggestJointAt(narrow,'sleeve',[12,85],{angleDegrees:NaN}),{code:'INVALID_CUT'});
+});
+
+test('an explicit angle makes a reviewable adjusted cut while complex multi-crossing directions reject',()=>{
+ const p=sheet(rect(0,0,24,120));p.heightMm=120;
+ const result=suggestJointAt(p,'sleeve',[12,85],{angleDegrees:15});near(result.angleDegrees,15);
+ const [a,b]=result.cutLine;near((b[1]-a[1])/(b[0]-a[0]),Math.tan(Math.PI/12));
+ near(result.pivot[0],12);near(result.pivot[1],85);
+ const u=sheet([[0,0],[100,0],[100,100],[70,100],[70,30],[30,30],[30,100],[0,100]]);u.heightMm=100;
+ assert.throws(()=>suggestJointAt(u,'sleeve',[15,60],{angleDegrees:0}),{code:'NO_JOINT_SECTION'});
+ // A valid diagonal can separate that limb without bridging across the gap.
+ const diagonal=suggestJointAt(u,'sleeve',[15,60],{angleDegrees:45});
+ assert.ok(diagonal.project.parts.every(p=>!selfIntersects(p.polygon)));assert.equal(validateStudio(diagonal.project).filter(x=>x.level==='error').length,0);
 });

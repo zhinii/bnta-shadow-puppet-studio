@@ -85,6 +85,68 @@ export function splitPart(project,partId,lineStart,lineEnd,{connect=true,type='p
  return {project:normalized,partIds:[partId,newId],jointId,warnings};
 }
 
+/**
+ * Turn a tap on a narrow section into a reviewable pin joint. This is a local
+ * geometric suggestion, not anatomical recognition. Only a single straight
+ * section with two boundary crossings is accepted, so no disconnected islands
+ * or hidden artwork are invented. angleDegrees fixes the cut direction for a
+ * student's adjustment; without it the shortest suitable direction is chosen.
+ */
+export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
+ const before=normalizeStudioProject(project),part=before.parts.find(p=>p.id===partId);
+ if(!part)fail('Select an existing part.','PART_NOT_FOUND');
+ if(part.locked)fail('Unlock this part before adding movement.','LOCKED_PART');
+ if(!validPoint(localPoint)||!pointInPolygon(localPoint,part.polygon))fail('Tap inside the part where you want it to bend.','INVALID_JOINT_POINT');
+ if(angleDegrees!==undefined&&(typeof angleDegrees!=='number'||!Number.isFinite(angleDegrees)))fail('Choose a finite cut angle.','INVALID_CUT');
+ if(selfIntersects(part.polygon))fail('Repair this outline before adding movement.','INVALID_CUT');
+ const mm=unitsPerMm(before),webMm=Math.max(2,before.materialMm*2),padRadius=(before.holeMm/2+webMm)*mm;
+ if(padRadius>300)fail('This image needs a larger print size before adding a joint.','JOINT_SIZE_LIMIT');
+ const xs=part.polygon.map(p=>p[0]),ys=part.polygon.map(p=>p[1]),longest=Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys));
+ // Classroom paper-prototype defaults, not a material-strength certification.
+ const maxWidth=Math.min(60*mm,longest*.65),minArea=Math.PI*padRadius*padRadius,maxSnap=Math.max(8*mm,padRadius*1.5);
+ const nearbyPins=before.joints.filter(j=>j.parentId===partId||j.childId===partId).map(j=>j.parentId===partId?j.parentAnchor:j.childAnchor);
+ const minPinSpacing=(before.holeMm+webMm)*mm;
+ if(nearbyPins.some(p=>distance(p,localPoint)<minPinSpacing))fail('There is already a joint here. Tap farther along the part.','JOINT_TOO_CLOSE');
+ const angles=angleDegrees===undefined?Array.from({length:36},(_,i)=>i*5):[((angleDegrees%180)+180)%180];
+ const candidates=[];let broad=false,nearPin=false;
+ for(const angle of angles){
+  const radians=angle*Math.PI/180,a=localPoint,b=[a[0]+Math.cos(radians),a[1]+Math.sin(radians)];
+  let hits;try{hits=cutIntersections(part.polygon,a,b);}catch(error){if(error.code==='CUT_ON_EDGE')continue;throw error;}
+  if(hits.length!==2)continue;
+  const positive=clipHalf(part.polygon,a,b,1),negative=clipHalf(part.polygon,a,b,-1);
+  if([positive,negative].some(points=>points.length<3||points.length>512||selfIntersects(points)||Math.abs(polygonArea(points))<minArea))continue;
+  const pivot=[(hits[0][0]+hits[1][0])/2,(hits[0][1]+hits[1][1])/2],width=distance(...hits),snap=distance(pivot,localPoint);
+  if(snap>maxSnap)continue;
+  if(width>maxWidth){broad=true;continue;}
+  if(nearbyPins.some(p=>distance(p,pivot)<minPinSpacing)){nearPin=true;continue;}
+  candidates.push({hits,pivot,angle,score:width+snap*2,positiveArea:Math.abs(polygonArea(positive)),negativeArea:Math.abs(polygonArea(negative)),a,b});
+ }
+ candidates.sort((a,b)=>a.score-b.score||a.angle-b.angle);
+ const best=candidates[0];
+ if(!best){
+  if(nearPin)fail('This would put two joints too close together. Tap farther along the part.','JOINT_TOO_CLOSE');
+  if(broad)fail('This section is too broad for a suggested bend. Tap a narrower limb, neck or tail, or use the manual split tool.','JOINT_SECTION_TOO_BROAD');
+  fail('No simple bend fits here. Tap nearer the middle of a narrow section, adjust the cut angle, or use the manual split tool.','NO_JOINT_SECTION');
+ }
+ // Preserve the larger body as the original part. splitPart additionally keeps
+ // the incoming parent on that original ID when the part is already connected.
+ let lineStart=best.a,lineEnd=best.b;
+ if(best.negativeArea>best.positiveArea)[lineStart,lineEnd]=[lineEnd,lineStart];
+ // Use boundary coordinates for splitPart's finite-coordinate input guard.
+ let cutLine=best.hits.map(p=>[...p]);
+ if((cutLine[1][0]-cutLine[0][0])*(lineEnd[0]-lineStart[0])+(cutLine[1][1]-cutLine[0][1])*(lineEnd[1]-lineStart[1])<0)cutLine.reverse();
+ const result=splitPart(before,partId,...cutLine),p=result.project,joint=p.joints.find(j=>j.id===result.jointId),child=p.parts.find(p=>p.id===result.partIds[1]);
+ joint.padRadius=padRadius;joint.min=-60;joint.max=60;
+ // Place the moving piece immediately over the retained body without changing
+ // existing layers. At the maximum layer, insertion order is the tie breaker.
+ const nextLayer=Math.min(...p.parts.filter(p=>p.id!==child.id&&p.z>part.z).map(p=>p.z));
+ child.z=Number.isFinite(nextLayer)?(part.z+nextLayer)/2:Math.min(1000,part.z+1);
+ restorePhysicalScale(p,mm);
+ const normalized=normalizeStudioProject(p);ensureLockedUnchanged(before,normalized);ensureGeometry(normalized);
+ const warnings=[...result.warnings,before.language==='zh'?'已在两片上添加同心重叠片和销孔。前片位于后片之上；请先用废纸试装并检查转动。':'Both pieces have matching overlap tabs and pin holes. The moving piece sits in front; test the overlap and movement with scrap paper.'];
+ return {...result,project:normalized,cutLine,pivot:[...best.pivot],angleDegrees:best.angle,warnings};
+}
+
 const nearestOnSegment=(p,a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],length=dx*dx+dy*dy,t=length?Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/length)):0;return [a[0]+t*dx,a[1]+t*dy];};
 function segmentIntersection(a,b,c,d){
  const ab=[b[0]-a[0],b[1]-a[1]],cd=[d[0]-c[0],d[1]-c[1]],delta=[c[0]-a[0],c[1]-a[1]],den=ab[0]*cd[1]-ab[1]*cd[0];

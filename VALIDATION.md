@@ -1,8 +1,18 @@
 # Validation · 16 November 2026
 
-## Automated checks
+## v0.6.0 joint workflow verification
 
-**Current release verification: 173 automated tests pass, including 22 workflow tests.** Syntax checks, production build and Worker smoke checks pass with 19 public assets. Reproduce with npm run check, npm test, npm run build, and node scripts/smoke.mjs.
+The current change replaces the default two-point cut with **Add a joint → tap once → Try your joint → Use this joint**. A local geometric search proposes a narrow cut, a shared pivot, reinforced overlap on both pieces and an initial front/back order. Joining existing pieces takes one tap on each piece and proposes their anchors automatically. Manual two-point cuts and two-anchor placement remain advanced tools.
+
+Joint review distinguishes the back tab with a solid blue outline and the front tab with a dashed orange outline. Its range slider changes a preview copy; accepting a joint retains the original resting pose. Front/back swapping is explicit. Both printed pieces retain their actual unioned material tabs and matching circular holes; guide annotations are not extra cut lines. The assembly guide names Back and Front for every connection and explains aligned holes and loosely fastened paper pins.
+
+Focused renderer checks passed for material extending across both sides of a split, identical reinforced contours in stage/artwork/print outputs, matching pivot centres through rotation, deterministic layer order, and review annotations excluded from exports. **The integrated v0.6.0 run passes 186 automated tests, including 26 workflow tests. Syntax checks, the production build and Worker smoke checks also pass.** Current browser observations remain pending. No new live image-generation result, phone/tablet usability result, physical prototype or print-dialog result is claimed here.
+
+The search is geometric, not anatomical. It rejects unsuitable sections instead of inventing disconnected pieces. Numeric limits and clearances are paper-prototype heuristics, not certified material standards. Original artwork is retained; hidden surfaces are not reconstructed. Motion preview remains planar and does not test collision, stiffness, fastener thickness or rod control.
+
+## Previous v0.5.1 automated checks
+
+**Recorded v0.5.1 verification: 173 automated tests passed, including 22 workflow tests.** Syntax checks, production build and Worker smoke checks passed with 19 public assets. Reproduce with npm run check, npm test, npm run build, and node scripts/smoke.mjs.
 
 Coverage includes arbitrary image-backed polygons; branched and chained connections; exact pivot coincidence under rotation; physical scale independent of pose; pin holes and united overlap tabs; invalid outlines and overlapping holes; locked parts and their ancestors; selected-piece AI edits; exact custom prompts; malformed, truncated and advice-only responses; one bounded AI repair; protected multimodal payloads; image retrieval and visual comparison; origin/request limits; secret exclusion; portable image round-trips; and the three-stage UI event workflow. Legacy IndexedDB transaction utility tests remain, but the application no longer saves projects through those utilities.
 
@@ -24,7 +34,7 @@ Create now uses the applicable input limit, always shows a live character count 
 
 A network attempt to verify the panda timed out before any HTTP response. No fresh image was returned or assessed. Earlier successful generation trials below remain historical evidence; they do not demonstrate that the 0.5.1 payload or UI has passed a live generation check.
 
-## Current interface and fresh-session revision
+## Previous v0.5 interface and fresh-session revision
 
 The v0.5 implementation keeps **Create → Refine → Make** and replaces the required four-substep Refine navigation with one next action. **Remove extras** proposes the largest connected foreground region after plain-background cleanup. Review can keep additional separate pieces/props or select a different main region. The default review shows the result with an original/result toggle and a clear accept/keep-original choice; a three-way comparison is no longer the default.
 
@@ -71,7 +81,7 @@ The initial local image-tools release made no live generation requests. The late
 
 ## Remaining verification
 
-- Earlier browser-control attempts returned `Transport closed`. During the current audit, both browser control and the native computer connection were unavailable. Actual layout, touch/keyboard interactions, focus behavior and print dialogs still need browser verification. No live-browser or screenshot-based QA is claimed.
+- Earlier browser-control attempts returned `Transport closed`, and the previous audit could not establish rendered usability. Current v0.6.0 browser observations are pending. Actual phone/tablet interactions, focus behavior and print dialogs remain separate checks; source tests do not establish them.
 - Physical material strength, hole clearance, layered movement, light transmission and rod control require a prototype with the chosen material.
 - Add and verify vision/image-editing capabilities separately. Test automatic image critique and selected-region revisions before advertising them. See `integration/IMAGE-HANDOFF.md` and `integration/STUDIO-V2-RELAY.md`.
 

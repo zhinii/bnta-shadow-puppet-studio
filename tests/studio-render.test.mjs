@@ -78,6 +78,62 @@ test('small reinforcement disks on a split edge form one closed contour at every
  }
 });
 
+test('both sides of a split retain real overlapping material and matching holes in every output',()=>{
+ const p=puppet();
+ p.parts[0].polygon=[[0,0],[100,0],[100,100],[0,100]];
+ p.parts[1].polygon=[[0,100],[100,100],[100,200],[0,200]];
+ p.joints[0].parentAnchor=[50,100];p.joints[0].childAnchor=[50,100];
+ const before=structuredClone(p),metrics=getFabricationMetrics(p);
+ assert.equal(metrics.parts[0].bounds.maxY,112,'The upper piece extends below the split.');
+ assert.equal(metrics.parts[1].bounds.minY,88,'The lower piece extends above the split.');
+ const cut=exportSheetSvg(p,{cutOnly:true}),paths=[...cut.matchAll(/<path d="([^"]+)"[^>]*data-cut="outline-and-holes"/g)].map(m=>m[1]);
+ assert.equal(paths.length,2);
+ for(const path of paths){
+  assert.equal((path.match(/M/g)||[]).length,2,'Each piece has one united perimeter and one pin hole.');
+  assert.equal((path.match(/a/g)||[]).length,2,'The pin hole is one exact circle.');
+ }
+ assert.match(paths[0],/50 112/);assert.match(paths[1],/50 88/);
+ const stage=renderStudioSvg(p,{showJoints:false}),sheet=exportSheetSvg(p),print=exportPrintHtml(p);
+ for(const markup of [stage,sheet,print]){
+  for(const path of paths)assert.ok(markup.includes(path),'Assembly, art sheet and print use the same reinforced cut geometry.');
+ }
+ assert.deepEqual(p,before);
+ p.joints[0].angle=75;
+ const transforms=partTransforms(p),joint=p.joints[0],parent=transformPoint(transforms.body,joint.parentAnchor),child=transformPoint(transforms.tentacle,joint.childAnchor);
+ assert.ok(Math.hypot(parent[0]-child[0],parent[1]-child[1])<1e-9,'Both overlap disks stay centred on the same moving pin.');
+});
+
+test('optional joint review shows both overlap layers and keeps guides out of exports',()=>{
+ const p=puppet();p.parts[0].z=4;p.parts[1].z=-1;
+ p.parts.push({...p.parts[1],id:'second-tentacle',name:'Second tentacle',z:1});
+ p.joints.push({...p.joints[0],id:'second-pin',childId:'second-tentacle'});
+ const before=structuredClone(p),svg=renderStudioSvg(p,{showOverlap:true,selectedJointId:'pin',showJoints:false});
+ assert.equal((svg.match(/data-overlap-joint=/g)||[]).length,1);
+ assert.match(svg,/data-overlap-joint="pin"/);assert.doesNotMatch(svg,/data-overlap-joint="second-pin"/);
+ assert.match(svg,/<circle data-overlap-part-id="tentacle" data-overlap-layer="back"[^>]*r="12"[^>]*stroke="#246b91"[^>]*><title>Back: Tentacle/);
+ assert.match(svg,/<circle data-overlap-part-id="body" data-overlap-layer="front"[^>]*r="12"[^>]*stroke="#c5542d"[^>]*stroke-dasharray=/);
+ assert.match(svg,/data-overlap-pivot="pin"[^>]*r="3\.75"/);
+ assert.equal((renderStudioSvg(p,{showOverlap:true}).match(/data-overlap-joint=/g)||[]).length,2);
+ assert.doesNotMatch(renderStudioSvg(p),/data-overlap-/);
+ for(const markup of [exportSheetSvg(p),exportSheetSvg(p,{cutOnly:true}),exportPrintHtml(p)])assert.doesNotMatch(markup,/data-overlap-|stroke-dasharray=/);
+ assert.deepEqual(p,before);
+});
+
+test('assembly stacking and print instructions agree even when parent is the front piece',()=>{
+ const p=puppet();p.parts[0].z=2;p.parts[1].z=-2;
+ const svg=renderStudioSvg(p),html=exportPrintHtml(p);
+ assert.ok(svg.indexOf('data-part-id="tentacle"')<svg.indexOf('data-part-id="body"'));
+ assert.match(html,/Back: Tentacle <small>layer 1<\/small><br>Front: Body <small>layer 2<\/small>/);
+ assert.match(html,/keeping the rounded overlap on both parts/);
+ assert.match(html,/Pass one paper fastener through both holes; leave it loose enough to turn/);
+ p.parts[0].z=0;p.parts[1].z=0;
+ const tie=renderStudioSvg(p,{showOverlap:true}),tiePrint=exportPrintHtml(p);
+ assert.ok(tie.indexOf('data-part-id="body"')<tie.indexOf('data-part-id="tentacle"'));
+ assert.match(tie,/data-overlap-part-id="body" data-overlap-layer="back"/);
+ assert.match(tiePrint,/Back: Body <small>layer 1<\/small><br>Front: Tentacle <small>layer 2<\/small>/);
+ p.language='zh';assert.match(exportPrintHtml(p),/后层：Body.*前层：Tentacle/);
+});
+
 test('export blocks detached joint tabs instead of delivering disconnected cutting geometry',()=>{
  const p=puppet();p.joints[0].parentAnchor=[700,700];
  assert.throws(()=>exportSheetSvg(p,{cutOnly:true}),/Repair the cut geometry/);

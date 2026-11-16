@@ -60,8 +60,8 @@ function browserHarness() {
     if(selector==='[data-vertex-index]')return dataset.vertexIndex!==undefined ? this : null;
     return null;
   }});
-  const root = {_html:'',get innerHTML(){return this._html;},set innerHTML(value){this._html=value;canvas.innerHTML=value.match(/<div id="puppet-canvas">([\s\S]*?)<\/div>/)?.[1]||'';promptBudget.textContent=value.match(/<p id="prompt-budget"[^>]*>([^<]*)<\/p>/)?.[1]||'';promptBudget.hidden=!value.includes('id="prompt-budget"');},addEventListener:(type,fn)=>rootListeners.set(type,fn),querySelector:selector=>/^\[data-(?:(part|joint)-id|vertex-index)=/.test(selector)?{focus(){focusedSelectors.push(selector);}}:null};
-  const status = {textContent:''}, canvas = {innerHTML:''}, angle = {textContent:''},promptBudget={textContent:'',hidden:false}, toast = {textContent:'',classList:{add(){},remove(){}}};
+  const root = {_html:'',get innerHTML(){return this._html;},set innerHTML(value){this._html=value;canvas.innerHTML=value.match(/<div id="puppet-canvas">([\s\S]*?)<\/div>/)?.[1]||'';jointPreview.innerHTML=value.match(/<div class="joint-preview" id="joint-preview">([\s\S]*?)<\/div>/)?.[1]||'';reviewAngle.textContent=value.match(/<output id="review-angle-output">([^<]*)<\/output>/)?.[1]||'';promptBudget.textContent=value.match(/<p id="prompt-budget"[^>]*>([^<]*)<\/p>/)?.[1]||'';promptBudget.hidden=!value.includes('id="prompt-budget"');},addEventListener:(type,fn)=>rootListeners.set(type,fn),querySelector:selector=>/^\[data-(?:(part|joint)-id|vertex-index)=/.test(selector)?{focus(){focusedSelectors.push(selector);}}:null};
+  const status = {textContent:''}, canvas = {innerHTML:''},jointPreview={innerHTML:''},reviewAngle={textContent:''}, angle = {textContent:''},promptBudget={textContent:'',hidden:false}, toast = {textContent:'',classList:{add(){},remove(){}}};
   const rect=()=>({left:0,top:0,width:800,height:600,right:800,bottom:600});
   const canvasWrap={getBoundingClientRect:rect,setPointerCapture(id){captures.push(id);},releasePointerCapture(id){releases.push(id);},focus(){focusedSelectors.push('#canvas-wrap');}};
   const svg = {getBoundingClientRect:rect,createSVGPoint(){return {x:0,y:0,matrixTransform(){return {x:this.x,y:this.y};}};},getScreenCTM(){return {inverse(){return {};}};}};
@@ -69,10 +69,11 @@ function browserHarness() {
   const printFrame={contentDocument:{images:[]},contentWindow:{focus(){},print(){}}};
   globalThis.document = {documentElement:{lang:'en'},addEventListener:(type,fn)=>documentListeners.set(type,fn),querySelector(selector) {
     if(['#puppet-canvas','#puppet-canvas svg','#canvas-wrap'].includes(selector)&&!root.innerHTML.includes('id="puppet-canvas"'))return null;
+    if(['#joint-preview','#review-angle-output'].includes(selector)&&!root.innerHTML.includes('id="joint-preview"'))return null;
     if(selector==='#review-heading')return {focus(){focusedSelectors.push(selector);}};
     if(selector==='.canvas-panel')return {scrollIntoView(options){scrollRequests.push(options);}};
     if(/^\[data-vertex-index=/.test(selector))return {focus(){focusedSelectors.push(selector);},setAttribute(){},getBoundingClientRect:rect};
-    return ({'#app':root,'#save-status':status,'#toast':toast,'#puppet-canvas':canvas,'#canvas-wrap':canvasWrap,'#puppet-canvas svg':svg,'#angle-output':angle,'#prompt-budget':promptBudget,'#print-frame':printFrame})[selector] || files.get(selector.slice(1)) || null;
+    return ({'#app':root,'#save-status':status,'#toast':toast,'#puppet-canvas':canvas,'#canvas-wrap':canvasWrap,'#puppet-canvas svg':svg,'#angle-output':angle,'#joint-preview':jointPreview,'#review-angle-output':reviewAngle,'#prompt-budget':promptBudget,'#print-frame':printFrame})[selector] || files.get(selector.slice(1)) || null;
   },createElement(tag) {
     if(tag==='a')return {href:'',download:'',click(){downloads.push({name:this.download,blob:urls.get(this.href)});}};
     if(tag==='canvas'){let pixels=null;const canvas={width:0,height:0,getContext(){return {drawImage(decoded){pixels=structuredClone(decoded.raster||fixtureRaster);},getImageData(){return {data:new Uint8ClampedArray(pixels.data)};},createImageData(width,height){return {width,height,data:new Uint8ClampedArray(width*height*4)};},putImageData(image){pixels={width:canvas.width,height:canvas.height,data:new Uint8ClampedArray(image.data)};}};},toDataURL(){if(!pixels)return PNG;const value=fixturePng(pixels);rasters.set(value,structuredClone(pixels));return value;}};return canvas;}
@@ -103,6 +104,8 @@ function browserHarness() {
     async start(name){appModule=await import(`../public/studio-app.mjs?${name}-${++startCount}`);},
     project:()=>appModule.getSessionSnapshot(),
     canvasMarkup:()=>canvas.innerHTML,
+    reviewMarkup:()=>jointPreview.innerHTML,
+    reviewAngle:()=>reviewAngle.textContent,
     viewBox:()=>canvas.innerHTML.match(/viewBox="([^"]+)"/)?.[1].split(' ').map(Number),
     pageShow:async persisted=>{windowListeners.get('pageshow')?.({persisted});await settle();},
     error:()=>root.innerHTML.match(/class="error-banner" role="alert">([^<]*)/)?.[1]||'',
@@ -115,6 +118,7 @@ function browserHarness() {
     input:(id,value)=>rootListeners.get('input')({target:target({id,value,dataset:{}})}),
     parameterInput:(key,value)=>rootListeners.get('input')({target:target({dataset:{paramField:key},value})}),
     jointInput:(key,value)=>rootListeners.get('input')({target:target({dataset:{jointField:key},value})}),
+    reviewInput:value=>rootListeners.get('input')({target:target({dataset:{reviewAngle:''},type:'range',value:String(value)})}),
     change:el=>rootListeners.get('change')({target:target(el)}),
     submit:id=>rootListeners.get('submit')({target:{id},preventDefault(){}}),
     point:(x,y,partId=null)=>rootListeners.get('click')({target:target({canvas:true,partId}),clientX:x,clientY:y}),
@@ -614,7 +618,7 @@ test('classic image generation accepts a short panda prompt, honors the 800-char
   } finally {await h.close();}
 });
 
-test('the simple image route reviews one character instead of decoration fragments, then splits, poses and prints it', async () => {
+test('the simple image route reviews one character instead of decoration fragments, then adds a joint, poses and prints it', async () => {
   const h=browserHarness(),raster=decoratedHorseFixture(),original=h.setRaster(raster);
   const pixel=(image,x,y)=>Array.from(image.data.slice((y*image.width+x)*4,(y*image.width+x)*4+4));
   try {
@@ -641,9 +645,9 @@ test('the simple image route reviews one character instead of decoration fragmen
     assert.deepEqual(h.rasters.get(original),raster,'cleanup does not modify its input raster');
     for(const [x,y] of [[35,45],[41,41],[46,45],[61,28]])assert.deepEqual(pixel(pixels,x,y),pixel(raster,x,y),'connected costume colors and enclosed white details are retained');
     for(const [x,y] of [[1,50],[6,6],[87,79]])assert.equal(pixel(pixels,x,y)[3],0,'detached border, marks and unconfirmed prop are transparent');
-    assert.deepEqual(primaryActions(h.root.innerHTML),['next-stage']);
-    await h.click({action:'next-stage'});assert.match(h.root.innerHTML,/0\/2 points placed/);
-    await h.point(50,30);await h.point(80,30);assert.deepEqual(primaryActions(h.root.innerHTML),['preview-split']);await h.click({action:'preview-split'});
+    assert.deepEqual(primaryActions(h.root.innerHTML),['add-joint']);
+    await h.click({action:'add-joint'});assert.doesNotMatch(h.root.innerHTML,/0\/2 points placed/);
+    await h.point(65,30,cleaned.parts[0].id);assert.equal(h.error(),'');assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);
     assert.equal(h.error(),'');assert.deepEqual(h.project().parts,cleaned.parts,'a proposed movement cut is reviewed');
     await h.click({action:'accept'});await h.settle();
     assert.equal(h.project().parts.length,2);assert.equal(h.project().joints.length,1);
@@ -796,6 +800,122 @@ test('a pending review isolates angle and shape controls until the student accep
     await h.change({dataset:{jointField:'angle'},value:'30'});await h.change({dataset:{paramField:'width'},value:'150'});
     assert.deepEqual(h.project(),before,'review prevents background geometry edits');assert.equal(h.error(),'');assert.match(h.root.innerHTML,/data-action="accept"/);
     await h.click({action:'accept'});assert.equal(h.project().parts.find(p=>p.id===childId).parameters.width,1.1);assert.deepEqual(h.project().joints,before.joints);
+  } finally {await h.close();}
+});
+
+test('one bend tap previews a joint and movement without committing the trial pose', async () => {
+  const h=browserHarness();
+  try {
+    await h.start('one-tap-joint');await h.settle();
+    const project=createStudioProject();project.canvas={width:100,height:240};project.parts=[makePart('Long arm',[[0,0],[40,0],[40,240],[0,240]])];
+    await h.openProject(project);const before=h.project(),partId=before.parts[0].id;
+    await h.click({action:'add-joint'});
+    assert.doesNotMatch(h.root.innerHTML,/0\/2 points placed|data-action="preview-split"/,'the default joint tool does not require a two-point cut');
+    await h.point(20,120,partId);
+    assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="review-heading"/);
+    assert.match(h.root.innerHTML,/data-review-angle/,'movement can be tried before accepting the joint');
+    assert.deepEqual(primaryActions(h.root.innerHTML),['accept'],'review offers one primary decision');
+    assert.deepEqual(h.project(),before,'splitting and matching holes remain an unaccepted proposal');
+    const restingPreview=h.reviewMarkup(),restingPage=h.root.innerHTML;
+    h.reviewInput(35);
+    assert.notEqual(h.reviewMarkup(),restingPreview,'the trial angle visibly updates the review');
+    assert.equal(h.reviewAngle(),'35°');
+    assert.equal(h.root.innerHTML,restingPage,'movement preview keeps the slider DOM stable for dragging');
+    assert.deepEqual(h.project(),before,'trying the movement cannot change accepted construction');
+    await h.click({action:'accept'});
+    const accepted=h.project(),joint=accepted.joints[0];
+    assert.equal(accepted.parts.length,2);assert.equal(accepted.joints.length,1);
+    assert.equal(joint.angle,0,'acceptance keeps the construction rest angle rather than the temporary trial pose');
+    assert.deepEqual(joint.parentAnchor,joint.childAnchor,'the two new parts share their pin center');
+    assert.ok(accepted.parts.find(p=>p.id===joint.childId).z>accepted.parts.find(p=>p.id===joint.parentId).z,'the moving piece starts in front of the body');
+    assert.match(h.root.innerHTML,/data-action="add-joint"/,'another joint remains easy to add');
+    await h.click({action:'undo'});assert.deepEqual(h.project(),before,'one undo reverses the whole accepted joint');
+    await h.click({action:'redo'});assert.deepEqual(h.project(),accepted);
+    assert.equal(h.requests.length,0,'joint placement and movement review need no AI request');
+  } finally {await h.close();}
+});
+
+test('joint layer changes and repicking stay in review until one accepted edit', async () => {
+  const h=browserHarness();
+  try {
+    await h.start('joint-review-adjustments');await h.settle();
+    const project=createStudioProject();project.canvas={width:100,height:240};project.parts=[makePart('Long leg',[[0,0],[40,0],[40,240],[0,240]])];
+    await h.openProject(project);const before=h.project(),partId=before.parts[0].id;
+    await h.click({action:'add-joint'});await h.point(20,120,partId);
+    assert.match(h.root.innerHTML,/data-action="joint-swap"/);assert.match(h.root.innerHTML,/data-action="joint-repick"/);
+    const frontPreview=h.root.innerHTML;await h.click({action:'joint-swap'});
+    assert.notEqual(h.root.innerHTML,frontPreview,'swapping overlap order changes its review');
+    assert.deepEqual(h.project(),before,'layer changes do not leak into accepted pieces');
+    h.reviewInput(-25);await h.click({action:'joint-repick'});
+    assert.doesNotMatch(h.root.innerHTML,/id="review-heading"|data-review-angle/,'repicking dismisses the old review');
+    assert.deepEqual(h.project(),before);
+    await h.point(20,180,partId);
+    assert.equal(h.error(),'');assert.match(h.root.innerHTML,/data-review-angle/,'the next tap makes a fresh joint proposal');
+    await h.click({action:'joint-swap'});await h.click({action:'accept'});
+    const accepted=h.project(),joint=accepted.joints[0],parent=accepted.parts.find(p=>p.id===joint.parentId),child=accepted.parts.find(p=>p.id===joint.childId);
+    assert.equal(accepted.joints.length,1);assert.equal(joint.angle,0,'a repick resets the earlier trial pose');
+    assert.ok(Math.abs(joint.parentAnchor[1]-180)<1e-6,'the earlier bend point is discarded');
+    assert.ok(child.z<parent.z,'the accepted overlap order places the moving piece behind the body');
+    await h.click({action:'undo'});assert.deepEqual(h.project(),before,'repicks and layer swaps add no extra undo entries');
+  } finally {await h.close();}
+});
+
+test('joining existing pieces uses two actual hits and reviews the automatic pin position', async () => {
+  const h=browserHarness();
+  try {
+    await h.start('two-piece-joint');await h.settle();
+    const project=createStudioProject();project.canvas={width:180,height:240};project.parts=[makePart('Body',[[0,0],[40,0],[40,140],[0,140]]),makePart('Moving arm',[[0,130],[40,130],[40,240],[0,240]]),makePart('Separate prop',[[100,60],[130,60],[130,100],[100,100]])];
+    await h.openProject(project);const before=h.project(),[parent,child,prop]=before.parts;
+    await h.click({action:'select',id:prop.id});await h.click({action:'join-pieces'});
+    await h.point(20,80,parent.id);
+    assert.doesNotMatch(h.root.innerHTML,/id="review-heading"/,'the first piece alone does not create a joint');
+    assert.deepEqual(h.project(),before);
+    await h.point(20,200,child.id);
+    assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="review-heading"/);assert.match(h.root.innerHTML,/data-review-angle/);
+    assert.deepEqual(h.project(),before,'automatic positioning remains reviewable');
+    h.reviewInput(30);await h.click({action:'accept'});
+    const accepted=h.project(),joint=accepted.joints[0],transforms=partTransforms(accepted);
+    assert.equal(accepted.parts.length,3);assert.equal(accepted.joints.length,1);
+    assert.equal(joint.parentId,parent.id);assert.equal(joint.childId,child.id,'the second tapped piece wins over stale selection');
+    assert.equal(joint.angle,0);
+    assert.deepEqual(accepted.parts.find(p=>p.id===prop.id),prop,'an unrelated selected prop stays untouched');
+    assert.deepEqual(transformPoint(transforms[parent.id],joint.parentAnchor),transformPoint(transforms[child.id],joint.childAnchor),'both holes align in the assembled puppet');
+    assert.notDeepEqual(joint.parentAnchor,[20,80]);assert.notDeepEqual(joint.childAnchor,[20,200],'piece taps select pieces rather than requiring matching anchor placement');
+    await h.click({action:'undo'});assert.deepEqual(h.project(),before);
+    await h.click({action:'join-pieces'});
+    assert.equal(h.key('Enter',{partId:parent.id}),true,'Enter selects the first canvas piece for joining');
+    assert.doesNotMatch(h.root.innerHTML,/id="review-heading"/);assert.deepEqual(h.project(),before);
+    assert.equal(h.key('Enter',{partId:child.id}),true,'Enter selects the second piece without cancelling the join tool');
+    assert.equal(h.error(),'');assert.match(h.root.innerHTML,/data-review-angle/);assert.deepEqual(h.project(),before,'keyboard joining also waits for review');
+    await h.click({action:'accept'});
+    const keyboardJoint=h.project().joints[0];
+    assert.equal(h.project().joints.length,1);assert.equal(keyboardJoint.parentId,parent.id);assert.equal(keyboardJoint.childId,child.id);
+    assert.deepEqual(keyboardJoint.parentAnchor,joint.parentAnchor);assert.deepEqual(keyboardJoint.childAnchor,joint.childAnchor,'keyboard and pointer routes suggest the same geometry');
+    await h.click({action:'undo'});assert.deepEqual(h.project(),before,'keyboard acceptance is also one undo operation');
+    assert.equal(h.requests.length,0);
+  } finally {await h.close();}
+});
+
+test('locked pieces reject joint placement and reopening discards a pending joint review', async () => {
+  const h=browserHarness();
+  try {
+    await h.start('joint-review-session-reset');await h.settle();
+    const project=createStudioProject();project.canvas={width:100,height:240};project.parts=[makePart('Long arm',[[0,0],[40,0],[40,240],[0,240]])];project.parts[0].locked=true;
+    await h.openProject(project);const locked=h.project(),partId=locked.parts[0].id;
+    await h.click({action:'add-joint'});await h.point(20,120,partId);
+    assert.deepEqual(h.project(),locked,'the easy tool respects the existing lock');
+    assert.doesNotMatch(h.root.innerHTML,/data-review-angle/);
+    project.parts[0].locked=false;await h.openProject(project);const before=h.project();
+    await h.click({action:'add-joint'});await h.point(20,120,partId);h.reviewInput(40);await h.click({action:'joint-swap'});
+    assert.match(h.root.innerHTML,/data-review-angle/);assert.deepEqual(h.project(),before);
+    await h.pageShow(true);
+    assert.equal(h.project().parts.length,0);assert.equal(h.project().joints.length,0);
+    assert.doesNotMatch(h.root.innerHTML,/data-review-angle|id="joint-preview"/,'restoring a closed page starts a fresh session');
+    await h.openProject(project);await h.click({action:'add-joint'});await h.point(20,160,partId);await h.click({action:'accept'});
+    const accepted=h.project(),joint=accepted.joints[0];
+    assert.equal(accepted.joints.length,1);assert.equal(joint.angle,0);
+    assert.ok(Math.abs(joint.parentAnchor[1]-160)<1e-6);
+    assert.ok(accepted.parts.find(p=>p.id===joint.childId).z>accepted.parts.find(p=>p.id===joint.parentId).z,'a new session does not inherit the discarded back-layer choice');
   } finally {await h.close();}
 });
 

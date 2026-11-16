@@ -9,6 +9,9 @@ const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const f = value => String(Number(num(value).toPrecision(12)));
 const color = value => /^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value || '') ? value : '#b96b46';
 const identity = [1,0,0,1,0,0];
+// The same back-to-front order is used by the stage and assembly instructions.
+// Source order resolves equal z values without modifying the saved project.
+const orderedParts = project => (project.parts||[]).map((part,index)=>({part,index})).sort((a,b)=>num(a.part.z)-num(b.part.z)||a.index-b.index).map(entry=>entry.part);
 let renderSequence = 0;
 const geometryCache = new Map();
 const pointsOf = part => (part.polygon || []).filter(p => Array.isArray(p) && p.length >= 2 && p.every(Number.isFinite)).map(p => [p[0],p[1]]);
@@ -131,14 +134,28 @@ function partMarkup(project,part,geometry,{prefix,showArt=true,cutOnly=false,sel
 }
 
 export function renderStudioSvg(project,options={}) {
- const {selectedPartId=null,selectedJointId=null,showJoints=true,showRods=true,showArt=true,showConcept=false,interactive=true,draftPoints=[],width=800,height=1000}=options;
- const prefix='studio-'+(++renderSequence),transforms=partTransforms(project),parts=[...(project.parts||[])].filter(p=>p.visible!==false).sort((a,b)=>num(a.z)-num(b.z)),geometries=new Map(parts.map(p=>[p.id,partGeometry(project,p)]));
+ const {selectedPartId=null,selectedJointId=null,showJoints=true,showRods=true,showArt=true,showConcept=false,showOverlap=false,interactive=true,draftPoints=[],width=800,height=1000}=options;
+ const prefix='studio-'+(++renderSequence),transforms=partTransforms(project),parts=orderedParts(project).filter(p=>p.visible!==false),geometries=new Map(parts.map(p=>[p.id,partGeometry(project,p)]));
  const concept=raster((project.assets||[]).find(a=>a.id===project.conceptAssetId)),all=parts.flatMap(p=>geometries.get(p.id).contours.flat().map(pt=>transformPoint(transforms[p.id]||identity,pt)));
  if(showConcept&&concept)all.push([0,0],[concept.width,concept.height]);
  if(draftPoints.length)all.push(...draftPoints);
  if(!all.length)all.push([0,0],[800,1000]);
  const box=bounds(all),pad=Math.max(20,Math.max(box.width,box.height)*.035),view=options.viewBox||[box.x-pad,box.y-pad,Math.max(1,box.width)+2*pad,Math.max(1,box.height)+2*pad],marker=interactive&&Number.isFinite(options.markerSize)&&options.markerSize>0?options.markerSize:Math.max(4,view[2]/170),hitRadius=interactive&&Number.isFinite(options.hitRadius)&&options.hitRadius>0?Math.max(options.hitRadius,marker*1.6):marker*1.6;
  const content=parts.map(p=>`<g transform="matrix(${(transforms[p.id]||identity).map(f).join(' ')})">${partMarkup(project,p,geometries.get(p.id),{prefix,showArt,selected:p.id===selectedPartId,interactive,strokeWidth:Math.max(.8,marker*.23)})}</g>`).join('');
+ // Preview annotations only: both disks are real material united with their
+ // respective cut contours. A wide solid rear outline remains visible beneath
+ // a narrower dashed front outline even when the two disks coincide exactly.
+ const overlaps=showOverlap?(project.joints||[]).filter(j=>!selectedJointId||j.id===selectedJointId).map(j=>{
+  const pair=parts.filter(p=>p.id===j.parentId||p.id===j.childId),radius=Math.max(0,num(j.padRadius));
+  if(pair.length!==2||!radius)return '';
+  const stroke=Math.min(radius/5,Math.max(.4,marker*.4)),holeRadius=num(project.holeMm)*unitsPerMm(project)/2;
+  const outlines=pair.map((part,index)=>{
+   const anchor=part.id===j.parentId?j.parentAnchor:j.childAnchor,p=transformPoint(transforms[part.id]||identity,anchor),layer=index?'front':'back',strokeColor=index?'#c5542d':'#246b91';
+   return `<circle data-overlap-part-id="${esc(part.id)}" data-overlap-layer="${layer}" cx="${f(p[0])}" cy="${f(p[1])}" r="${f(radius)}" fill="none" stroke="${strokeColor}" stroke-width="${f(stroke*(index?1:2.5))}"${index?` stroke-dasharray="${f(stroke*3)} ${f(stroke*2)}"`:''}><title>${esc((project.language==='zh'?(index?'前层：':'后层：'):(index?'Front: ':'Back: '))+(part.name||'Part'))}</title></circle>`;
+  }).join('');
+  const pivot=transformPoint(transforms[j.parentId]||identity,j.parentAnchor);
+  return `<g data-overlap-joint="${esc(j.id)}" class="studio-overlap" pointer-events="none">${outlines}${j.type==='fixed'?'':`<circle data-overlap-pivot="${esc(j.id)}" cx="${f(pivot[0])}" cy="${f(pivot[1])}" r="${f(holeRadius)}" fill="#fffdf5" stroke="#263d35" stroke-width="${f(stroke)}"/>`}</g>`;
+ }).join(''):'';
  const joints=showJoints?(project.joints||[]).map((j,i)=>{
   const p=transformPoint(transforms[j.parentId]||identity,j.parentAnchor),stroke=j.id===selectedJointId?'#db5635':'#1b7067';
   return `<g data-joint-id="${esc(j.id)}" class="studio-joint"${interactive?` role="button" tabindex="0" aria-pressed="${j.id===selectedJointId}" aria-label="${esc(j.type)} connection ${i+1}"`:''}>${interactive?`<circle class="joint-hit" cx="${f(p[0])}" cy="${f(p[1])}" r="${f(hitRadius)}" fill="transparent" stroke="none" pointer-events="all"/>`:''}<circle cx="${f(p[0])}" cy="${f(p[1])}" r="${f(marker*1.6)}" fill="#fffdf5" stroke="${stroke}" stroke-width="${f(marker*.36)}"/><text x="${f(p[0])}" y="${f(p[1]+marker*.45)}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="${f(marker*1.7)}" font-weight="700" fill="${stroke}" pointer-events="none">${i+1}</text></g>`;
@@ -148,7 +165,7 @@ export function renderStudioSvg(project,options={}) {
   return `<g data-rod-id="${esc(r.id)}" class="studio-rod" pointer-events="none"><path d="M${f(p[0])} ${f(p[1])}l${f(marker*5)} ${f(marker*15)}" fill="none" stroke="#8b6b4b" stroke-width="${f(marker*.65)}"/><circle cx="${f(p[0])}" cy="${f(p[1])}" r="${f(marker)}" fill="#fffdf5" stroke="#8b6b4b" stroke-width="${f(marker*.35)}"/></g>`;
  }).join(''):'';
  const draft=draftPoints.length?`<g class="draft-contour" pointer-events="none"><polyline points="${draftPoints.map(p=>p.map(f).join(',')).join(' ')}" fill="${draftPoints.length>2?'#e7a35422':'none'}" stroke="#be492d" stroke-width="${f(marker*.55)}" stroke-linejoin="round"/>${draftPoints.map((p,i)=>`<circle cx="${f(p[0])}" cy="${f(p[1])}" r="${f(marker*(i===0?1.1:.7))}" fill="${i===0?'#1b7067':'#be492d'}" stroke="#fff" stroke-width="${f(marker*.25)}"/>`).join('')}</g>`:'';
- return `<svg xmlns="http://www.w3.org/2000/svg" class="studio-canvas" data-studio-canvas="true" width="${f(width)}" height="${f(height)}" viewBox="${view.map(f).join(' ')}" role="${interactive?'group':'img'}" aria-label="${esc(project.title||'Custom shadow puppet')}"><title>${esc(project.title||'Custom shadow puppet')}</title>${showConcept&&concept?`<image class="concept-reference" href="${esc(concept.dataUrl)}" x="0" y="0" width="${f(concept.width)}" height="${f(concept.height)}" opacity="${parts.length?.36:1}"/>`:''}${content}${rods}${joints}${draft}</svg>`;
+ return `<svg xmlns="http://www.w3.org/2000/svg" class="studio-canvas" data-studio-canvas="true" width="${f(width)}" height="${f(height)}" viewBox="${view.map(f).join(' ')}" role="${interactive?'group':'img'}" aria-label="${esc(project.title||'Custom shadow puppet')}"><title>${esc(project.title||'Custom shadow puppet')}</title>${showConcept&&concept?`<image class="concept-reference" href="${esc(concept.dataUrl)}" x="0" y="0" width="${f(concept.width)}" height="${f(concept.height)}" opacity="${parts.length?.36:1}"/>`:''}${content}${rods}${overlaps}${joints}${draft}</svg>`;
 }
 
 export function getFabricationMetrics(project) {
@@ -183,7 +200,7 @@ export function exportPrintHtml(project) {
  ensureExportable(project);
  const t=(en,zh)=>project.language==='zh'?zh:en;
  const prefix='print-'+(++renderSequence),metrics=getFabricationMetrics(project),scale=metrics.scaleMmPerUnit,pages=[],tileWidth=190,tileHeight=230,overlap=5;
- const layerOrder=[...project.parts].sort((a,b)=>num(a.z)-num(b.z)),layerOf=id=>layerOrder.findIndex(p=>p.id===id)+1;
+ const layerOrder=orderedParts(project),layerOf=id=>layerOrder.findIndex(p=>p.id===id)+1;
  for(const part of project.parts) {
   const geometry=partGeometry(project,part),b=geometry.box,w=b.width*scale,h=b.height*scale,cols=Math.max(1,Math.ceil((w-overlap)/(tileWidth-overlap))),rows=Math.max(1,Math.ceil((h-overlap)/(tileHeight-overlap)));
   if(cols*rows+pages.length>160)throw Error(t('This print needs more than 160 pages. Reduce the puppet height.','打印需要超过 160 页，请减小皮影高度。'));
@@ -196,16 +213,20 @@ export function exportPrintHtml(project) {
   }
  }
  const assembly=renderStudioSvg(project,{interactive:false,showJoints:true,showRods:true,width:600,height:600});
- pages.push(`<section class="page assembly"><header><strong>${t('Assembly','组装')}</strong><span>${esc(project.title||t('Shadow puppet','皮影'))}</span></header><div class="overview">${assembly}</div><h2>${t('Assembly overview — not to scale','组装示意图——非实际比例')}</h2><p>${t('Keep each piece with its labelled page until assembly. Stack parts from the lowest layer number (back) to the highest (front); the layer number is printed below each part name. The following connection guide matches the numbered joints in this overview.','组装前请将每个部件与其标记页面放在一起。按层次编号从小到大叠放：小号在后，大号在前。层次编号印在部件名称下方。后面的连接指南与本图的关节编号对应。')}</p><p>${t('Cut the outer contours. Punch numbered holes through both matching parts. Add pins with enough clearance to rotate. Fixed joins use adhesive overlap. Blue crosses mark rod attachment positions; secure rods with tabs or tape.','沿外轮廓裁剪，在两个对应部件上打出相同编号的孔。安装连接钉时保留足够的转动间隙。固定连接采用重叠粘合。蓝色十字标记操纵杆连接位置，可用连接片或胶带固定。')}</p><p>${t('Make a paper prototype first. Check fragile details, joint clearance and intended motion. A planar preview does not test material strength, fastener thickness or out-of-plane hinge movement.','请先制作纸样，检查细小部位、关节间隙和预期动作。平面预览无法验证材料强度、连接件厚度或关节的立体运动。')}</p>${project.joints.length?'':`<p>${t('No connections yet. Add joints to connect moving pieces.','尚未添加连接，请添加关节以连接活动部件。')}</p>`}</section>`);
+ pages.push(`<section class="page assembly"><header><strong>${t('Assembly','组装')}</strong><span>${esc(project.title||t('Shadow puppet','皮影'))}</span></header><div class="overview">${assembly}</div><h2>${t('Assembly overview — not to scale','组装示意图——非实际比例')}</h2><p>${t('Keep each piece with its labelled page until assembly. Stack parts from the lowest layer number (back) to the highest (front); the layer number is printed below each part name. The following connection guide matches the numbered joints in this overview.','组装前请将每个部件与其标记页面放在一起。按层次编号从小到大叠放：小号在后，大号在前。层次编号印在部件名称下方。后面的连接指南与本图的关节编号对应。')}</p><p>${t('Cut the outer contours, keeping the rounded overlap on both parts. Punch the matching numbered holes, then stack the back piece under the front piece and align the holes. Pass one paper fastener through both holes; leave it loose enough to turn. Fixed joins use adhesive overlap. Blue crosses mark rod attachments.','沿外轮廓裁剪，保留两个部件上的圆形重叠连接片。打出相同编号的孔，再将后层放在前层下方并对齐孔位。用同一个两脚钉穿过两个孔，留出转动间隙，不要压得太紧。固定连接采用重叠粘合。蓝色十字标记操纵杆连接位置。')}</p><p>${t('Make a paper prototype first. Check fragile details, joint clearance and intended motion. A planar preview does not test material strength, fastener thickness or out-of-plane hinge movement.','请先制作纸样，检查细小部位、关节间隙和预期动作。平面预览无法验证材料强度、连接件厚度或关节的立体运动。')}</p>${project.joints.length?'':`<p>${t('No connections yet. Add joints to connect moving pieces.','尚未添加连接，请添加关节以连接活动部件。')}</p>`}</section>`);
  const textWidth=value=>[...String(value||'')].reduce((sum,c)=>sum+(c.charCodeAt(0)>255?1:.6),0);
  for(let start=0;start<project.joints.length;){
   let end=start,estimatedHeight=0;
   while(end<project.joints.length&&end-start<12){
-   const j=project.joints[end],lines=[j.parentId,j.childId].reduce((sum,id)=>sum+Math.max(1,Math.ceil((textWidth(project.parts.find(p=>p.id===id)?.name)+9)/40)),0),rowHeight=lines*4.5+5;
+   const j=project.joints[end],lines=[j.parentId,j.childId].reduce((sum,id)=>sum+Math.max(1,Math.ceil((textWidth(project.parts.find(p=>p.id===id)?.name)+15)/40)),0),rowHeight=lines*4.5+5;
    if(end>start&&estimatedHeight+rowHeight>210)break;
    estimatedHeight+=rowHeight;end++;
   }
-  const rows=project.joints.slice(start,end).map((j,index)=>`<tr><th>${start+index+1}</th><td>${esc(project.parts.find(p=>p.id===j.parentId)?.name)} <small>${t('layer','层')} ${layerOf(j.parentId)}</small><br>↔ ${esc(project.parts.find(p=>p.id===j.childId)?.name)} <small>${t('layer','层')} ${layerOf(j.childId)}</small></td><td>${j.type==='fixed'?t('Adhesive overlap; no pin hole','重叠粘合；无连接孔'):j.type==='hinge'?t('Planar pin hinge','平面销轴铰链'):t('Pivot pin','转轴连接')}</td></tr>`).join('');
+  const rows=project.joints.slice(start,end).map((j,index)=>{
+   const pair=[j.parentId,j.childId].sort((a,b)=>layerOf(a)-layerOf(b));
+   const layers=pair.map((id,i)=>`${t(i?'Front: ':'Back: ',i?'前层：':'后层：')}${esc(project.parts.find(p=>p.id===id)?.name)} <small>${t('layer','层')} ${layerOf(id)}</small>`).join('<br>');
+   return `<tr><th>${start+index+1}</th><td>${layers}</td><td>${j.type==='fixed'?t('Adhesive overlap; no pin hole','重叠粘合；无连接孔'):j.type==='hinge'?t('Planar pin hinge','平面销轴铰链'):t('Pivot pin','转轴连接')}</td></tr>`;
+  }).join('');
   pages.push(`<section class="page assembly connection-guide"><header><strong>${t('Connection guide','连接指南')}</strong><span>${t('Joints','关节')} ${start+1}–${end}</span></header><table><thead><tr><th>#</th><th>${t('Matching parts','对应部件')}</th><th>${t('Connection','连接方式')}</th></tr></thead><tbody>${rows}</tbody></table><p>${t('Match each number on both parts. A shared pin may join more than two layers at the same position. Check each joint can move without binding before attaching control rods.','将两个部件上相同编号的位置对应。在同一位置，一个连接钉可以连接两个以上的层。安装操纵杆前，请检查每个关节都能顺畅转动。')}</p></section>`);
   start=end;
  }
