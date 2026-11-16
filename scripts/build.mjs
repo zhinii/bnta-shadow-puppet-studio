@@ -15,3 +15,8 @@ new Function(offlineJs);
 const offline=assets['/index.html'].replace('<link rel="stylesheet" href="./style.css">',()=>'<style>'+assets['/style.css']+'</style>').replace('<script type="module" src="./app.mjs"></script>',()=>'<script type="module">'+offlineJs.replace(/<\/script/gi,'<\\/script')+'</script>');
 await writeFile(new URL('../START-HERE.html',import.meta.url),offline);
 console.log('Built START-HERE.html: self-contained manual editor, with the same protected AI connection.');
+// Commit this entry page so GitHub Pages can serve main / (root) without a build workflow.
+const pages=assets['/index.html'].replace('href="./style.css"','href="./public/style.css"').replace('src="./app.mjs"','src="./public/app.mjs"');
+await writeFile(new URL('../index.html',import.meta.url),pages);
+await writeFile(new URL('../.nojekyll',import.meta.url),'');
+console.log('Updated repository-root entry for branch-based GitHub Pages.');

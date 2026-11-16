@@ -18,7 +18,7 @@ Open `http://127.0.0.1:4237`. The default AI transport reuses the protected Kimi
 
 The host is Kimi Sites; this URL alone does **not** identify the underlying model provider. The request retains the six-axis client's OpenAI-compatible envelope and Qwen model hint. The hosted relay remains authoritative about the model and secret it uses.
 
-The same-origin `/api/puppet` adapter forwards requests to that relay without copying its API key. GitHub Pages can serve `public/` directly and uses the original relay from the browser. If the Kimi host rejects the new origin or pins robot-only instructions, update its source as explained in [integration/KIMI-RELAY.md](integration/KIMI-RELAY.md). This repository cannot publish changes to Kimi itself.
+The same-origin `/api/puppet` adapter forwards requests to that relay without copying its API key. GitHub Pages serves the repository-root entry page and uses the original relay from the browser. If the Kimi host rejects the new origin or pins robot-only instructions, update its source as explained in [integration/KIMI-RELAY.md](integration/KIMI-RELAY.md). This repository cannot publish changes to Kimi itself.
 
 For a separate server-side Qwen connection, copy `.env.example` to `.env` and set `ALIBABA_API_KEY`, `ALIBABA_BASE_URL`, and `ALIBABA_MODEL`. Supported aliases are `QIANWEN_API_KEY` and `DASHSCOPE_API_KEY`. Never place credentials in `public/`, JSON project files, GitHub, or hosting manifests.
 
@@ -75,11 +75,19 @@ Tests cover project round trips, joint relationships, part locks, unsafe importe
 
 The private ChatGPT Site uses `.openai/hosting.json` and `dist/server/index.js` with a default Worker fetch handler. `npm run build` creates the deployment output; it embeds only public assets and the adapter, never `.env`.
 
-For GitHub Pages, the included Actions workflow publishes `public/`. GitHub Pages cannot host a secret or the server adapter. The protected external relay must allow the published GitHub origin.
+GitHub Pages serves the committed root `index.html` and `public/` assets directly. No custom deployment workflow or build is needed on GitHub. GitHub Pages cannot host a secret or the server adapter; the protected external relay must allow the published GitHub origin.
 
 Source repository: https://github.com/zhinii/bnta-shadow-puppet-studio
 
-In repository **Settings → Pages → Build and deployment**, select **GitHub Actions** as the source. The `Publish studio` workflow publishes `public/` on each push to `main`; it can also be run manually. The expected Pages address is `https://zhinii.github.io/bnta-shadow-puppet-studio/` once deployment succeeds. `Enable-GitHub-Pages.ps1` performs the one-time Pages setup from an authenticated, network-connected GitHub CLI session. See [VALIDATION.md](VALIDATION.md) for the verification limits.
+In repository **Settings > Pages > Build and deployment**, choose:
+
+- **Source:** Deploy from a branch
+- **Branch:** main
+- **Folder:** /(root)
+
+Click **Save**. After GitHub finishes publishing, open https://zhinii.github.io/bnta-shadow-puppet-studio/ . Future pushes to `main` update the site automatically. GitHub may display its own internal Pages deployment in Actions; there is no custom Pages workflow to configure. The remaining `Check studio` workflow only runs automated checks and is independent of publication.
+
+If editing `public/index.html`, run `npm run build` and commit the regenerated root `index.html` too. See [VALIDATION.md](VALIDATION.md) for verification limits.
 
 ## Research reference
 

@@ -16,7 +16,7 @@
 ## Deployment status
 
 - The user created the public GitHub repository `zhinii/bnta-shadow-puppet-studio`. Source synchronization uses the authenticated GitHub connector.
-- GitHub Actions checks source on pushes and pull requests. The separate Pages workflow publishes `public/` on pushes to `main` after GitHub Pages is enabled for the repository.
+- Root `index.html`, `public/` assets and `.nojekyll` support direct publication from `main` / `(root)`. The custom Pages workflow was removed. The remaining Actions workflow only checks source on pushes and pull requests.
 - A private ChatGPT Site was registered, but no version was published. Git source synchronization failed because the execution environment could not resolve its hosting Git endpoint.
 - The existing robot repository and live Kimi service were not changed. The new studio reuses the robot client's configured Kimi URL and includes a separate puppet adapter for its maintainer if server-side instructions are pinned.
 
@@ -24,5 +24,5 @@
 
 1. Extract the archive and open `START-HERE.html` to try the manual studio immediately.
 2. Run `npm start` for the localhost version, or deploy the source when network access is available.
-3. Choose **GitHub Actions** under repository **Settings → Pages** to enable publishing, or run `Enable-GitHub-Pages.ps1` from a network-connected, GitHub-authenticated Windows session.
+3. Under repository **Settings > Pages**, choose **Deploy from a branch**, **main**, **/(root)**, then **Save**. Publication still requires this repository setting; the GitHub connector cannot change it.
 4. Test AI in the studio. If the protected relay enforces robot instructions, follow `integration/KIMI-RELAY.md` to add the puppet route while preserving the robot route.
