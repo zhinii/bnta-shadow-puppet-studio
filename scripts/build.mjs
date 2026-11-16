@@ -15,7 +15,7 @@ async function bundle(entries){
   const name='__module'+modules.size;modules.set(path,name);
   let source=await readFile(path,'utf8');
   const imports=[...source.matchAll(/^import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"];?\s*$/gm)];
-  for(const match of imports){if(!match[2].startsWith('.'))throw Error('Only local imports are supported in '+path);const dependency=await visit(resolve(dirname(path),match[2]));const names=match[1].replace(/\b(\w+)\s+as\s+(\w+)/g,'$1:$2');source=source.replace(match[0],'const {'+names+'}='+dependency+';');}
+  for(const match of imports){if(!match[2].startsWith('.'))throw Error('Only local imports are supported in '+path);const localPath=match[2].split(/[?#]/,1)[0];const dependency=await visit(resolve(dirname(path),localPath));const names=match[1].replace(/\b(\w+)\s+as\s+(\w+)/g,'$1:$2');source=source.replace(match[0],'const {'+names+'}='+dependency+';');}
   const exports=[...source.matchAll(/^export\s+(?:async\s+)?(?:function|const|let|class)\s+(\w+)/gm)].map(m=>m[1]);
   source=source.replace(/^export\s+/gm,'');
   chunks.push('// '+relative(root,path).split(sep).join('/')+'\nconst '+name+'=(()=>{\n'+source+'\nreturn {'+exports.join(',')+'};\n})();');return name;
@@ -30,9 +30,9 @@ await mkdir(resolve(root,'dist/server'),{recursive:true});await mkdir(resolve(ro
 await writeFile(resolve(root,'dist/server/index.js'),code);await copyFile(resolve(root,'.openai/hosting.json'),resolve(root,'dist/.openai/hosting.json'));
 console.log('Built dependency-free Worker and '+files.length+' embedded assets.');
 const app=await bundle(['public/studio-app.mjs']);check(app.source);
-const portableScript=app.source.replace("new URL('./legacy.html',import.meta.url).href","'https://zhinii.github.io/bnta-shadow-puppet-studio/public/legacy.html'");
-const offline=assets['/index.html'].replace('<link rel="stylesheet" href="./studio.css">',()=>'<style>'+assets['/studio.css']+'</style>').replace('<script type="module" src="./studio-app.mjs"></script>',()=>'<script type="module">'+portableScript.replace(/<\/script/gi,'<\\/script')+'</script>');
+const portableScript=app.source.replace("new URL('./legacy.html?v=0.4.0',import.meta.url).href","'https://zhinii.github.io/bnta-shadow-puppet-studio/public/legacy.html?v=0.4.0'");
+const offline=assets['/index.html'].replace(/<link rel="stylesheet" href="\.\/studio\.css(?:[?#][^"]*)?">/,()=>'<style>'+assets['/studio.css']+'</style>').replace(/<script type="module" src="\.\/studio-app\.mjs(?:[?#][^"]*)?"><\/script>/,()=>'<script type="module">'+portableScript.replace(/<\/script/gi,'<\\/script')+'</script>');
 await writeFile(resolve(root,'START-HERE.html'),offline);
-const pages=assets['/index.html'].replace('href="./studio.css"','href="./public/studio.css"').replace('src="./studio-app.mjs"','src="./public/studio-app.mjs"');
+const pages=assets['/index.html'].replace('href="./studio.css','href="./public/studio.css').replace('src="./studio-app.mjs','src="./public/studio-app.mjs');
 await writeFile(resolve(root,'index.html'),pages);await writeFile(resolve(root,'.nojekyll'),'');
 console.log('Built portable studio and GitHub Pages entry.');
