@@ -23,7 +23,7 @@
 | Fresh sessions | Closing/reloading does not restore a design; explicit project download/open remains | Automated lifecycle checks and observed blank live reloads |
 | Make usable output | Physical sizing, cut/artwork SVG, A4 print document, calibration and assembly order are implemented | Automated exports; v0.7.2 browser starter motion, Make, print-document and Cut SVG checks; physical prototype outstanding |
 
-A final v0.7.2 live local-starter journey verified piece selection, 35° motion, Make, printable connection instructions, Cut SVG download and a blank reload. A malformed settings URL exposed one additional raw technical error; the follow-up patch replaces it with readable bilingual guidance.
+A final v0.7.2 live local-starter journey verified piece selection, 35° motion, Make, printable connection instructions, Cut SVG download and a blank reload. A malformed settings URL exposed one additional raw technical error. v0.7.3 replaces it with readable bilingual guidance; the final live check confirmed the corrected message, Escape and dismissal recovery, 37 / 800 prompt counter, and local starter selection/motion.
 
 Two real generated horses were inspected during this audit. The second reached an AI-selected three-joint review; its selected regions exposed the semantic-selection weakness recorded above. Browser file selection repeatedly stalled in the test tool, so current live file-import verification remains incomplete. This is not evidence that the application import handler failed. No phone, tablet, independent student session or physical assembly result is claimed.
 

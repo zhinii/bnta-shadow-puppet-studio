@@ -10,7 +10,7 @@ AI chooses only from bounded, measured local candidates. The current protected r
 
 Magenta mark detection runs locally during planning; black detection is explicitly requested because eyes, buttons and decoration are ambiguous. Detection keeps source pixels intact. Embedded marks remain in exported artwork; editing-overlay numbers are not painted into the image. Geometry checks govern whether any detected mark can become a joint.
 
-**Current verification status:** 231 automated tests pass, including 37 workflow tests. Syntax checks, the production build, generated Worker syntax and the 22-asset Worker smoke checks pass. Live generation, subject cleanup and a three-joint review were observed on the preceding v0.7.1 build. That test revealed incorrect semantic choices and the wide-neck limit, which v0.7.2 addresses in code and regressions. The batch close-up and revised AI selection are not claimed as fully browser-verified. A live v0.7.2 local starter test passed piece selection, 35° sleeve motion, Make, print-document preparation with all eight numbered connections, Cut SVG download and a blank reload. The downloaded SVG parsed successfully (nine cut paths; millimetre dimensions). The operating-system print dialog and physical print were not verified. A malformed settings URL exposed a raw browser error, addressed in the following patch. Browser file-chooser automation repeatedly stalled; current live import, phone/tablet touch, independent student use and physical assembly remain unverified. Automatic approval review rejected an additional live Kimi planner request on project-data transmission authorization grounds; it was not repeated.
+**Current verification status:** 231 automated tests pass, including 37 workflow tests. Syntax checks, the production build, generated Worker syntax and the 22-asset Worker smoke checks pass. Live generation, subject cleanup and a three-joint review were observed on the preceding v0.7.1 build. That test revealed incorrect semantic choices and the wide-neck limit, which v0.7.2 addresses in code and regressions. The batch close-up and revised AI selection are not claimed as fully browser-verified. A live v0.7.2 local starter test passed piece selection, 35° sleeve motion, Make, print-document preparation with all eight numbered connections, Cut SVG download and a blank reload. The downloaded SVG parsed successfully (nine cut paths; millimetre dimensions). The operating-system print dialog and physical print were not verified. A malformed settings URL exposed a raw browser error, fixed in v0.7.3. A final live v0.7.3 check confirmed readable HTTPS guidance, Escape recovery and successful error dismissal, the exact panda prompt counter at 37 / 800, and preserved local-starter selection/motion at 35°. Browser file-chooser automation repeatedly stalled; current live import, phone/tablet touch, independent student use and physical assembly remain unverified. Automatic approval review rejected an additional live Kimi planner request on project-data transmission authorization grounds; it was not repeated.
 
 ### Real generated horse regression
 
@@ -18,9 +18,11 @@ The live generation/cleanup journey produced a 399-vertex horse but initially fo
 
 ### Current interface evidence
 
-These screenshots show the v0.7.2 local construction starter, not an AI-generated character.
+The Create screenshot verifies the v0.7.3 prompt counter without submitting a generation request. Refine shows the v0.7.3 local construction starter, not AI-generated artwork. The Make screenshot records the v0.7.2 print/export check; that workflow is unchanged in v0.7.3.
 
-![Refine: selected sleeve and movement slider](validation/v072-refine.jpg)
+![Create: exact prompt and live budget](validation/v073-create.jpg)
+
+![Refine: selected sleeve and movement slider](validation/v073-refine.jpg)
 
 ![Make: height and primary print action](validation/v072-make.jpg)
 
