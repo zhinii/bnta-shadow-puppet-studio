@@ -10,7 +10,7 @@ AI chooses only from bounded, measured local candidates. The current protected r
 
 Magenta mark detection runs locally during planning; black detection is explicitly requested because eyes, buttons and decoration are ambiguous. Detection keeps source pixels intact. Embedded marks remain in exported artwork; editing-overlay numbers are not painted into the image. Geometry checks govern whether any detected mark can become a joint.
 
-**Current verification status:** full v0.7.0 automated totals, build/smoke results and browser observations are pending integrated verification. Earlier v0.6.1 screenshots and test counts below remain historical evidence for the manual joint flow. The new automatic UI, marker drag/focus behavior and full generated-image journey are not yet claimed as browser-verified. Physical assembly, material strength and print-dialog operation still require separate checks.
+**Current verification status:** 219 automated tests pass, including 35 workflow tests. Syntax checks, the production build and the 22-asset Worker smoke test pass. Browser verification is pending. Earlier v0.6.1 screenshots and test counts below remain historical evidence for the manual joint flow. The new automatic UI, marker drag/focus behavior and full generated-image journey are not yet claimed as browser-verified. Physical assembly, material strength and print-dialog operation still require separate checks.
 
 ## Previous v0.6.1 joint workflow verification
 

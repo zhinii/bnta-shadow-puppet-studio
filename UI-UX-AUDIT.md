@@ -18,7 +18,7 @@ A failed dot blocks plan acceptance instead of silently omitting a requested mov
 
 The current relay chooses among measured candidates using the brief and outlines. It has not seen the image. Magenta/black detection is local mark detection, not anatomical recognition, and retains all embedded source marks. Physical overlap material is constructed on both pieces; hidden artwork is not reconstructed.
 
-**Verification status:** v0.7.0 integrated counts, build/smoke results and browser observations are pending. One live text/outline horse-planning response returned a valid neck/foreleg candidate selection in about 8.2 seconds. This does not validate rendered usability, marker dragging on real devices, full automatic-image flow or physical assembly. Earlier v0.6.1 desktop screenshots below document the manual flow only.
+**Verification status:** v0.7.0 passes 219 automated tests, including 35 workflow tests, plus syntax, build and 22-asset smoke checks. Browser observations are pending. One live text/outline horse-planning response returned a valid neck/foreleg candidate selection in about 8.2 seconds. This does not validate rendered usability, marker dragging on real devices, full automatic-image flow or physical assembly. Earlier v0.6.1 desktop screenshots below document the manual flow only.
 
 Acceptance checks for the automatic interface:
 

@@ -43,7 +43,7 @@ Current implementation: **v0.7.0**. The acceptance criteria come from the suppli
 
 ## Release judgment
 
-The current workflow prepares movement suggestions automatically, reducing the need to locate every joint from scratch. It retains review of character cleanup, explicit dot editing and one acceptance for the joint plan. Both pieces still receive real overlap material and matching pin holes. Full v0.7.0 automated totals, build/smoke results and browser observations are pending integrated verification; historical counts and screenshots in [VALIDATION.md](VALIDATION.md) apply to their named releases.
+The current workflow prepares movement suggestions automatically, reducing the need to locate every joint from scratch. It retains review of character cleanup, explicit dot editing and one acceptance for the joint plan. Both pieces still receive real overlap material and matching pin holes. v0.7.0 passes 219 automated tests, including 35 workflow tests, plus syntax, build and smoke checks. Browser verification is pending; historical counts and screenshots in [VALIDATION.md](VALIDATION.md) apply to their named releases.
 
 The new live AI evidence is one successful text/outline selection request, not visual anatomical analysis. Automatic anatomical separation, hidden artwork reconstruction and dependable prompt matching remain incomplete. Local geometry must validate every selected or manually moved dot; no AI-selected coordinate bypasses those checks. Numeric defaults are paper-prototype heuristics, not universal material norms.
 

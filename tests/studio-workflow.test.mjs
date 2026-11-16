@@ -872,6 +872,44 @@ test('a prepared joint plan rebuilds edits from the original and commits all joi
   } finally {await h.close();}
 });
 
+test('front and back choices remain consistent through a multi-joint chain after later marker edits', async () => {
+  const h=browserHarness();h.setPlanResponse(()=>({selectedIds:[]}));
+  try {
+    await h.start('joint-plan-chain-layers');await h.settle();
+    const project=createStudioProject();project.canvas={width:100,height:300};project.parts=[makePart('Three-joint arm',[[0,0],[30,0],[30,300],[0,300]])];
+    await h.openProject(project);const before=h.project();await h.click({action:'prepare-joints'});
+    for(const y of [75,150,225]){await h.click({action:'plan-add'});await h.planPoint(15,y);}
+    const ids=h.planMarkers();assert.equal(ids.length,3);assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);
+    for(const id of ids){await h.planPoint(...h.planLocation(id),{marker:id});await h.click({action:'plan-swap'});}
+    assert.deepEqual(h.project(),before,'changing every overlap order remains a proposal');
+    await h.planPoint(...h.planLocation(ids[2]),{marker:ids[2]});await h.click({action:'plan-move'});await h.planPoint(15,230);
+    const first=h.planLocation(ids[0]);h.pointer('pointerdown',...first,{planCanvas:true,planMarker:ids[0],pointerId:94});h.pointer('pointermove',first[0],first[1]+5,{pointerId:94});h.pointer('pointerup',first[0],first[1]+5,{pointerId:94});
+    assert.deepEqual(h.planMarkers(),ids);assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);assert.deepEqual(h.project(),before);
+    assert.match(h.planMarkup(),/data-overlap-layer="back"/);assert.match(h.planMarkup(),/data-overlap-layer="front"/);
+    await h.click({action:'accept'});const accepted=h.project();assert.equal(accepted.parts.length,4);assert.equal(accepted.joints.length,3);
+    const positions=accepted.joints.map(joint=>joint.parentAnchor[1]).sort((a,b)=>a-b);for(const [i,expected]of [80,150,230].entries())assert.ok(Math.abs(positions[i]-expected)<1e-6);
+    for(const joint of accepted.joints){const parent=accepted.parts.find(part=>part.id===joint.parentId),child=accepted.parts.find(part=>part.id===joint.childId);assert.ok(child.z<parent.z,`the moving piece at ${joint.parentAnchor[1]} remains behind its parent after the chain is rebuilt`);}
+    await h.click({action:'undo'});assert.deepEqual(h.project(),before);
+  } finally {await h.close();}
+});
+
+test('moving and dragging an automatic dot recomputes its cut direction for a differently oriented limb', async () => {
+  const h=browserHarness();h.setPlanResponse(candidates=>({selectedIds:[candidates.find(marker=>marker.angleDegrees===90&&marker.point[0]>60).id]}));
+  try {
+    await h.start('joint-plan-cut-direction');await h.settle();
+    const project=createStudioProject();project.canvas={width:180,height:200};project.heightMm=180;project.parts=[makePart('Bent limb',[[0,0],[30,0],[30,150],[150,150],[150,180],[0,180]])];
+    await h.openProject(project);const before=h.project();
+    for(const mode of ['move','drag']){
+      await h.click({action:'prepare-joints'});const id=h.planMarkers()[0],start=h.planLocation(id);assert.ok(start[0]>60&&start[1]>150);
+      if(mode==='move'){await h.click({action:'plan-move'});await h.planPoint(15,90);}
+      else{h.pointer('pointerdown',...start,{planCanvas:true,planMarker:id,pointerId:95});h.pointer('pointermove',15,90,{pointerId:95});h.pointer('pointerup',15,90,{pointerId:95});}
+      assert.deepEqual(h.planMarkers(),[id]);assert.deepEqual(h.planLocation(id),[15,90]);assert.deepEqual(primaryActions(h.root.innerHTML),['accept'],`${mode} chooses a new seam across the vertical limb`);assert.doesNotMatch(h.root.innerHTML,/This dot needs another position/);assert.deepEqual(h.project(),before);
+      await h.click({action:'accept'});const accepted=h.project();assert.equal(accepted.joints.length,1);assert.deepEqual(accepted.joints[0].parentAnchor,[15,90]);
+      await h.click({action:'undo'});assert.deepEqual(h.project(),before);
+    }
+  } finally {await h.close();}
+});
+
 test('a failed planner offers local suggestions while cancellation and New discard late selections', async () => {
   const h=browserHarness();
   try {
