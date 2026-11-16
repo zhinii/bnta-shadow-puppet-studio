@@ -1,17 +1,29 @@
-# Studio redesign validation — 2026-11-16
+# Validation · 16 November 2026
 
-## Passed
+## Automated checks
 
-- JavaScript syntax checks for app, model, renderer, client and server.
-- 20 automated tests: blank initial state, legacy-project migration, visible age/face edits, independent garments, stable joints, enforced feature/part locks, selective AI acceptance, ignored unsupported edits, printable contours and A4 oversize guard, prop pagination, project round trips, safe imports, response validation and server request protections.
-- UI state tests with a minimal DOM double: Shape, Style, Test, Make, optional Story, My puppets, empty character creation, Before / Proposed review, partial acceptance, saved versions, restore, print and Chinese labels.
-- Generated HTML structure: matched container tags and no duplicate SVG IDs across nine captured states.
-- Dependency-free build, offline combined-source parse and built-server asset/status smoke checks.
+The final local run passed **85 automated tests**, syntax checks, the portable/Worker build and the built-service smoke checks. Reproduce with `npm run check`, `npm test`, `npm run build`, and `node scripts/smoke.mjs`.
 
-## Verification limits
+Coverage includes arbitrary image-backed polygons; branched and chained connections; exact pivot coincidence under rotation; physical scale independent of pose; pin holes and united overlap tabs; invalid outlines and overlapping holes; locked parts and their ancestors; selected-piece AI edits; exact custom prompts; malformed, truncated and advice-only responses; one bounded AI repair; protected multimodal payloads; image retrieval and visual comparison; origin/request limits; secret exclusion; portable image round-trips; failed IndexedDB transactions; and the three-stage UI event workflow.
 
-- Browser connection returned Transport closed, so there is no live visual, touch, keyboard or print-dialog verification in this session. UI state tests are not browser tests.
-- A live request to the configured Kimi puppet endpoint failed with ENOTFOUND (hostname resolution unavailable here). Mocked AI replies establish frontend behavior only. The relay URL already configured on GitHub was preserved.
-- Physical materials, joints, lighting and control rods still need a classroom prototype. Animation does not simulate those properties.
+The workflow harness imports artwork, traces two parts, connects them, adds a control rod, exports/reopens the project, requests a text revision and accepts/undoes changes. It also verifies original artwork and locks survive project import. These are DOM-double tests, not browser automation.
 
-GitHub Pages continues to serve main / (root), without a custom deployment workflow.
+The build links modules into isolated scopes, syntax-checks the generated Worker and portable application, and serves both classic and new assets. Smoke tests cover 14 public assets, both API status routes, CORS preflight, foreign-origin rejection and missing resources.
+
+## Live AI checks
+
+The existing protected service responds at `/api/status` and reports a configured Qwen provider. Real requests tested a footballer with a separate ball, a long-skirt figure with wide sleeves, and a white-coated character with exactly six tentacles.
+
+Early tests exposed instruction conflicts, advice-only responses, zero-area details and crossed ornamental boundaries. The client was refined to preserve the exact request, extract only parseable measurement data, validate complete geometry, and make one correction attempt. The service still retains the old fixed-character system prompt, so compatibility results are not a guarantee that arbitrary prompts will succeed.
+
+The final repeated creation trial returned **3 structurally valid drafts out of 6 requests**: one footballer and two skirt designs. One footballer request timed out. Both tentacle cases still had invalid geometry after the repair and were rejected. This small trial measures structural validity, not visual fidelity or a general success rate. A separate live selected-sleeve revision passed and changed only that selected part.
+
+`/api/studio/status` returned **404**. The new image endpoint was not deployed on the protected Kimi host in this session. The local environment has no configured provider credential. Image analysis/generation/editing/evaluation tests use controlled provider responses and establish protocol handling only. They do not establish account authorization, output quality or actual live vision.
+
+## Remaining verification
+
+- Browser control returned `Transport closed` on both attempts. Actual layout, touch/keyboard interactions and print dialogs need browser verification. No screenshot-based QA is claimed.
+- Physical material strength, hole clearance, layered movement, light transmission and rod control require a prototype with the chosen material.
+- Enable the updated protected relay and repeat the three live character cases, then compare generated pixels against their prompts and test a selected image revision. See `integration/STUDIO-V2-RELAY.md`.
+
+GitHub Pages publishes the browser application; its successful deployment does not deploy or certify the separate AI service.

@@ -1,98 +1,78 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual, component-based Chinese shadow-puppet design prototype. Students start with an unnamed, plain puppet and follow **Shape → Style → Test → Make**. Story is optional and begins empty.
+A bilingual student workspace with three processes: **Create → Refine → Prepare & export**.
+
+[Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/)
+
+## Design your own character
+
+1. **Create:** start blank, choose optional character/style fields, and describe your own historical, modern, fictional or real-world character. Import PNG/JPEG/WebP artwork, ask for an editable drawing plan, or choose an optional construction template.
+2. **Refine:** describe a change, select a particular piece when needed, compare Before and Proposed, then accept or discard. Locked parts and untouched artwork are preserved. Undo restores accepted changes.
+3. **Prepare & export:** trace arbitrary pieces, edit their outline points, connect parent and child pivots, add fixed overlaps or pin hinges and control-rod points, test joint angles, then print or export.
+
+The first screen contains no authored character or story. The former decoration module is absent. Construction templates provide different structures: articulated figure, broad sleeves and long skirt, wings and tail, or six tentacles. They are optional editable geometry, not AI-generated images.
+
+Artwork, cut contours and connections are separate. An ornate reference image can retain its original texture and colors inside editable cut contours. Characters are no longer restricted to ten human body parts. A character can contain up to 80 pieces, with arbitrary connection trees.
+
+## Use imported artwork now
+
+Import the image, click around each moving piece, and choose **Finish part**. Select **Add a connection**, click the parent pivot, then the child pivot. Use the parts list to select a specific piece when images overlap. Holes and overlap tabs are generated from the connection settings. **Edit outline points** adjusts the boundary. **Shadow** hides the reference and shows the actual cut silhouette.
+
+The original image does not contain artwork hidden behind a sleeve or arm. AI suggestions cannot recover the true hidden design; extend or reconstruct these areas deliberately. A single connected image is not automatically a functioning puppet.
+
+## AI capabilities and current deployment
+
+The published browser uses the existing protected Kimi-hosted Qwen relay. It first checks for the new `/api/studio` service, then uses the known `/api/puppet` text service when necessary.
+
+The older service still pins fixed-character instructions. It can sometimes provide arbitrary polygon cutting plans as design advice, but live testing found inconsistent compliance and invalid outlines. The client validates returned geometry, makes at most one corrective request, and rejects unusable results without changing the project. Compatibility mode is labelled; it is not equivalent to a fully deployed v2 AI service.
+
+**Image generation, image analysis, image editing and image-based part suggestions require the updated protected service.** The implementation is included, but publishing GitHub Pages does not deploy that separate host. Qwen vision analyzes images through chat; Qwen Image generates/edits pixels through a different endpoint, even if the same account key covers both. [Install and verify the updated relay](integration/STUDIO-V2-RELAY.md).
+
+The new service also compares each generated image against the exact student request using vision. It reports missing or uncertain features for student review. This is a visual critique, not proof of identity, historical accuracy, material strength or successful fabrication. These image paths have protocol tests; their live provider behavior must be verified after deployment.
+
+No API key is requested by or embedded in the browser. The Connection panel accepts a protected endpoint URL only. There is no unannounced fallback to another provider.
+
+## Save, print and continue
+
+- IndexedDB autosave stores the project and its artwork on this device. A failed save is reported explicitly.
+- **Save project** downloads a portable `.puppet.json` file containing the images, shapes, connections and settings. **Open** restores it on another device.
+- Artwork SVG and cut-outline SVG use consistent millimetre scale. The printable pack includes an assembly preview, connection guide, labelled pieces, 50 mm calibration and overlapping A4 tiles for large pieces.
+- Cut outlines combine reinforcement tabs with the part boundary. Invalid or incomplete cutting geometry blocks export.
+- The joint preview is planar. It does not simulate material stiffness, collisions, gravity or rod control. Make a paper prototype and check the 50 mm calibration at 100% print scale before fabrication.
+
+Older version 1 projects remain usable in the [classic editor](https://zhinii.github.io/bnta-shadow-puppet-studio/public/legacy.html). Their existing browser storage is untouched. The new editor rejects them with a clear instruction rather than silently losing drawings or details.
 
 ## Run locally
 
-**Quick start from the downloadable ZIP:** extract it, then open `START-HERE.html` in your browser. Manual design, movement, project files and printing work without a server. AI still needs access to the protected Kimi service, and that service may reject local-file origins. Use hosted or localhost mode for the intended AI workflow.
-
-Requires Node.js 22 or newer. There are no npm dependencies.
+Node.js 22 or later; no npm runtime dependencies.
 
 ```sh
 npm start
 ```
 
-Open `http://127.0.0.1:4237`. The AI transport preserves the dedicated protected Kimi puppet endpoint configured in the repository:
-
-`https://6ilmssim2bz2s.kimi.site/api/puppet`
-
-The host is Kimi Sites; this URL alone does **not** identify the underlying model provider. The request retains the six-axis client's OpenAI-compatible envelope and Qwen model hint. The hosted relay remains authoritative about the model and secret it uses.
-
-The same-origin `/api/puppet` adapter forwards requests to that relay without copying its API key. GitHub Pages serves the repository-root entry page and uses the protected puppet relay from the browser. If the Kimi host rejects the new origin or pins robot-only instructions, update its source as explained in [integration/KIMI-RELAY.md](integration/KIMI-RELAY.md). This repository cannot publish changes to Kimi itself.
-
-For a separate server-side Qwen connection, copy `.env.example` to `.env` and set `ALIBABA_API_KEY`, `ALIBABA_BASE_URL`, and `ALIBABA_MODEL`. Supported aliases are `QIANWEN_API_KEY` and `DASHSCOPE_API_KEY`. Never place credentials in `public/`, JSON project files, GitHub, or hosting manifests.
-
-## Implemented
-
-- English / Chinese interface, responsive student workspace.
-- Optional empty project story, AI drafts based on a student-supplied idea, and individually accepted character suggestions.
-- Up to 12 puppets, each starting as a plain, unnamed connected template. No seeded story or characters.
-- Ten separately editable body parts with nine hierarchical connections.
-- Visual choices for hair, face shape, costume and pattern; age-related facial details and colors. Gender is explicitly descriptive metadata, not an automatic visual preset.
-- Per-part width, length and angle; independent garment sleeve width, sleeve length and hem length. Feature locks protect face, body, costume and props from AI.
-- Freehand decoration on a selected part; clipped to its outline.
-- Five prop types, attachment choice, drag positioning, size and rotation.
-- Optional AI assistant with Before / Proposed previews, normalized per-field change checkboxes, no-op detection, local lock enforcement and stale-proposal rejection; undo / redo.
-- Wave, walk and reading previews, plus custom joint angles.
-- Browser autosave, project JSON import/export, last 12 revision snapshots in a Versions drawer.
-- Transparent PNG, complete SVG, scaled A4 parts sheets, separate props and an assembly guide. Browser Print can save the multipage pack as PDF.
-- Request size limits, bounded upstream destination, timeouts, per-process request throttles, schema normalization, safe SVG output.
-
-Existing saved projects are preserved. Use **New project** to start a blank design; Undo can restore the preceding project. Downloads transfer projects between devices. Costume edits retain bone lengths and joint positions; short sleeves and hems preserve the joint connection areas. Oversized A4 pieces are flagged before print/export, with a suggested smaller height.
-
-## Scope and limitations
-
-This first release uses parameterized vector artwork. AI proposes changes to an explicit design schema; it does not run a fine-tuned image-generation model, create arbitrary bitmap imagery, or segment arbitrary uploaded photographs. Hair and costume options have deliberate bounds. The instructional templates are contemporary interpretations inspired by Chinese shadow puppetry, not authenticated regional replicas.
-
-The animation is a planar joint preview. It does not model collisions, stiffness, gravity, rod control, or material strength. Physical joints, attachment methods and translucency must be tested with the teacher's chosen material. The template height is a neutral design envelope; props are printed separately and need a physical size check. Pattern lines are printed artwork, **not** machine cutting paths. No laser/knife G-code is emitted.
-
-Projects are local to the current browser, not synchronized across devices. Download project JSON for backup or group exchange. There are no student accounts or shared class database in this version. Story and character data is sent to the configured AI relay only when the student requests AI assistance. The application does not log prompts, replies or API keys; provider/hosting logs are governed by those services.
-
-The Kimi relay's live acceptance must be verified on the deployment network. A successful unit test with a mocked provider is not evidence of a live AI call. If the relay still returns robot actions, the app reports that configuration mismatch instead of pretending the design changed.
-
-## Source layout
-
-- `public/model.mjs`: normalized project data, joints, physical layout and edit constraints.
-- `public/render.mjs`: original vector artwork, puppet assembly, print sheets.
-- `public/agent.mjs`: puppet-specific instructions and protected Kimi transport.
-- `public/app.mjs`: student interaction, local persistence, history, exports.
-- `server/api.mjs`: same-origin relay adapter and optional direct Qwen connection.
-- `server.mjs`: local Node server.
-- `scripts/build.mjs`: dependency-free Cloudflare Worker build with embedded assets.
-- `integration/`: protected relay adaptation instructions and a dedicated route.
-
-## Validation
+Open `http://127.0.0.1:4237`. Without local provider configuration the browser checks the existing protected relay. For a standalone protected server, copy `.env.example` to `.env` and configure the existing account and region. Never commit credentials or place them in `public/`.
 
 ```sh
 npm run check
 npm test
 npm run build
-node --check dist/server/index.js
 node scripts/smoke.mjs
 ```
 
-Tests cover project round trips, joint relationships, part locks, unsafe imported content, print bounds, truncated/robot-only AI responses, origin checks, request limits, secret exclusion and the Kimi transport envelope. Browser and live-provider verification must be recorded separately.
+The build creates a dependency-free Worker at `dist/server/index.js`, a portable manual editor at `START-HERE.html`, and the committed root entry used by GitHub Pages. AI from a local file depends on relay origin policy; hosted/localhost mode is preferred. Fonts fall back to installed fonts without network access.
 
-## Hosting
+## Source
 
-The private ChatGPT Site uses `.openai/hosting.json` and `dist/server/index.js` with a default Worker fetch handler. `npm run build` creates the deployment output; it embeds only public assets and the adapter, never `.env`.
+| File | Responsibility |
+| --- | --- |
+| `public/studio-model.mjs` | Arbitrary geometry, transforms, locks and fabrication checks |
+| `public/studio-render.mjs` | Clipped artwork, united contours, precise holes and print packs |
+| `public/studio-ai.mjs` | Exact prompt transport, capability checks, selected-piece scope, validation and one repair |
+| `public/studio-storage.mjs` | Portable projects, image import and IndexedDB saves |
+| `public/studio-app.mjs` | Three-stage student workflow and review controls |
+| `server/studio-api.mjs` | Protected text, vision, generation, editing and visual evaluation |
+| `public/legacy.html` | Preserved earlier editor |
 
-GitHub Pages serves the committed root `index.html` and `public/` assets directly. No custom deployment workflow or build is needed on GitHub. GitHub Pages cannot host a secret or the server adapter; the protected external relay must allow the published GitHub origin.
+[Validation evidence and limits](VALIDATION.md) · [Criteria audit](CRITERIA-AUDIT.md)
 
-Source repository: https://github.com/zhinii/bnta-shadow-puppet-studio
-
-In repository **Settings > Pages > Build and deployment**, choose:
-
-- **Source:** Deploy from a branch
-- **Branch:** main
-- **Folder:** /(root)
-
-Click **Save**. After GitHub finishes publishing, open https://zhinii.github.io/bnta-shadow-puppet-studio/ . Future pushes to `main` update the site automatically. GitHub may display its own internal Pages deployment in Actions; there is no custom Pages workflow to configure. The remaining `Check studio` workflow only runs automated checks and is independent of publication.
-
-If editing `public/index.html`, run `npm run build` and commit the regenerated root `index.html` too. See [VALIDATION.md](VALIDATION.md) for verification limits.
-
-## Research reference
-
-Zhihao Yao et al. (2024), *ShadowMaker: Sketch-Based Creation Tool for Digital Shadow Puppetry*. CHI EA 2024. DOI: https://doi.org/10.1145/3613905.3648657.
-
-This is an independent implementation inspired by the paper's component-first approach. No author code, training dataset, trained weights or museum artwork is included.
+GitHub Pages serves **main / (root)**. It cannot host the provider secret or API adapter. The Check studio workflow tests changes independently of the automatic Pages deployment.

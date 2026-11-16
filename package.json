@@ -1,9 +1,16 @@
 {
   "name": "bnta-shadow-puppet-studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Bilingual articulated shadow-puppet design studio",
-  "scripts": {"start":"node --env-file-if-exists=.env server.mjs", "build":"node scripts/build.mjs", "test":"node --test tests/*.test.mjs", "check":"node --check public/app.mjs && node --check public/model.mjs && node --check public/render.mjs && node --check public/agent.mjs && node --check server/api.mjs"},
-  "engines": {"node": ">=22"}
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
 }
