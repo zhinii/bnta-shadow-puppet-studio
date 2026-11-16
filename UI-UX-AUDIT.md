@@ -1,4 +1,49 @@
-# UI/UX implementation audit — 16 November 2026
+# UI/UX re-audit — simplicity first
+16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
+
+## Judgment
+The current interface does not yet meet the intended simplicity. Larger text and buttons improved legibility, but the student still encounters an editor's tool inventory before completing a clear task. The next iteration must reduce the default choices, rather than add another instruction panel. Passing functional tests does not establish usability.
+
+The supplied screenshot shows eight canvas controls above the artwork, extraneous calligraphy/stars/a border within the artwork, and “40 pieces · 0 joints.” These are detected image fragments, not evidence of a usable articulated puppet.
+
+## Required changes
+
+| Current issue | Required default behavior | Optional location |
+| --- | --- | --- |
+| Artwork/Shadow, Joints/Reference, minus/plus, Fit and Pan compete with the image | Automatically fit the character. Show one current instruction and one primary next action. | One View tools disclosure |
+| Four Refine substeps sit inside the three main stages | Keep only Create → Refine → Make. Guide the active task in context. | Advanced editing tools |
+| Full parts list, properties, dimensions and dialogue appear together | Show only the selected piece and its relevant control, such as a joint-angle slider. | Choose a piece, Adjust this piece, Ask AI |
+| Piece counts and physical dimensions appear while the student is still preparing artwork | Remove these from the default canvas footer. | Pieces list and Make |
+| Decorative material is converted into many pieces | Confirm the character and requested props before creating geometry. Largest foreground region may be a suggestion, never a claim of semantic recognition. | Choose character, keep another region, or manual outline |
+| Image generation can add external calligraphy, stars and borders | Request an isolated complete character on a plain background, with only explicitly requested props/decorations. Preserve costume motifs and the student's exact prompt. | Student can explicitly request an exception |
+| Multiple review options and long warnings dominate the screen | Large proposed result; one Use/Apply button, one Back/Keep original option, and an optional original comparison. | Expanded explanation |
+
+## Three screens
+
+1. **Create:** describe an idea or upload artwork; inspect the character; choose **Use this character**. Presets are optional.
+2. **Refine:** keep the intended character/props; select where movement is needed; review the split/joint and try its motion. Keep natural-language changes accessible through **Ask AI for a change**. Finish with **Ready to make**.
+3. **Make:** set height; inspect the print preview; choose **Print puppet**. Material settings, calibration guidance and SVG files remain accessible without crowding the primary task.
+
+The new three-screen concept board is a design target, not a live screenshot or proof that automatic anatomical separation works. Its illustrated print sheet is not a fabrication drawing.
+
+## Acceptance checks for the next implementation
+
+- At a 390 px phone width, the current task, character and primary action are visible together in the normal working view; no toolbar pushes the image offscreen.
+- Exactly one prominent next action appears in each normal task state. Tools are disclosed only when needed.
+- A new student can proceed through Create, Refine and Make without understanding “Reference,” “Pan,” “alpha,” or “detected components.”
+- A horse with separate lettering, stars and a border is reviewed as a character-selection task, not accepted as 40 finished pieces.
+- A separate intended prop, such as a footballer's ball, can be retained. No original asset or locked work is silently overwritten.
+- Touching decoration and complex/opaque backgrounds receive an honest manual-selection fallback; cleanup does not claim anatomical understanding.
+- The selected piece remains visibly associated with its controls; AI revisions still require review and preserve scope/locks.
+- Fresh-session behavior remains: no automatic project save/restore, with explicit Download/Open.
+- Test the complete journey in a real browser, on a phone/tablet, and with one printed paper prototype. Source-level and simulated-event checks remain supporting evidence.
+
+## Implementation status
+The workspace disconnected during this iteration. This re-audit and concept board are complete; the simplified interface is **not yet applied or published**. Subject-cleanup and production-prompt changes were prepared locally, but the combined workflow has not been integrated or verified. The last published application remains v0.4.0 with 158 automated tests (19 workflow tests). Those totals do not certify the proposed simplification.
+
+---
+## Previous v0.4 implementation record
+
 
 ## Current release
 
