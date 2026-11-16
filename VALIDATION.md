@@ -2,7 +2,7 @@
 
 ## Automated checks
 
-**Current release verification: 158 automated tests pass, including 19 workflow tests.** Syntax checks, production build and Worker smoke checks pass with 19 public assets. Reproduce with npm run check, npm test, npm run build, and node scripts/smoke.mjs.
+**Current release verification: 168 automated tests pass, including 21 workflow tests.** Syntax checks, production build and Worker smoke checks pass with 19 public assets. Reproduce with npm run check, npm test, npm run build, and node scripts/smoke.mjs.
 
 Coverage includes arbitrary image-backed polygons; branched and chained connections; exact pivot coincidence under rotation; physical scale independent of pose; pin holes and united overlap tabs; invalid outlines and overlapping holes; locked parts and their ancestors; selected-piece AI edits; exact custom prompts; malformed, truncated and advice-only responses; one bounded AI repair; protected multimodal payloads; image retrieval and visual comparison; origin/request limits; secret exclusion; portable image round-trips; and the three-stage UI event workflow. Legacy IndexedDB transaction utility tests remain, but the application no longer saves projects through those utilities.
 
@@ -16,7 +16,15 @@ The build links modules into isolated scopes, syntax-checks the generated Worker
 
 ## Current interface and fresh-session revision
 
-The current implementation uses **Create → Refine → Make**, with Clean image, Choose pieces, Add movement and Test inside Refine. Proposals occupy the main canvas and offer large Before / Proposed / Side by side views with persistent acceptance decisions. Artwork thumbnails, selected-piece AI dialogue, collapsed advanced properties, readable text and larger control targets follow the concept direction. Zoom, pan, Fit, keyboard outline adjustment and pointer handling are included in this revision's integration checks. These implementation statements do not establish browser-rendered usability.
+The v0.5 implementation keeps **Create → Refine → Make** and replaces the required four-substep Refine navigation with one next action. **Remove extras** proposes the largest connected foreground region after plain-background cleanup. Review can keep additional separate pieces/props or select a different main region. The default review shows the result with an original/result toggle and a clear accept/keep-original choice; a three-way comparison is no longer the default.
+
+**Add movement** opens the two-point split tool. The accepted joint has a compact angle control, with another joint available when needed. Detailed piece controls, image tools, AI dialogue and view tools are collapsed. Make leads with print height and printing; material/file settings remain optional. The UI tests cover these event routes and retain earlier session, lock, review, viewport and export regressions.
+
+These are implementation and automated-event checks. They do not establish actual browser layout, mobile usability, focus behavior, touch precision or print-dialog behavior. No newly rendered screen, mobile or physical-print evidence is available for this revision.
+
+Remove-extras fixtures exercise largest-component selection, manual subject selection and retention of additional disconnected regions. The operation follows pixel connectivity rather than recognizing a person, puppet, prop or anatomical part. Connected decoration remains; separated intentional details require review. Rebuilding pieces has a visible replacement warning and respects locks.
+
+The generation contract retains the exact custom prompt and adds instructions against unrequested text, borders, floating stars and other presentation extras while retaining requested props and costume details. This revision made no new live image-quality request; prior provider trials remain historical evidence, not validation of these new prompt rules.
 
 Both current and classic editors now keep projects only in the open session. Reloading/reopening starts fresh, including browser back/forward restoration. Explicit Download/Open is the continuation route. The AI endpoint preference remains separate from project content and persists. Former v2 IndexedDB and v1 localStorage project snapshots are cleared best-effort; blocked storage cannot stop the editor and unrelated settings are untouched.
 
@@ -37,7 +45,7 @@ The first long-robed scholar request established the live route and PNG response
 
 The real image trials used a Node PNG header reader for the adapter, followed by independent System.Drawing pixel decoding for local extraction. Browser image decoding/resizing and UI acceptance are covered by DOM-double tests, not live browser automation. Sampled costume, face and ball pixels stayed unchanged after background cleanup. Physical scale remained unchanged through pose and resizing. Several unsuitable footballer split lines were rejected before a valid simple cut succeeded; the UI now explains that the line must cross one narrow section twice.
 
-Generation is separate from automatic visual evaluation. Returned artwork is explicitly marked as unverified and students must check anatomy, counts, costume and props. Editing and vision remain disabled for the generation-only route. No provider credential is exposed and no paid generation call is automatically retried. The Kimi share link supplied by the user yielded only a public app shell; its full handoff text could not be read, so the integration is based on the verified live contract and repository client.
+Generation is separate from automatic visual evaluation. Returned artwork must be reviewed for anatomy, counts, costume and props; the current review asks students to check limbs, costume and requested props. Editing and vision remain disabled for the generation-only route. No provider credential is exposed and no paid generation call is automatically retried. The Kimi share link supplied by the user yielded only a public app shell; its full handoff text could not be read, so the integration is based on the verified live contract and repository client.
 
 ## Earlier live AI checks (before the local image-tools work)
 

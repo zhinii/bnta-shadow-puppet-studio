@@ -7,6 +7,19 @@ export const PLAN_RELAY = 'https://6ilmssim2bz2s.kimi.site/api/puppet';
 export const IMAGE_RELAY = PLAN_RELAY + '/image';
 export const MAX_STUDIO_PROMPT = 4000;
 
+export const IMAGE_PRODUCTION_RULES = `Production rules for editable shadow-puppet artwork:
+These are defaults only. Explicit student requests take precedence, including requested text, decoration, props, background, pose or multiple characters.
+Show a single complete full-body character, assembled in one view, entirely inside the frame with clear margins. Preserve the requested anatomy, appendage count, identity, costume, palette and pose. Make all appendages distinguishable and as fully visible as the requested pose allows; do not omit hidden parts, crop extremities, duplicate poses, or turn the character into a detached parts sheet unless requested.
+Use a flat plain white background and only explicitly requested props. Do not add text, calligraphy, signatures, watermarks, borders, floating stars, ground decoration or scenery unless explicitly requested. These exclusions concern added presentation decoration: preserve legitimate character and costume details, lettering, tattoos, patterns, embroidery and motifs.
+Do not draw simulated mechanical pinhole dots, joint circles, hinge marks, diagram labels or cutting lines unless explicitly requested; the studio adds functional connections separately. Keep the outline readable for tracing while retaining the student's requested design detail.`;
+
+export function makeImageGenerationPrompt(project,prompt) {
+  if(typeof prompt!=='string'||!prompt.trim()||prompt.length>MAX_STUDIO_PROMPT)throw Error(`Enter a request of 1-${MAX_STUDIO_PROMPT} characters.`);
+  const choices=[['Character type',project.brief?.kind],['World / era',project.brief?.era],['Visual style',project.brief?.style],['Movement / action',project.brief?.action]]
+    .filter(([,value])=>typeof value==='string'&&value.trim()).map(([label,value])=>`${label}: ${value.slice(0,1000)}`);
+  return `${IMAGE_PRODUCTION_RULES}\n\n${choices.length?`Selected design settings:\n${choices.join('\n')}\n\n`:''}Student prompt (verbatim):\n${prompt}`;
+}
+
 export const STUDIO_SYSTEM = `You collaborate with students on custom shadow-puppet design. Return one JSON object: {"reply":"short explanation in requested language","proposal":{"parts":[],"joints":[],"brief":{}},"warnings":[]}. Do not wrap JSON in Markdown. Student intent and retained work are authoritative. Never invent a character name, story, identity, historical fact or symbolism. Modern, historical, fictional, real-world, animal and fantastical subjects are valid. No fixed human skeleton: preserve requested anatomy, appendage counts, costume silhouette and custom shapes. Ask for clarification rather than silently substituting a generic human. The result is a design draft, never a claim of tested physical construction.
 Parts are separate cuttable simple polygons in the supplied canvas coordinate system, with {id,name,polygon:[[x,y],...],fill:"#RRGGBB",assetId:null|string,z:number}. Use 6-24 vertices per shape, no self-intersections, duplicate points or zero-area parts. At most 24 parts per reply. Existing part edits are patches by id: omit unchanged fields and preserve everything the student did not request changing. Do not delete implicitly. Respect locked parts and their joints; do not move or recolor locked artwork. Use removePartIds only when explicitly requested. When source artwork is present, use its assetId and exact pixel coordinates to propose outlines; never invent a different picture. Trace visible boundaries, and identify hidden areas needing reconstruction as warnings. Approximate AI traces require student review.
 For width or length changes to an existing part, return {id,parameters:{width:number,length:number}} with only the changed dimension. These are absolute multipliers from 0.25 to 4 relative to that part's baseline since its last axis rebase; a request for 20% longer means current parameters.length multiplied by 1.2. The stored axisAngle defines width/length directions. The application transforms artwork, boundaries and attached anchors together, keeps child pieces unscaled, and checks locked descendants. Never replace numeric contours to simulate a simple resize. Do not combine parameters with polygon edits in one patch. artworkMatrix, parameters.origin and parameters.axisAngle are read-only context: never return them. Dimension changes cannot invent hidden image details or recolor raster pixels; explain when a requested visual change needs image editing instead.
@@ -37,7 +50,7 @@ export function makeStudioRequest(project, {task='create',prompt='',imageDataUrl
   if (imageDataUrl && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(imageDataUrl)) throw Error('Use a PNG, JPEG or WebP image.');
   if (imageDataUrl?.length > 12_000_000) throw Error('The reference image is too large. Use an image under 8 MB.');
   if(selectedPartId&&!project.parts?.some(p=>p.id===selectedPartId))throw Error('Select an existing part to revise.');
-  return {application:'shadow-puppet-studio',version:2,task,prompt:prompt.trim(),language:project.language==='zh'?'zh':'en',project:studioContext(project),
+  return {application:'shadow-puppet-studio',version:2,task,prompt:task==='generate-image'?prompt:prompt.trim(),language:project.language==='zh'?'zh':'en',project:studioContext(project),
     ...(imageDataUrl?{imageDataUrl}:{}),...(selectedPartId?{selectedPartId}:{}),...(repair?{repair:{error:boundedString(repair.error,1000),proposal:repair.proposal}}:{}),history:history.slice(-4).filter(m=>['user','assistant'].includes(m.role)).map(m=>({role:m.role,content:boundedString(m.content,2000)}))};
 }
 export function makeDrawingPlanRequest(project,args) {
@@ -105,7 +118,7 @@ export function parseStudioResponse(data,{legacy=false}={}) {
   if(!reply)throw Error('The assistant did not explain its proposal.');
   const warnings=Array.isArray(value.warnings)?value.warnings.filter(x=>typeof x==='string').slice(0,12):[];
   if(value.asset){const a=value.asset;if(!plainObject(a)||typeof a.id!=='string'||!/^[A-Za-z0-9_-]{1,96}$/.test(a.id)||typeof a.dataUrl!=='string'||a.dataUrl.length>20*1024*1024||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(a.dataUrl)||![a.width,a.height].every(n=>Number.isInteger(n)&&n>=1&&n<=8192))throw Error('The assistant did not return a portable PNG, JPEG or WebP image.');}
-  if(legacy&&proposal)warnings.push('Editable drawing plan from the text assistant. Review the silhouette and add or check connections in Prepare. This is not generated reference artwork.');
+  if(legacy&&proposal)warnings.push('Editable drawing plan from the text assistant. Review the silhouette and add or check connections in Refine. This is not generated reference artwork.');
   if(legacy&&!proposal)warnings.push('The relay returned advice only; no editable shapes were proposed.');
   return {reply,proposal,warnings,mode:legacy?'drawing-plan':(value.mode||'studio'),...(value.asset?{asset:value.asset}:{}),...(value.evaluation?{evaluation:value.evaluation}:{})};
 }
@@ -115,9 +128,7 @@ async function responseJson(response){try{return await response.json();}catch{re
 const aborted=signal=>{if(signal?.aborted)throw signal.reason||new DOMException('Request cancelled.','AbortError');};
 export function makeKimiImageRequest(project,{prompt=''}={}) {
   makeStudioRequest(project,{task:'generate-image',prompt});
-  const choices=[['Character type',project.brief?.kind],['World / era',project.brief?.era],['Visual style',project.brief?.style],['Movement / action',project.brief?.action]]
-    .filter(([,value])=>typeof value==='string'&&value.trim()).map(([label,value])=>`${label}: ${value.slice(0,1000)}`);
-  return {application:'shadow-puppet-studio',kind:'reference',prompt:choices.length?`Selected design settings:\n${choices.join('\n')}\n\nStudent prompt:\n${prompt}`:prompt};
+  return {application:'shadow-puppet-studio',kind:'reference',prompt:makeImageGenerationPrompt(project,prompt)};
 }
 export async function readKimiImageResponse(data,{artworkReader=readArtworkFile,signal,language='en'}={}) {
   aborted(signal);
@@ -133,7 +144,7 @@ export async function readKimiImageResponse(data,{artworkReader=readArtworkFile,
   if(!plainObject(asset))throw Error('The generated artwork could not be decoded. Try generating another image.');
   // Validate the decoder result using the same portable-asset boundary as v2.
   const zh=language==='zh';
-  const reply=zh?'接受前，请对照提示词检查生成图像的角色形态、肢体数量、服装和道具。确认后再提取并拆分部件。':'Before accepting, check the generated artwork against your prompt: anatomy, appendage count, costume, and props. Then extract and split the pieces in Prepare.';
+  const reply=zh?'接受前，请对照提示词检查生成图像的角色形态、肢体数量、服装和道具。确认后再提取并拆分部件。':'Before accepting, check the generated artwork against your prompt: anatomy, appendage count, costume, and props. Then extract and split the pieces in Refine.';
   const warning=zh?'此图像尚未经过视觉核验。生成结果可能遗漏细节或出现数量错误。':'This image has not been visually verified. Generation may miss requested details or produce incorrect counts.';
   const result=parseStudioResponse({reply,mode:'image',proposal:null,asset,warnings:[warning]});
   return {...result,providerModel:boundedString(data.model,100)};

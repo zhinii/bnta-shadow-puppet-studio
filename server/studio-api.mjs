@@ -1,4 +1,4 @@
-import {STUDIO_SYSTEM,makeStudioRequest,parseStudioResponse} from '../public/studio-ai.mjs';
+import {STUDIO_SYSTEM,makeStudioRequest,parseStudioResponse,makeImageGenerationPrompt} from '../public/studio-ai.mjs';
 
 const STUDIO_APPLICATION='shadow-puppet-studio';
 const STUDIO_ALLOWED_ORIGINS=new Set(['https://zhinii.github.io','http://127.0.0.1:4237','http://localhost:4237']);
@@ -56,7 +56,7 @@ export function studioChatPayload(input,configuration) {
   return {model:input.imageDataUrl?configuration.visionModel:configuration.model,messages:[{role:'system',content:STUDIO_SYSTEM},...input.history,{role:'user',content}],response_format:{type:'json_object'},temperature:.35,max_tokens:6000,stream:false,enable_thinking:false};
 }
 export function studioImagePayload(input,configuration) {
-  const prompt=`Create a shadow-puppet character design from the student's exact request below. Preserve requested identity, anatomy, number of appendages, clothing silhouette, palette and pose. A single complete character is fully inside the frame with generous margins; no UI, watermark text, stage scenery or distracting background. Use a clean plain background. Make the silhouette readable and keep appendages distinguishable so students can trace separate movable parts. Rich traditional or modern decoration is allowed when requested. Do not draw artificial joint circles or cutting labels; the studio adds real connections separately. Do not invent historical authenticity. ${input.task==='edit-image'?'Revise the supplied artwork only as requested; keep unrelated visual details consistent. This is an editable concept, so do not claim exact preservation. ':''}Student request: ${input.prompt}`;
+  const prompt=input.task==='generate-image'?makeImageGenerationPrompt(input.project,input.prompt):`Create a shadow-puppet character design from the student's exact request below. Preserve requested identity, anatomy, number of appendages, clothing silhouette, palette and pose. A single complete character is fully inside the frame with generous margins; no UI, watermark text, stage scenery or distracting background. Use a clean plain background. Make the silhouette readable and keep appendages distinguishable so students can trace separate movable parts. Rich traditional or modern decoration is allowed when requested. Do not draw artificial joint circles or cutting labels; the studio adds real connections separately. Do not invent historical authenticity. ${input.task==='edit-image'?'Revise the supplied artwork only as requested; keep unrelated visual details consistent. This is an editable concept, so do not claim exact preservation. ':''}Student request: ${input.prompt}`;
   return {model:configuration.imageModel,input:{messages:[{role:'user',content:[...(input.imageDataUrl?[{image:input.imageDataUrl}]:[]),{text:prompt}]}]},parameters:{n:1,size:'1024*1536',prompt_extend:false,watermark:false}};
 }
 function trustedImageDownload(value) {

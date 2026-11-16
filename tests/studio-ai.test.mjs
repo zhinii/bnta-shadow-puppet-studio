@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createStudioProject,normalizeStudioProject,applyStudioProposal,boundsOf} from '../public/studio-model.mjs';
-import {STUDIO_SYSTEM,STUDIO_RELAY,PLAN_RELAY,IMAGE_RELAY,makeStudioRequest,makeDrawingPlanRequest,makeKimiImageRequest,readKimiImageResponse,parseStudioResponse,getStudioCapabilities,requestStudioAI,validProtectedEndpoint} from '../public/studio-ai.mjs';
+import {STUDIO_SYSTEM,STUDIO_RELAY,PLAN_RELAY,IMAGE_RELAY,IMAGE_PRODUCTION_RULES,makeImageGenerationPrompt,makeStudioRequest,makeDrawingPlanRequest,makeKimiImageRequest,readKimiImageResponse,parseStudioResponse,getStudioCapabilities,requestStudioAI,validProtectedEndpoint} from '../public/studio-ai.mjs';
 import {handleStudioApi,studioConfig,studioChatPayload,studioImagePayload,validateStudioRequest} from '../server/studio-api.mjs';
 
 const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
@@ -106,18 +106,49 @@ test('an explicit editing capability is independent of image generation',async()
 
 test('Kimi generation keeps the exact student prompt and selected presets without sending the project or reference image',()=>{
   const p=createStudioProject();p.brief={kind:'creature',era:'imagined',style:'paper-cut',action:'wave',keywords:'Do not duplicate this stale text'};
+  const snapshot=structuredClone(p);
   const prompt='  Six tentacles; keep my blue-and-gold pattern.\nSeparate every appendage.  ';
   const body=makeKimiImageRequest(p,{prompt,imageDataUrl:png,history:[{role:'user',content:'private earlier request'}]});
   assert.deepEqual(Object.keys(body).sort(),['application','kind','prompt']);assert.equal(body.kind,'reference');assert.equal(body.application,'shadow-puppet-studio');
   assert.ok(body.prompt.endsWith(prompt));assert.match(body.prompt,/Character type: creature/);assert.match(body.prompt,/World \/ era: imagined/);assert.match(body.prompt,/Visual style: paper-cut/);assert.match(body.prompt,/Movement \/ action: wave/);
   assert.ok(!JSON.stringify(body).includes('base64'));assert.ok(!JSON.stringify(body).includes('private'));assert.ok(!body.prompt.includes('stale'));
-  assert.equal(makeKimiImageRequest(createStudioProject(),{prompt}).prompt,prompt);
+  assert.ok(body.prompt.startsWith(IMAGE_PRODUCTION_RULES));assert.equal(body.prompt.split('Student prompt (verbatim):\n')[1],prompt);assert.deepEqual(p,snapshot);
+  const noSettings=makeKimiImageRequest(createStudioProject(),{prompt}).prompt;assert.equal(noSettings,IMAGE_PRODUCTION_RULES+'\n\nStudent prompt (verbatim):\n'+prompt);
+});
+
+test('both generation providers share production defaults while preserving Chinese requests and costume detail',()=>{
+  const p=createStudioProject();p.language='zh';p.brief={kind:'动物',era:'历史',style:'传统皮影',action:'奔跑'};
+  const prompt='  一匹蓝金色奔马，保留马鞍上的星星纹样、刺绣和汉字。\n请明确加入红色边框及题字“马到成功”，不要改变纹身。  ';
+  const snapshot=structuredClone(p),kimi=makeKimiImageRequest(p,{prompt});
+  const request=makeStudioRequest(p,{task:'generate-image',prompt});assert.equal(request.prompt,prompt);
+  const input=validateStudioRequest(request),payload=studioImagePayload(input,{imageModel:'test-image-model'});
+  const providerPrompt=payload.input.messages[0].content.find(item=>item.text).text;
+  assert.equal(providerPrompt,kimi.prompt);assert.equal(providerPrompt.split('Student prompt (verbatim):\n')[1],prompt);
+  assert.match(providerPrompt,/Character type: 动物/);assert.match(providerPrompt,/World \/ era: 历史/);assert.match(providerPrompt,/Visual style: 传统皮影/);assert.match(providerPrompt,/Movement \/ action: 奔跑/);
+  assert.match(IMAGE_PRODUCTION_RULES,/Explicit student requests take precedence/);
+  assert.match(IMAGE_PRODUCTION_RULES,/flat plain white background/);assert.match(IMAGE_PRODUCTION_RULES,/only explicitly requested props/);
+  assert.match(IMAGE_PRODUCTION_RULES,/text, calligraphy, signatures, watermarks, borders, floating stars, ground decoration/);
+  assert.match(IMAGE_PRODUCTION_RULES,/preserve legitimate character and costume details, lettering, tattoos, patterns, embroidery and motifs/);
+  assert.match(IMAGE_PRODUCTION_RULES,/simulated mechanical pinhole dots, joint circles, hinge marks, diagram labels or cutting lines unless explicitly requested/);
+  assert.match(IMAGE_PRODUCTION_RULES,/single complete full-body character/);assert.match(IMAGE_PRODUCTION_RULES,/detached parts sheet unless requested/);assert.deepEqual(p,snapshot);
+});
+
+test('generation preserves the full input limit without adding its policy to text or edit requests',()=>{
+  const p=createStudioProject(),prompt='  '+('自定义花纹'.repeat(799))+'   ';
+  assert.equal(prompt.length,4000);
+  const body=makeStudioRequest(p,{task:'generate-image',prompt}),input=validateStudioRequest(body);
+  assert.equal(input.prompt,prompt);assert.ok(makeImageGenerationPrompt(p,prompt).endsWith(prompt));
+  for(const task of ['create','refine','analyze','segment','edit-image']){
+    const request=makeStudioRequest(p,{task,prompt:'  Keep this request unchanged.  '});assert.equal(request.prompt,'Keep this request unchanged.');
+    assert.doesNotMatch(JSON.stringify(request),/Production rules for editable shadow-puppet artwork/);
+    if(task!=='edit-image')assert.doesNotMatch(JSON.stringify(studioChatPayload(request,{model:'test-chat',visionModel:'test-vision'})),/Production rules for editable shadow-puppet artwork/);
+  }
 });
 
 test('the verified Kimi image route is called once and its dimensionless result becomes a bounded portable asset',async()=>{
   const p=createStudioProject(),snapshot=structuredClone(p);let calls=0,reads=0;
   const result=await requestStudioAI(p,{task:'generate-image',prompt:'A modern footballer',imageDataUrl:png},{capabilities:{text:true,vision:false,imageGeneration:true,imageEditing:false,mode:'drawing-plan',endpoint:PLAN_RELAY,imageEndpoint:IMAGE_RELAY},fetcher:async(url,options)=>{
-    calls++;assert.equal(url,IMAGE_RELAY);assert.deepEqual(JSON.parse(options.body),{application:'shadow-puppet-studio',kind:'reference',prompt:'A modern footballer'});
+    calls++;assert.equal(url,IMAGE_RELAY);assert.deepEqual(JSON.parse(options.body),{application:'shadow-puppet-studio',kind:'reference',prompt:makeImageGenerationPrompt(p,'A modern footballer')});
     assert.ok(options.signal instanceof AbortSignal);return Response.json({dataUrl:png,model:'wan2.7-image-pro',kind:'reference'});
   },artworkReader:async(file,options)=>{
     reads++;assert.equal(file.type,'image/png');assert.deepEqual(options,{maxDimension:1600,maxBytes:15_000_000});assert.equal(new Uint8Array(await file.arrayBuffer())[0],137);

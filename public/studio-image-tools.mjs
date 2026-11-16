@@ -53,6 +53,73 @@ export function removeConnectedBackground(input,{tolerance=30,backgroundColor}={
  return {width,height,data:resultData,removedPixels,backgroundColor:inferred.color,warnings};
 }
 
+/** Label all alpha-connected regions without turning decoration into puppet parts. */
+export function enumerateImageComponents(input,{minAlpha=16,maxComponents=4096}={}){
+ const {width,height,data}=raster(input);minAlpha=optionNumber(minAlpha,16,1,255);maxComponents=optionNumber(maxComponents,4096,1,65536);
+ if(!Number.isInteger(maxComponents))throw toolError('The maximum number of regions must be a whole number.');
+ const labels=new Uint32Array(width*height),queue=new Uint32Array(width*height),components=[];
+ for(let seed=0;seed<labels.length;seed++){
+  if(labels[seed]||data[seed*4+3]<minAlpha)continue;
+  if(components.length===maxComponents)throw toolError('This image contains too many disconnected marks to review. Clean the background or select a simpler image first.','TOO_MANY_COMPONENTS');
+  const id=components.length+1;let head=0,tail=1,minX=width,minY=height,maxX=0,maxY=0;queue[0]=seed;labels[seed]=id;
+  const admit=index=>{if(!labels[index]&&data[index*4+3]>=minAlpha){labels[index]=id;queue[tail++]=index;}};
+  while(head<tail){const index=queue[head++],x=index%width,y=(index-x)/width;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x+1);maxY=Math.max(maxY,y+1);if(x>0)admit(index-1);if(x+1<width)admit(index+1);if(y>0)admit(index-width);if(y+1<height)admit(index+width);}
+  components.push({id,pixelCount:tail,bounds:{x:minX,y:minY,width:maxX-minX,height:maxY-minY,minX,minY,maxX,maxY},touchesEdge:minX===0||minY===0||maxX===width||maxY===height});
+ }
+ components.sort((a,b)=>b.pixelCount-a.pixelCount||a.id-b.id);
+ return {width,height,labels,components};
+}
+
+function componentAtSeed(seed,width,height,labels){
+ if(!Array.isArray(seed)||seed.length!==2||seed.some(value=>!Number.isFinite(value)))throw toolError('Click a visible region to keep or remove.');
+ const x=Math.floor(seed[0]),y=Math.floor(seed[1]);
+ if(x<0||y<0||x>=width||y>=height)throw toolError('Click inside the image.');
+ const id=labels[y*width+x];if(!id)throw toolError('That point is background or transparent. Click a visible region.');return id;
+}
+
+/**
+ * Preview subject cleanup before tracing/splitting. Connectivity uses alpha, never
+ * color, so patterned clothes stay together. The largest region is only a review
+ * draft; seed replaces it, keepSeeds adds regions, and excludeSeeds removes them.
+ * Pixels, bounds and labels retain the original image coordinates. No anatomy or
+ * hidden artwork is inferred, and no region becomes a puppet part here.
+ */
+export function isolateImageSubject(input,{seed,keepSeeds=[],excludeSeeds=[],minAlpha=16,backgroundTolerance=30,backgroundColor,maxComponents=4096}={}){
+ const source=raster(input);minAlpha=optionNumber(minAlpha,16,1,255);
+ if(!Array.isArray(keepSeeds)||!Array.isArray(excludeSeeds))throw toolError('Additional selections must be lists of image points.');
+ backgroundTolerance=optionNumber(backgroundTolerance,30,0,150);
+ let originalTransparent=0;for(let i=3;i<source.data.length;i+=4)if(source.data[i]<minAlpha)originalTransparent++;
+ const sourceBorder=borderPixels(source.width,source.height),transparentBorder=sourceBorder.reduce((count,index)=>count+(source.data[index*4+3]<minAlpha?1:0),0)>=sourceBorder.length*.8;
+ const hasSeparatedAlpha=originalTransparent>=source.width*source.height*.05||transparentBorder;
+ // Existing substantial transparency already separates foreground. Guessing a
+ // color from an opaque decorative edge could otherwise erase black mane/ink.
+ const cleaned=backgroundColor===undefined&&hasSeparatedAlpha?{width:source.width,height:source.height,data:new Uint8ClampedArray(source.data),removedPixels:0,warnings:['Existing transparency is used as the background. No artwork color was removed.']}:removeConnectedBackground(source,{tolerance:backgroundTolerance,backgroundColor}),{width,height}=cleaned;
+ const {labels,components}=enumerateImageComponents(cleaned,{minAlpha,maxComponents});
+ if(!components.length)throw toolError('No visible subject remains. Lower the background tolerance or use an image with a clearer background.','NO_SUBJECT');
+ const largest=components[0],totalPixels=width*height,foregroundPixels=components.reduce((sum,component)=>sum+component.pixelCount,0);
+ const selected=new Set([seed===undefined?largest.id:componentAtSeed(seed,width,height,labels)]);
+ for(const point of keepSeeds)selected.add(componentAtSeed(point,width,height,labels));
+ for(const point of excludeSeeds)selected.delete(componentAtSeed(point,width,height,labels));
+ if(!selected.size)throw toolError('Keep at least one visible region before accepting the cleanup.','NO_SUBJECT');
+ const kept=components.filter(component=>selected.has(component.id)),keptPixels=kept.reduce((sum,component)=>sum+component.pixelCount,0),data=new Uint8ClampedArray(cleaned.data);
+ // A removed frame can leave its entire opaque interior connected to a subject.
+ // Judge only kept regions: a different, clicked subject may be separable even
+ // when an unselected background remnant is the largest component in the image.
+ const opaqueRemnant=kept.some(component=>component.pixelCount>totalPixels*.95||(component.pixelCount/(component.bounds.width*component.bounds.height)>.97&&component.bounds.width>width*.85&&component.bounds.height>height*.85));
+ if(foregroundPixels===totalPixels||(!hasSeparatedAlpha&&opaqueRemnant))throw toolError('The subject is still joined to an opaque background or enclosing frame. Remove that background or frame before selecting the character.','SUBJECT_UNSEPARATED');
+ let removedPixels=0,removedComponentPixels=0;
+ for(let index=0;index<labels.length;index++)if(!selected.has(labels[index])){if(source.data[index*4+3])removedPixels++;if(labels[index])removedComponentPixels++;data[index*4+3]=0;}
+ const minX=Math.min(...kept.map(component=>component.bounds.minX)),minY=Math.min(...kept.map(component=>component.bounds.minY)),maxX=Math.max(...kept.map(component=>component.bounds.maxX)),maxY=Math.max(...kept.map(component=>component.bounds.maxY));
+ const warnings=[...cleaned.warnings];
+ if(opaqueRemnant)warnings.push('A kept region is a large, nearly solid rectangle. Check that it is artwork rather than a remaining background.');
+ if(seed===undefined)warnings.push('The largest connected region is selected as a draft, not a recognized character. Review it and click the character if needed.');
+ warnings.push('This keeps connected visible pixels, not anatomical parts. Use tracing or splitting after accepting the cleanup.');
+ warnings.push('Decoration touching the character remains attached. Separate it manually before accepting if it is unwanted.');
+ if(components.length>kept.length)warnings.push(`${components.length-kept.length} disconnected region(s) will be removed. Keep any separate legs, props or other intentional pieces before accepting.`);
+ if(kept.some(component=>component.touchesEdge))warnings.push('A kept region touches the image edge. Check for a remaining border or clipped artwork.');
+ return {width,height,data,keptPixels,removedPixels,backgroundRemovedPixels:cleaned.removedPixels,removedComponentPixels,subjectBounds:{x:minX,y:minY,width:maxX-minX,height:maxY-minY,minX,minY,maxX,maxY},components:components.map(component=>({...component,selected:selected.has(component.id)})),labels,selectedComponentIds:kept.map(component=>component.id),keptComponentCount:kept.length,removedComponentCount:components.length-kept.length,warnings};
+}
+
 function removeCollinear(points){
  if(points.length<4)return points;
  const out=[];for(let i=0;i<points.length;i++){const a=points[(i+points.length-1)%points.length],b=points[i],c=points[(i+1)%points.length];if((b[0]-a[0])*(c[1]-b[1])!==(b[1]-a[1])*(c[0]-b[0]))out.push(b);}return out;

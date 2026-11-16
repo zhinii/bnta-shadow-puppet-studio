@@ -17,6 +17,28 @@ function rasterFixture({background=[255,255,255,0],rectangles=[]}={}) {
   for(const {x,y,w,h,color}of rectangles)for(let py=y;py<y+h;py++)for(let px=x;px<x+w;px++)data.set(color,(py*width+px)*4);
   return {width,height,data};
 }
+function decoratedHorseFixture() {
+  const brown=[145,75,35,255],ink=[35,25,20,255];
+  const rectangles=[{x:30,y:35,w:40,h:25,color:brown},{x:60,y:20,w:10,h:25,color:brown},{x:64,y:14,w:18,h:10,color:brown},{x:33,y:60,w:6,h:20,color:brown},{x:58,y:60,w:6,h:20,color:brown},{x:60,y:24,w:3,h:16,color:ink},{x:40,y:40,w:15,h:12,color:[20,95,150,255]},{x:44,y:43,w:5,h:5,color:[255,255,255,255]},{x:83,y:75,w:9,h:9,color:[225,130,20,255]}];
+  for(const r of [{x:1,y:1,w:98,h:1},{x:1,y:98,w:98,h:1},{x:1,y:1,w:1,h:98},{x:98,y:1,w:1,h:98}])rectangles.push({...r,color:ink});
+  for(let row=0;row<12;row++)for(let col=0;col<4;col++)rectangles.push({x:5+col*6,y:5+row*6,w:4,h:4,color:ink});
+  return rasterFixture({rectangles});
+}
+// Closed details and disabled fieldsets are excluded by native HTML semantics;
+// CSS layout and actual browser visibility still require browser verification.
+function primaryActions(markup) {
+  const details=[],fieldsets=[],actions=[];
+  for(const tag of markup.match(/<\/?[a-z][^>]*>/gi)||[]){
+    if(/^<details\b/i.test(tag))details.push({open:/\sopen(?:\s|=|>)/.test(tag),summary:false});
+    else if(/^<\/details/i.test(tag))details.pop();
+    else if(/^<summary\b/i.test(tag)&&details.length)details.at(-1).summary=true;
+    else if(/^<\/summary/i.test(tag)&&details.length)details.at(-1).summary=false;
+    else if(/^<fieldset\b/i.test(tag))fieldsets.push(/\sdisabled(?:\s|=|>)/.test(tag));
+    else if(/^<\/fieldset/i.test(tag))fieldsets.pop();
+    else if(/^<button\b/i.test(tag)&&details.every(d=>d.open||d.summary)&&!fieldsets.some(Boolean)&&!/\sdisabled(?:\s|=|>)/.test(tag)&&/\bprimary\b/.test(tag.match(/class="([^"]*)"/)?.[1]||''))actions.push(tag.match(/data-action="([^"]+)"/)?.[1]||'submit');
+  }
+  return actions;
+}
 
 // This harness verifies event wiring and state persistence; it is not a browser
 // rendering or physical-fabrication test.
@@ -110,8 +132,8 @@ test('three-stage student workflow keeps AI edits reviewable and undoable', asyn
     await h.start('workflow');
     await h.settle();
     assert.equal((h.root.innerHTML.match(/data-action="step"/g)||[]).length,3);
-    assert.match(h.root.innerHTML,/Imagine your character/);
-    assert.match(h.root.innerHTML,/0 pieces/);
+    assert.match(h.root.innerHTML,/Create a character/);
+    assert.equal(h.project().parts.length,0);
     assert.doesNotMatch(h.root.innerHTML,/data-action="generate-image"/);
     await h.click({action:'settings'});
     assert.match(h.root.innerHTML,/Image analysis<\/span><strong>Not available/);
@@ -149,9 +171,15 @@ test('artwork, hand-drawn parts and connections survive portable project export'
   try {
     await h.start('drawing');
     await h.settle();
+    await h.click({action:'draw'});
+    assert.match(h.root.innerHTML,/<p class="task-instruction"[^>]*>Tap around the outline/,'blank drawing explains the next action');
+    assert.doesNotMatch(h.root.innerHTML,/class="empty-canvas"/,'the empty placeholder cannot cover drawing input');
+    await h.click({action:'cancel-tool'});
+    assert.deepEqual(primaryActions(h.root.innerHTML),['draw'],'cancelled blank drawing offers one enabled recovery action');
+    assert.match(h.root.innerHTML,/data-action="draw"[^>]*>Draw a piece/);
     await h.importArtwork();
     await h.click({action:'draw'});
-    assert.match(h.root.innerHTML,/Trace the boundary/);
+    assert.match(h.root.innerHTML,/Tap around the outline/);
     for(const point of [[10,10],[40,10],[40,90],[10,90]])await h.point(...point);
     await h.click({action:'finish-part'});
     await h.click({action:'draw'});
@@ -492,14 +520,17 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
     const project=createStudioProject();project.canvas={width:100,height:100};project.assets=[{id:'kept-original',name:'Original piece',mime:'image/png',dataUrl:original,width:100,height:100}];project.conceptAssetId='kept-original';
     project.parts=[makePart('Protected original piece',[[5,10],[13,10],[13,90],[5,90]],'kept-original')];project.parts[0].locked=true;
     await h.openProject(project);await h.click({action:'step',step:'create'});
-    assert.match(h.root.innerHTML,/class="primary full" data-action="generate-image"/);assert.match(h.root.innerHTML,/data-action="create-plan"/);
+    assert.deepEqual(primaryActions(h.root.innerHTML),['next-stage'],'an existing character has one primary continuation while Change my idea stays collapsed');assert.match(h.root.innerHTML,/<details class="create-again"/);assert.match(h.root.innerHTML,/data-action="generate-image"/);assert.match(h.root.innerHTML,/data-action="create-plan"/);
     await h.change({dataset:{field:'brief.kind'},value:'human'});await h.change({dataset:{field:'brief.era'},value:'modern'});await h.change({dataset:{field:'brief.style'},value:'paper-cut'});
     const prompt='A doctor 医生 with a long white coat, two arms and a blue book; keep every finger inside the frame.';h.input('create-prompt',prompt);await h.settle();
     const before=structuredClone(h.project());
     await h.click({action:'view-shadow'});await h.change({dataset:{view:'concept'},checked:false});
     await h.click({action:'generate-image'});await h.settle();
     assert.equal(h.error(),'');assert.equal(h.requests.length,1);assert.equal(h.requests[0].url,'https://6ilmssim2bz2s.kimi.site/api/puppet/image');
-    assert.deepEqual(h.requests[0].body,{application:'shadow-puppet-studio',kind:'reference',prompt:`Selected design settings:\nCharacter type: human\nWorld / era: modern\nVisual style: paper-cut\n\nStudent prompt:\n${prompt}`},'only prompt text and preset context reach the generation route');
+    assert.deepEqual(Object.keys(h.requests[0].body).sort(),['application','kind','prompt'],'generation sends the composition prompt without source pixels or editor state');
+    assert.equal(h.requests[0].body.application,'shadow-puppet-studio');assert.equal(h.requests[0].body.kind,'reference');
+    assert.ok(h.requests[0].body.prompt.endsWith(`Selected design settings:\nCharacter type: human\nWorld / era: modern\nVisual style: paper-cut\n\nStudent prompt (verbatim):\n${prompt}`),'custom prompt and preset context remain intact after the composition guidance');
+    assert.match(h.requests[0].body.prompt,/Explicit student requests take precedence/);assert.match(h.requests[0].body.prompt,/Do not add text/);
     assert.ok(h.root.innerHTML.includes(generated),'generated pixels remain visible during review even in Shadow mode');assert.ok(h.root.innerHTML.includes(original),'review keeps the original visible for comparison');
     assert.equal(h.canvasMarkup(),'','review takes the main canvas position');assert.equal(h.focusedSelectors.at(-1),'#review-heading');assert.ok(h.scrollRequests.length,'new proposals request scrolling into view');
     for(const view of ['before','both','after']){await h.click({action:'review-view',view});assert.ok(h.root.innerHTML.includes(`data-review-view="${view}"`));assert.deepEqual(h.project(),before,'comparison controls do not apply the proposal');}
@@ -511,12 +542,12 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
     const accepted=structuredClone(h.project()),generatedId=accepted.conceptAssetId;
     assert.notEqual(generatedId,'kept-original');assert.equal(accepted.assets.find(a=>a.id===generatedId).dataUrl,generated);assert.equal(accepted.assets.length,2);
     assert.deepEqual(accepted.parts,before.parts,'new generation never rebinds or replaces existing cut pieces');assert.match(h.root.innerHTML,/class="active" data-action="view-art"/);assert.match(h.root.innerHTML,/data-step="refine" aria-current="step"/);assert.doesNotMatch(h.root.innerHTML,/class="trace-overlay"|data-action="finish-part"/);
-    await h.click({action:'step',step:'refine'});assert.doesNotMatch(h.root.innerHTML,/data-action="edit-image"/);assert.match(h.root.innerHTML,/data-action="analyze" disabled/);
+    await h.click({action:'step',step:'refine'});assert.doesNotMatch(h.root.innerHTML,/data-action="edit-image"/);assert.doesNotMatch(h.root.innerHTML,/data-action="analyze"/,'unavailable image services do not add dead-end controls');
     h.input('revision-prompt','Make the costume green.');await h.click({action:'edit-image'});assert.match(h.error(),/Image editing is not connected/);assert.equal(h.requests.length,2,'unsupported pixel edits never make a request');
     await h.click({action:'dismiss-error'});await h.click({action:'undo'});await h.settle();assert.deepEqual(h.project().assets,before.assets);assert.deepEqual(h.project().parts,before.parts);
-    await h.click({action:'redo'});await h.settle();await h.click({action:'step',step:'refine'});await h.click({action:'next-stage'});assert.match(h.root.innerHTML,/data-stage="pieces" aria-current="step"/);assert.match(h.root.innerHTML,/data-action="extract-silhouette"/);
+    await h.click({action:'redo'});await h.settle();await h.click({action:'step',step:'refine'});assert.match(h.root.innerHTML,/data-action="extract-silhouette"/,'advanced extraction remains available for an image beside protected existing pieces');
     await h.click({action:'extract-silhouette'});await h.click({action:'accept'});await h.settle();assert.equal(h.project().parts.length,2);
-    await h.click({action:'next-stage'});assert.match(h.root.innerHTML,/data-stage="movement" aria-current="step"/);assert.match(h.root.innerHTML,/data-action="rod"/);
+    assert.match(h.root.innerHTML,/data-action="rod"/);
     await h.click({action:'split-part'});await h.point(10,50);await h.point(80,50);await h.click({action:'preview-split'});await h.click({action:'accept'});await h.settle();
     let built=structuredClone(h.project());assert.equal(built.parts.length,3);assert.equal(built.joints.length,1);assert.deepEqual(built.parts[0],before.parts[0]);assert.ok(built.parts.slice(1).every(p=>p.assetId===generatedId));
     const movingId=built.joints[0].childId;
@@ -542,6 +573,89 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
     await h.click({action:'print'});assert.equal(h.error(),'');assert.ok(h.printFrame.srcdoc.includes(generated));assert.match(h.printFrame.srcdoc,/50 mm/,'print preparation includes a physical calibration mark');
     await h.click({action:'save-project'});const saved=parseStudioProject(await h.downloads.at(-1).blob.text());await h.openProject(saved);
     assert.deepEqual(h.project().parts,built.parts);assert.deepEqual(h.project().joints,built.joints);assert.deepEqual(h.project().rods,built.rods);assert.deepEqual(h.project().assets,built.assets);assert.equal(h.requests.length,3,'only two explicit generations and one text revision use AI');
+  } finally {await h.close();}
+});
+
+test('the simple image route reviews one character instead of decoration fragments, then splits, poses and prints it', async () => {
+  const h=browserHarness(),raster=decoratedHorseFixture(),original=h.setRaster(raster);
+  const pixel=(image,x,y)=>Array.from(image.data.slice((y*image.width+x)*4,(y*image.width+x)*4+4));
+  try {
+    await h.start('simple-subject-cleanup');await h.settle();
+    assert.equal(primaryActions(h.root.innerHTML).length,1,'Create presents one enabled primary action');
+    await h.importArtwork();
+    const imported=structuredClone(h.project());
+    assert.equal(imported.parts.length,0,'import does not automatically turn every disconnected mark into a part');
+    assert.doesNotMatch(h.root.innerHTML,/class="refine-stages"|data-action="refine-stage" data-stage="clean"/,'the four internal tool stages are not a visible navigation rail');
+    assert.match(h.root.innerHTML,/<details class="view-tools"[^>]*>/,'view controls are in a disclosure');
+    assert.doesNotMatch(h.root.innerHTML,/<details class="view-tools"[^>]*\sopen(?:\s|=|>)/,'view controls are folded away by default');
+    assert.match(h.root.innerHTML,/More editing tools/);
+    assert.deepEqual(primaryActions(h.root.innerHTML),['remove-extras']);
+    await h.click({action:'remove-extras'});await h.settle();
+    assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="review-heading"/);
+    assert.deepEqual(primaryActions(h.root.innerHTML),['accept'],'cleanup has one primary review decision');
+    assert.deepEqual(h.project(),imported,'pixel cleanup and construction wait for the student to accept');
+    await h.click({action:'reject'});assert.deepEqual(h.project(),imported);
+    await h.click({action:'remove-extras'});await h.click({action:'accept'});await h.settle();
+    const cleaned=structuredClone(h.project()),source=cleaned.assets.find(a=>a.id===cleaned.conceptAssetId),pixels=h.rasters.get(source.dataUrl);
+    assert.equal(cleaned.parts.length,1,'48 text marks, the border and the ball are not automatically puppet parts');
+    assert.equal(cleaned.joints.length,0);assert.equal(cleaned.parts[0].assetId,source.id);
+    assert.equal(cleaned.assets.find(a=>a.id===imported.conceptAssetId).dataUrl,original,'original pixels remain available');
+    assert.deepEqual(h.rasters.get(original),raster,'cleanup does not modify its input raster');
+    for(const [x,y] of [[35,45],[41,41],[46,45],[61,28]])assert.deepEqual(pixel(pixels,x,y),pixel(raster,x,y),'connected costume colors and enclosed white details are retained');
+    for(const [x,y] of [[1,50],[6,6],[87,79]])assert.equal(pixel(pixels,x,y)[3],0,'detached border, marks and unconfirmed prop are transparent');
+    assert.deepEqual(primaryActions(h.root.innerHTML),['next-stage']);
+    await h.click({action:'next-stage'});assert.match(h.root.innerHTML,/0\/2 points placed/);
+    await h.point(50,30);await h.point(80,30);assert.deepEqual(primaryActions(h.root.innerHTML),['preview-split']);await h.click({action:'preview-split'});
+    assert.equal(h.error(),'');assert.deepEqual(h.project().parts,cleaned.parts,'a proposed movement cut is reviewed');
+    await h.click({action:'accept'});await h.settle();
+    assert.equal(h.project().parts.length,2);assert.equal(h.project().joints.length,1);
+    assert.match(h.root.innerHTML,/data-joint-field="angle"/,'the selected moving part exposes its angle');
+    await h.change({dataset:{jointField:'angle'},value:'25'});await h.settle();
+    assert.equal(h.project().joints[0].angle,25);
+    const posed=structuredClone(h.project());
+    assert.deepEqual(primaryActions(h.root.innerHTML),['next-stage']);
+    await h.click({action:'next-stage'});assert.match(h.root.innerHTML,/data-step="make" aria-current="step"/);
+    assert.deepEqual(primaryActions(h.root.innerHTML),['print']);
+    const makeMarkup=h.root.innerHTML,makeControls=makeMarkup.indexOf('<section class="make-controls">'),heightControl=makeMarkup.indexOf('data-field="heightMm"'),printButton=makeMarkup.indexOf('data-action="print"');
+    assert.ok(makeControls>=0&&heightControl>makeControls&&printButton>heightControl,'Make shows the editable puppet height before its Print action');
+    await h.click({action:'print'});assert.equal(h.error(),'');assert.ok(h.printFrame.srcdoc.includes(source.dataUrl));assert.match(h.printFrame.srcdoc,/50 mm/);
+    await h.click({action:'save-project'});const downloaded=parseStudioProject(await h.downloads.at(-1).blob.text());await h.openProject(downloaded);
+    assert.deepEqual(h.project().parts,posed.parts);assert.deepEqual(h.project().joints,posed.joints);assert.deepEqual(h.project().assets,posed.assets);
+    assert.equal(h.requests.length,0,'cleanup, construction and printing are local operations');
+  } finally {await h.close();}
+});
+
+test('a new generated character prepares before reusing an old rig, keeps chosen props and protects locked construction', async () => {
+  const h=browserHarness(),raster=decoratedHorseFixture(),original=h.setRaster(raster);
+  h.setGetResponse(legacyImageStatus);h.setResponse(()=>({dataUrl:original,model:'configured-image-model',kind:'reference'}));
+  try {
+    await h.start('subject-selection-and-locks');await h.settle();await h.click({action:'starter',kind:'figure'});
+    const oldRig=structuredClone(h.project());assert.ok(oldRig.joints.length);assert.ok(oldRig.parts.every(part=>!part.locked));
+    await h.click({action:'step',step:'create'});h.input('create-prompt','A brown horse with a blue saddle and a separate ball.');
+    await h.click({action:'generate-image'});await h.click({action:'accept'});await h.settle();
+    assert.equal(h.error(),'');assert.deepEqual(h.project().parts,oldRig.parts);assert.deepEqual(h.project().joints,oldRig.joints);
+    assert.deepEqual(primaryActions(h.root.innerHTML),['remove-extras'],'a new image needs preparation even when the previous character already had movable joints');
+    const before=structuredClone(h.project());assert.ok(before.parts.length>2);assert.ok(before.joints.length);
+    await h.click({action:'remove-extras'});await h.settle();assert.deepEqual(h.project(),before,'old construction is preserved while cleanup is being reviewed');
+    assert.match(h.root.innerHTML,/data-action="keep-more"/);
+    await h.click({action:'keep-more'});assert.ok(h.canvasMarkup().includes(original),'choosing a prop uses the original image');
+    await h.point(87,79);await h.settle();assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="review-heading"/);
+    await h.click({action:'accept'});await h.settle();
+    const kept=structuredClone(h.project()),cleaned=kept.assets.find(a=>a.id===kept.conceptAssetId),pixels=h.rasters.get(cleaned.dataUrl);
+    assert.equal(kept.parts.length,2,'only the character and explicitly confirmed prop become pieces');
+    assert.equal(kept.joints.length,0,'old construction connections are removed with their replaced parts');
+    assert.equal(kept.rods.length,0);assert.ok(kept.parts.every(p=>!before.parts.some(old=>old.id===p.id)));
+    assert.equal(pixels.data[(79*100+87)*4+3],255);assert.equal(pixels.data[(6*100+6)*4+3],0);
+    await h.click({action:'undo'});assert.deepEqual(h.project(),before,'cleanup and construction replacement undo together');
+    await h.click({action:'pick-subject'});await h.point(87,79);await h.settle();assert.equal(h.error(),'');
+    await h.click({action:'accept'});await h.settle();
+    const ballOnly=structuredClone(h.project()),ballRaster=h.rasters.get(ballOnly.assets.find(a=>a.id===ballOnly.conceptAssetId).dataUrl);
+    assert.equal(ballOnly.parts.length,1,'manual selection can choose a subject smaller than the default largest component');
+    assert.equal(ballRaster.data[(79*100+87)*4+3],255);assert.equal(ballRaster.data[(45*100+35)*4+3],0);
+    await h.click({action:'undo'});assert.deepEqual(h.project(),before);
+    await h.click({action:'select',id:before.parts[0].id});await h.click({action:'lock'});const locked=structuredClone(h.project());
+    await h.click({action:'remove-extras'});await h.settle();assert.match(h.error(),/unlock|locked/i);assert.deepEqual(h.project(),locked);assert.doesNotMatch(h.root.innerHTML,/id="review-heading"/);
+    assert.equal(h.requests.length,1,'only the explicit generation used the relay; cleanup, selection and locking stayed local');
   } finally {await h.close();}
 });
 
@@ -638,7 +752,7 @@ test('a pending review isolates angle and shape controls until the student accep
     const childId=h.project().joints[0].childId;await h.click({action:'select',id:childId});
     h.setResponse(()=>({reply:'Review the selected piece at 110% width.',proposal:{parts:[{id:childId,parameters:{width:1.1}}]}}));
     h.input('revision-prompt','Make this piece 10% wider.');h.submit('refine-form');await h.settle();const before=h.project();assert.match(h.root.innerHTML,/id="review-heading"/);assert.equal(h.canvasMarkup(),'');
-    assert.match(h.root.innerHTML,/class="workspace[^\"]*reviewing/);assert.match(h.root.innerHTML,/<fieldset class="panel-controls" disabled/,'background work controls are disabled during a decision');
+    assert.match(h.root.innerHTML,/class="workspace[^\"]*reviewing/);assert.doesNotMatch(h.root.innerHTML,/<section class="work-panel"/,'Refine review contains no background work panel');
     assert.doesNotMatch(h.root.innerHTML,/<aside class="inspector"/,'the review contains no background editing inspector');
     assert.doesNotThrow(()=>h.jointInput('angle','30'),'hidden canvas previews cannot throw during review');assert.doesNotThrow(()=>h.parameterInput('width','150'));
     await h.change({dataset:{jointField:'angle'},value:'30'});await h.change({dataset:{paramField:'width'},value:'150'});

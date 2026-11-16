@@ -6,42 +6,53 @@ A bilingual student workspace with three processes: **Create → Refine → Make
 
 ## Design your own character
 
-1. **Create:** start blank, choose optional character/style fields, and describe your own historical, modern, fictional or real-world character. Import PNG/JPEG/WebP artwork, ask for an editable drawing plan, or choose an optional construction template.
-2. **Refine:** follow **Clean image → Choose pieces → Add movement → Test**. Extract or trace pieces, correct outlines, split a piece, add joints and control-rod points, then test angles. Select a piece for contextual natural-language revisions. Large Before, Proposed and Side by side views keep the accept/keep-original decision visible. Locked parts and untouched artwork are preserved; undo restores accepted changes.
-3. **Make:** set physical size and material settings, review geometry checks, then print the pieces and assembly guide or export SVG files.
+1. **Create:** describe your own historical, modern, fictional or real-world character and choose **Create character**. Optional style fields and construction templates stay under **Choose a style or starting shape**. You can also upload PNG/JPEG/WebP artwork.
+2. **Refine:** choose **Remove extras**, review the proposed character, then **Add movement**. Tap two points across a knee, elbow, neck or another narrow section, preview the joint, and accept it. A compact angle control lets you try the movement. Add another joint if needed.
+3. **Make:** set the **print height**, check the geometry, and choose **Print puppet**. Material settings and SVG exports are under **Materials & file options**.
 
-The workspace gives the artwork more space, uses readable instructions and larger controls, and keeps advanced geometry settings collapsed until needed. The parts list includes artwork thumbnails and connection indicators. Zoom, Fit and pan help with precise editing; outline points support keyboard adjustment as well as dragging. **Project** always provides New, Open and Download. **AI status** describes service capabilities separately from puppet joints. Final browser/tablet verification remains necessary; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
+The canvas presents one next action at a time. The default review shows the result; **Compare with original** switches to the original, and **Show result** returns to the proposal. Accept or keep the original before continuing. There is no required four-step Refine submenu or default three-way comparison.
 
-The first screen contains no authored character or story. The former decoration module is absent. Construction templates provide different structures: articulated figure, broad sleeves and long skirt, wings and tail, or six tentacles. They are optional editable geometry, not AI-generated images.
+The first screen contains no authored character or story. The former decoration module is absent. Optional construction templates provide different structures: an articulated figure, broad sleeves and a long skirt, wings and a tail, or six tentacles. They are editable geometry, not AI-generated images.
 
-Artwork, cut contours and connections are separate. An ornate reference image can retain its original texture and colors inside editable cut contours. Characters are no longer restricted to ten human body parts. A character can contain up to 80 pieces, with arbitrary connection trees.
+Artwork, cut contours and connections are separate. Imported or generated artwork retains texture and colors inside editable cut contours. Characters are not restricted to ten human body parts: a character can contain up to 80 pieces with arbitrary connection trees.
 
-## Use imported artwork now
+**Project** provides New, Open, Download and AI connection settings. Work stays in the open session only. Download before closing or reloading. Actual browser, tablet and print-dialog usability still needs verification; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
 
-These tools run locally and need no image-generation API:
+## Keep the character, then add movement
 
-1. Import PNG/JPEG/WebP artwork. In **Refine → Clean image**, use **Remove plain background** if needed, inspect the transparency comparison, and accept it. The original image remains available in the open project.
-2. Choose **Find silhouette pieces** for a transparent image or **Click to select a color region**. Review the boundaries before accepting. A connected character initially becomes one piece; these tools do not recognize anatomy.
-3. Select a piece and choose **Split into hinged pieces**. Click two points defining the cutting line, preview the result, and accept. The two pieces retain their artwork and share a pin connection with reinforcement tabs. Cuts producing multiple disconnected fragments are rejected.
-4. Change **Width** and **Length** in the selected-piece inspector. Its image, boundary and anchors stretch together; attached pieces follow the joint without stretching. **Set direction on the piece** defines the length axis for diagonal arms or tentacles. Changing that direction keeps the current shape and resets percentages to 100%.
-5. For separately extracted pieces, choose a parent under **Suggest a pivot connection** and review the proposed connection. This uses proximity, not anatomical recognition. Manual **Add a connection** lets you click the parent and child anchors instead.
-6. In **Add movement**, add control-rod points and joints; in **Test**, move joint angles and check **Shadow**. Continue to **Make** to print or export. Adding, splitting, resizing or deleting pieces preserves the physical scale of other pieces. **Print size → Height** deliberately scales the whole puppet.
+**Remove extras** runs locally without an AI request. It removes a connected plain background and proposes keeping the largest connected foreground region. This is a starting selection, not semantic character recognition. A separate hand, prop, foot or intentional ornament may initially be excluded; decoration touching the character may remain attached.
 
-Manual tracing remains available: choose **Draw a custom part**, click around its outline, then **Finish part**. **Edit outline points** corrects a boundary. Paint details stay in the image; changing the backing color affects tabs and uncovered areas, not the image pixels. Width/length changes deform existing pixels; new costume details or hidden surfaces need image editing or new artwork.
+Review the result before accepting:
 
-The original image does not contain artwork hidden behind a sleeve or arm. AI suggestions cannot recover the true hidden design; extend or reconstruct these areas deliberately. A single connected image is not automatically a functioning puppet.
+- **Keep another piece or prop:** tap a separate intentional region to include it.
+- **Choose a different character:** tap the region that should be the main subject instead.
+- Use **Compare with original** to check that limbs, costume details and requested props remain.
+- Accept only after the selection is complete. Rebuilding an existing character replaces its pieces, joints and rod points; this is disclosed in the review and can be undone. Locked pieces must be unlocked before rebuilding.
 
-Background cleanup removes similar colors connected to the image edge; clothing touching that background can be affected. Adjust the tolerance and review before accepting. Interior transparent details are not automatically exported as internal cutouts. The extraction tools retain the original pixel coordinates, preserve concave outlines, and reject boundaries they cannot simplify safely.
+Accepting the selection creates editable cut outlines. A connected figure may still be one piece; the tool does not identify anatomical limbs or reconstruct hidden artwork. **Add movement** starts the two-point split tool. The cut must cross one narrow section twice. Review the resulting two pieces, their shared pivot and reinforcement tabs before accepting. Cuts producing multiple disconnected fragments are rejected. Try the selected joint's angle, then use **Add another joint** or continue to Make.
+
+## Optional editing tools
+
+The simple flow leaves detailed controls collapsed:
+
+- **Adjust this piece:** rename or lock it, change Width and Length, edit its outline, choose artwork, change layers, or adjust joint settings. Width/length changes stretch the image, boundary and anchors together; attached pieces follow without stretching. **Set direction on the piece** defines the length axis for diagonal limbs. It preserves the current shape and resets percentages to 100%.
+- **More editing tools:** manually choose a character, find all detected shapes, select a color region, remove a plain background, draw a piece, join two pieces, or add a control rod. Detected shapes can include lettering and decoration; keep only what you need. A suggested connection uses proximity, not anatomical recognition.
+- **Ask AI for a change:** request a selected-piece geometry revision and review it before applying. New costume details or hidden surfaces require image editing or new artwork, not a numeric size change.
+- **View tools:** Artwork/Shadow, joint/reference visibility, zoom, Fit, pan and Redo. Outline points support keyboard adjustment as well as dragging.
+
+Adding, splitting, resizing or deleting pieces preserves the physical scale of other pieces. Changing the print height deliberately scales the whole puppet.
+
+The original image cannot supply artwork hidden behind a sleeve or arm. Extend or reconstruct these areas deliberately. Backing color affects tabs and uncovered areas rather than the image pixels. Background cleanup can affect similar-colored clothing touching the background. Interior transparent details remain artwork and are not automatically exported as internal cutouts. Local tools preserve concave outlines and reject boundaries they cannot simplify safely.
 
 ## AI capabilities and current deployment
 
-**Image generation is connected to the new editor.** In Create, choose optional presets, enter a custom prompt and select **Generate artwork**. Review the image in the main workspace, then accept it to continue in **Refine → Clean image**. Existing pieces keep their original artwork until you deliberately replace or rebuild them.
+**Image generation is connected to the new editor.** In Create, enter a custom prompt, optionally choose a style or starting shape, and select **Create character**. Review the image in the main workspace, then accept it to continue in Refine with **Remove extras**. Existing pieces keep their original artwork until you deliberately replace or rebuild them.
 
-The browser uses Kimi's protected `/api/puppet/image` route. Its portable image response is decoded, resized to at most 1600 pixels on the longest side and held as a normal project asset in memory. It is included when you explicitly download the project. Custom prompt text is retained in full; selected character, era, style and action fields are added as labelled context. The adapter makes one generation request and does not silently repeat paid calls after a failure. The verified provider response identifies `wan2.7-image-pro`.
+The browser uses Kimi's protected `/api/puppet/image` route. Its portable image response is decoded, resized to at most 1600 pixels on the longest side and held as a normal project asset in memory. It is included when you explicitly download the project. Custom prompt text is retained in full; selected character, era, style and action fields are added as labelled context. Generation instructions ask for one complete character and only requested props on a plain background. They exclude unrequested text, calligraphy, signatures, watermarks, borders, floating stars and scenery while preserving explicitly requested details and legitimate costume motifs. The adapter makes one generation request and does not silently repeat paid calls after a failure. The verified provider response identifies `wan2.7-image-pro`.
 
 Generation, image editing and vision are separate capabilities. The working Kimi route generates new artwork from text; it does not inspect the current image or automatically identify body parts. **Image editing, image analysis and AI anatomical separation remain unavailable through this route.** Local extraction, manual correction, splitting and parametric controls remain available after acceptance.
 
-A successful image response does not establish prompt accuracy. In live tests, the footballer matched the main requested features, but the six-tentacle scholar had eight visible tentacles. The review explicitly asks students to check anatomy, appendage counts, costume and props. Automatic visual evaluation is not claimed.
+A successful image response does not establish prompt accuracy. In live tests, the footballer matched the main requested features, but the six-tentacle scholar had eight visible tentacles. The current review asks students to check limbs, costume and requested props; anatomy and appendage counts still need their judgment. Automatic visual evaluation is not claimed. The v0.5 prompt rules have not received a new live image-quality trial; the prior trials do not validate their effect.
 
 Text cutting plans still use the older `/api/puppet` assistant in compatibility mode and may need correction. The client validates geometry and makes at most one text-plan repair request before rejecting unusable shapes. This does not apply to paid image generation.
 

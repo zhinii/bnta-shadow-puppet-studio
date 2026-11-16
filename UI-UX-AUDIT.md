@@ -2,7 +2,7 @@
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
 ## Judgment
-The current interface does not yet meet the intended simplicity. Larger text and buttons improved legibility, but the student still encounters an editor's tool inventory before completing a clear task. The next iteration must reduce the default choices, rather than add another instruction panel. Passing functional tests does not establish usability.
+The v0.4 interface did not meet the intended simplicity. Larger text and buttons improved legibility, but students still encountered an editor's tool inventory before a clear task. The v0.5 implementation below reduces the default choices, gives the character the main workspace and keeps one primary next action. Passing functional tests does not establish rendered usability.
 
 The supplied screenshot shows eight canvas controls above the artwork, extraneous calligraphy/stars/a border within the artwork, and “40 pieces · 0 joints.” These are detected image fragments, not evidence of a usable articulated puppet.
 
@@ -26,7 +26,7 @@ The supplied screenshot shows eight canvas controls above the artwork, extraneou
 
 The new three-screen concept board is a design target, not a live screenshot or proof that automatic anatomical separation works. Its illustrated print sheet is not a fabrication drawing.
 
-## Acceptance checks for the next implementation
+## Acceptance checks
 
 - At a 390 px phone width, the current task, character and primary action are visible together in the normal working view; no toolbar pushes the image offscreen.
 - Exactly one prominent next action appears in each normal task state. Tools are disclosed only when needed.
@@ -39,7 +39,15 @@ The new three-screen concept board is a design target, not a live screenshot or 
 - Test the complete journey in a real browser, on a phone/tablet, and with one printed paper prototype. Source-level and simulated-event checks remain supporting evidence.
 
 ## Implementation status
-The workspace disconnected during this iteration. This re-audit and concept board are complete; the simplified interface is **not yet applied or published**. Subject-cleanup and production-prompt changes were prepared locally, but the combined workflow has not been integrated or verified. The last published application remains v0.4.0 with 158 automated tests (19 workflow tests). Those totals do not certify the proposed simplification.
+The v0.5 interface is implemented. Only Create, Refine and Make remain in the main navigation. View tools, the full parts list, piece properties, AI revision and advanced construction tools are closed by default. Refine has a dominant canvas and a compact selected-piece panel; the four-substep rail and canvas counts/dimensions are removed. Review offers a large result, optional original comparison and one Use/Apply action. Make places height and optional material/file settings before Print. Project holds explicit Download/Open, fresh-session information and AI connection settings.
+
+The default image path now isolates the largest connected foreground region as a proposal, instead of converting every detached mark into a puppet piece. Students can pick another character or retain a separate prop. Original pixels remain available, any locked part blocks rebuilding, replacement of existing pieces/joints/rods is disclosed before acceptance, and Undo restores the prior construction. Selection keeps original coordinates and refuses silent truncation. Touching decoration is still attached; opaque framed backgrounds may require manual tracing. This is connected-region selection, not anatomical recognition.
+
+Generation requests preserve the complete student prompt and add composition guidance: whole isolated character, plain background, no unrequested lettering, stars or borders, and preservation of costume motifs and explicitly requested props. Both generation adapters use this guidance; editing requests remain unchanged. No new paid image generation or output-fidelity claim is attached to this release.
+
+**Verification: 168 automated tests pass, including 21 workflow tests.** The new simulated journey covers 51 foreground regions reduced to one character, retained costume colors, optional ball restoration, manual subject choice, reviewed split and hinge, angle adjustment, print HTML, download and explicit reopening. Existing reset, lock, parameter, keyboard and pointer regressions remain. Syntax, build and Worker checks are recorded in VALIDATION.md.
+
+The browser connection remains unavailable. The concept board is not a screenshot, and 390 px rendering, actual touch/focus behavior, print-dialog operation and a paper prototype remain unverified. These are the remaining acceptance checks; the implementation does not claim classroom usability from automated tests alone.
 
 ---
 ## Previous v0.4 implementation record
