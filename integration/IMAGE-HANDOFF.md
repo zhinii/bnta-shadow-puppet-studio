@@ -1,8 +1,30 @@
-# Image API handoff for Kimi
+# Working image relay and optional v2 handoff
 
-The browser's image-generation contract is unchanged. Kimi can implement it independently while the editor provides image cleanup, region extraction, splitting, parametric resizing and joints locally. No provider key belongs in the browser, project file or response.
+The new three-process editor now adapts Kimi's working image route directly. No server change or browser API key is required to use generation with the local extraction, splitting and parametric tools.
 
-**Concurrent integration note (16 November):** the new `generateStudioImage` helper in `public/agent.mjs` posts `{application,kind,prompt}` to `/api/puppet/image` and expects `{dataUrl,...}`. It is preserved for the classic client. The current three-process editor runs from `public/studio-app.mjs` and `public/studio-ai.mjs`, not the classic `public/app.mjs`. To make generated artwork appear there, either adapt that relay behind the v2 envelope below, or add an explicit client adapter with capability detection. A bare `dataUrl` response does not match the v2 `asset` contract. The image-generation route has not been called or modified as part of the local image-tools work.
+## Verified generation route — 16 November
+
+`POST https://6ilmssim2bz2s.kimi.site/api/puppet/image`
+
+```json
+{"application":"shadow-puppet-studio","kind":"reference","prompt":"The student's character description"}
+```
+
+The verified response has `dataUrl`, `model` and `kind`; it does not supply image dimensions:
+
+```json
+{"dataUrl":"data:image/png;base64,...","model":"wan2.7-image-pro","kind":"reference"}
+```
+
+`public/studio-ai.mjs` preserves the custom prompt and adds labelled preset choices, posts once, validates raster bytes and uses the existing browser importer to decode actual dimensions and resize to at most 1600 pixels on the longest side. It returns the editor's normal portable asset. The accepted asset can immediately use background cleanup, extraction, splitting and hinges. The original `public/agent.mjs` helper and classic image UI are preserved.
+
+The public `/api/status` reports the configured Shadow Puppet Studio relay without individual image capability flags. For this verified known relay, the client exposes generation only. `/api/studio/status` and `/api/puppet/image/status` returned 404. A custom endpoint never falls back to another host; an advertised image endpoint must share its configured relay's origin. Generation is not automatically retried after a failed response.
+
+This route is **text-to-image generation**, not image editing or vision. Existing project images are not sent to it. Do not enable `imageEditing`, `vision` or anatomical separation merely because generation works. Generated anatomy and counts remain unverified: the live six-tentacle request returned eight visible tentacles, which is why the student review remains necessary.
+
+## Optional v2 service
+
+The envelope below is still supported for a future richer service. It is not required for the working generation bridge above.
 
 ## Endpoint and capabilities
 
@@ -24,11 +46,12 @@ Example status response:
   "text": true,
   "vision": true,
   "imageGeneration": true,
+  "imageEditing": true,
   "status": "Protected studio services configured."
 }
 ```
 
-Set each capability only when that route is implemented and configured. `vision` means the service accepts actual image pixels for analysis/part suggestions. Image generation alone does not establish vision access. The browser uses one `imageGeneration` flag for generation and editing; set it when both `generate-image` and `edit-image` are handled, or return an explicit unsupported-task error for an unavailable operation. A configured flag is not a claim of verified model quality.
+Set each capability only when that route is implemented and configured. `vision` means the service accepts actual image pixels for analysis/part suggestions. `imageGeneration` enables generation and `imageEditing` independently enables editing; missing editing capability means unavailable. Generation alone establishes neither editing nor vision access. A configured flag is not a claim of verified model quality.
 
 Allow the published origin `https://zhinii.github.io` and, for development, `http://127.0.0.1:4237` / `http://localhost:4237`. Return the allowed Origin in `Access-Control-Allow-Origin`, include `Vary: Origin`, allow `GET, POST, OPTIONS` and the `Content-Type` header. Keep host authentication and rate limits. CORS alone is not authentication.
 

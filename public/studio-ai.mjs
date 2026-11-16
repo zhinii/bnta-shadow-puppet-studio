@@ -1,8 +1,10 @@
 import {applyStudioProposal} from './studio-model.mjs';
+import {readArtworkFile,validateArtworkBytes} from './studio-storage.mjs';
 // Browser transport contains no provider credential. Pixel services are optional
 // capabilities of a protected server; the existing relay can provide drawing plans.
 export const STUDIO_RELAY = 'https://6ilmssim2bz2s.kimi.site/api/studio';
 export const PLAN_RELAY = 'https://6ilmssim2bz2s.kimi.site/api/puppet';
+export const IMAGE_RELAY = PLAN_RELAY + '/image';
 export const MAX_STUDIO_PROMPT = 4000;
 
 export const STUDIO_SYSTEM = `You collaborate with students on custom shadow-puppet design. Return one JSON object: {"reply":"short explanation in requested language","proposal":{"parts":[],"joints":[],"brief":{}},"warnings":[]}. Do not wrap JSON in Markdown. Student intent and retained work are authoritative. Never invent a character name, story, identity, historical fact or symbolism. Modern, historical, fictional, real-world, animal and fantastical subjects are valid. No fixed human skeleton: preserve requested anatomy, appendage counts, costume silhouette and custom shapes. Ask for clarification rather than silently substituting a generic human. The result is a design draft, never a claim of tested physical construction.
@@ -110,35 +112,83 @@ export function parseStudioResponse(data,{legacy=false}={}) {
 const statusUrl=endpoint=>endpoint.replace(/\/$/,'')+'/status';
 const timeoutSignal=(signal,ms)=>signal?AbortSignal.any([signal,AbortSignal.timeout(ms)]):AbortSignal.timeout(ms);
 async function responseJson(response){try{return await response.json();}catch{return null;}}
+const aborted=signal=>{if(signal?.aborted)throw signal.reason||new DOMException('Request cancelled.','AbortError');};
+export function makeKimiImageRequest(project,{prompt=''}={}) {
+  makeStudioRequest(project,{task:'generate-image',prompt});
+  const choices=[['Character type',project.brief?.kind],['World / era',project.brief?.era],['Visual style',project.brief?.style],['Movement / action',project.brief?.action]]
+    .filter(([,value])=>typeof value==='string'&&value.trim()).map(([label,value])=>`${label}: ${value.slice(0,1000)}`);
+  return {application:'shadow-puppet-studio',kind:'reference',prompt:choices.length?`Selected design settings:\n${choices.join('\n')}\n\nStudent prompt:\n${prompt}`:prompt};
+}
+export async function readKimiImageResponse(data,{artworkReader=readArtworkFile,signal,language='en'}={}) {
+  aborted(signal);
+  const value=data?.dataUrl;
+  if(typeof value!=='string'||value.length>20_000_000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value))throw Error('The image service did not return a portable PNG, JPEG or WebP image.');
+  const mime=value.slice(5,value.indexOf(';'));
+  let bytes;try{bytes=Uint8Array.from(atob(value.slice(value.indexOf(',')+1)),c=>c.charCodeAt(0));}catch{throw Error('The image service returned invalid image data.');}
+  if(!bytes.length||bytes.length>15_000_000)throw Error('The generated image is too large. Request a smaller image.');
+  validateArtworkBytes(bytes,mime);
+  const file=new Blob([bytes],{type:mime});Object.defineProperty(file,'name',{value:'Generated puppet artwork.'+(mime==='image/jpeg'?'jpg':mime.slice(6))});
+  const asset=await artworkReader(file,{maxDimension:1600,maxBytes:15_000_000});
+  aborted(signal);
+  if(!plainObject(asset))throw Error('The generated artwork could not be decoded. Try generating another image.');
+  // Validate the decoder result using the same portable-asset boundary as v2.
+  const zh=language==='zh';
+  const reply=zh?'接受前，请对照提示词检查生成图像的角色形态、肢体数量、服装和道具。确认后再提取并拆分部件。':'Before accepting, check the generated artwork against your prompt: anatomy, appendage count, costume, and props. Then extract and split the pieces in Prepare.';
+  const warning=zh?'此图像尚未经过视觉核验。生成结果可能遗漏细节或出现数量错误。':'This image has not been visually verified. Generation may miss requested details or produce incorrect counts.';
+  const result=parseStudioResponse({reply,mode:'image',proposal:null,asset,warnings:[warning]});
+  return {...result,providerModel:boundedString(data.model,100)};
+}
+async function readImageJson(response) {
+  const limit=21_000_000;
+  if(Number(response.headers?.get?.('content-length'))>limit)throw Error('The generated image response is too large.');
+  if(!response.body?.getReader)return responseJson(response);
+  const reader=response.body.getReader(),chunks=[];let length=0;
+  while(true){const {done,value}=await reader.read();if(done)break;length+=value.byteLength;if(length>limit){await reader.cancel();throw Error('The generated image response is too large.');}chunks.push(value);}
+  const bytes=new Uint8Array(length);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+  try{return JSON.parse(new TextDecoder().decode(bytes));}catch{throw Error('The image service returned an unreadable response. Please retry.');}
+}
+async function requestKimiImage(project,args,caps,{fetcher,signal,artworkReader}) {
+  const target=caps.imageEndpoint;
+  if(!validProtectedEndpoint(target)||new URL(target).origin!==new URL(caps.endpoint).origin)throw Error('The image endpoint must belong to the configured protected relay.');
+  aborted(signal);
+  const response=await fetcher(target,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(makeKimiImageRequest(project,args)),signal:timeoutSignal(signal,240000)});
+  let data;try{data=await readImageJson(response);}catch(error){if(response.ok)throw error;data=null;}
+  if(!response.ok){const messages={400:'The image service could not read this request.',401:'The image service needs authorization.',403:'This studio is not allowed to use the image service.',404:'The image generation route is unavailable.',413:'The image request is too large.',429:'Image generation is busy or the account limit has been reached.',503:'Image generation is not configured on the protected server.'};throw Error(boundedString(data?.message,1000)||boundedString(data?.error?.message,1000)||boundedString(data?.error,1000)||messages[response.status]||`Image generation failed (${response.status}). Your artwork is unchanged.`);}
+  const result=await readKimiImageResponse(data,{artworkReader,signal,language:project.language});
+  if(args.imageDataUrl)result.warnings.push(project.language==='zh'?'此连接根据文字生成新图像；现有图像未发送用于编辑。':'This connection generates a new concept from text; the existing image was not sent for editing.');
+  return result;
+}
 export async function getStudioCapabilities({endpoint=studioEndpoint(),fetcher=fetch,signal}={}) {
   if(!validProtectedEndpoint(endpoint))throw Error('Use an HTTPS protected relay URL.');
   const endpointHost=new URL(endpoint).hostname;
-  const compatibilityAllowed=endpoint===STUDIO_RELAY||(['localhost','127.0.0.1'].includes(endpointHost)&&new URL(endpoint).pathname==='/api/studio');
+  const compatibilityAllowed=[STUDIO_RELAY,PLAN_RELAY,IMAGE_RELAY].includes(endpoint)||(['localhost','127.0.0.1'].includes(endpointHost)&&new URL(endpoint).pathname==='/api/studio');
   let configuredStatus;
   try {
     const r=await fetcher(statusUrl(endpoint),{signal:timeoutSignal(signal,9000),headers:{Accept:'application/json'}}),v=await responseJson(r);
-    if(r.ok&&v?.version===2){configuredStatus={...v,endpoint,mode:'studio'};if(v.text||v.imageGeneration||!compatibilityAllowed)return configuredStatus;}
+    if(r.ok&&v?.version===2){configuredStatus={...v,text:v.text===true,vision:v.vision===true,imageGeneration:v.imageGeneration===true,imageEditing:v.imageEditing===true,endpoint,mode:'studio'};if(v.text===true||v.vision===true||v.imageGeneration===true||v.imageEditing===true||!compatibilityAllowed)return configuredStatus;}
   }catch(error){if(signal?.aborted)throw error;}
   // Only the known existing relay is a safe automatic compatibility fallback.
-  if(!compatibilityAllowed)return {version:2,text:false,vision:false,imageGeneration:false,endpoint,mode:'unavailable',status:'The studio relay is unavailable.'};
+  if(!compatibilityAllowed)return {version:2,text:false,vision:false,imageGeneration:false,imageEditing:false,endpoint,mode:'unavailable',status:'The studio relay is unavailable.'};
   try {
     const r=await fetcher('https://6ilmssim2bz2s.kimi.site/api/status',{signal:timeoutSignal(signal,9000)}),v=await responseJson(r);
-    if(r.ok&&v?.service==='Shadow Puppet Studio'&&v.configured)return {version:1,text:true,vision:false,imageGeneration:false,drawingPlans:'limited',endpoint:PLAN_RELAY,mode:'drawing-plan',status:'Legacy text assistant connected. Custom drawing plans are limited; reliable custom shapes and image services need the updated relay.'};
+    if(r.ok&&v?.service==='Shadow Puppet Studio'&&v.configured)return {version:1,text:true,vision:false,imageGeneration:true,imageEditing:false,imageEndpoint:IMAGE_RELAY,drawingPlans:'limited',endpoint:PLAN_RELAY,mode:'drawing-plan',status:'Image generation and the text assistant are connected. Image editing and automatic visual analysis are not connected; use local tools to extract and split generated artwork.'};
   }catch(error){if(signal?.aborted)throw error;}
-  return configuredStatus||{version:0,text:false,vision:false,imageGeneration:false,endpoint,mode:'unavailable',status:'AI connection unavailable. Import an image or draw parts to continue.'};
+  return configuredStatus||{version:0,text:false,vision:false,imageGeneration:false,imageEditing:false,endpoint,mode:'unavailable',status:'AI connection unavailable. Import an image or draw parts to continue.'};
 }
 export async function requestStudioAI(project,args={},options={}) {
-  const {fetcher=fetch,endpoint=args.endpoint||studioEndpoint(),signal=args.signal,capabilities=args.capabilities}=options;
-  const body=makeStudioRequest(project,args);
+  const {fetcher=fetch,endpoint=args.endpoint||studioEndpoint(),signal=args.signal,capabilities=args.capabilities,artworkReader=readArtworkFile}=options;
+  const body=makeStudioRequest(project,args.task==='generate-image'?{...args,imageDataUrl:undefined}:args);
   if(body.task==='refine'&&body.selectedPartId&&project.parts.find(p=>p.id===body.selectedPartId)?.locked)throw Error('This part is locked. Unlock it before requesting a revision.');
   if(body.task==='create'&&project.parts.some(p=>p.locked))throw Error('This design contains locked pieces. Use Refine to preserve them, or unlock them before creating a new design.');
   const caps=capabilities||await getStudioCapabilities({endpoint,fetcher,signal});
   const isImage=['generate-image','edit-image'].includes(body.task),needsVision=!!body.imageDataUrl||['analyze','segment'].includes(body.task);
-  if(isImage&&!caps.imageGeneration)throw Error('Image generation is not connected yet. The protected relay needs the Qwen Image endpoint. You can import your existing artwork now.');
+  if(body.task==='generate-image'&&!caps.imageGeneration)throw Error('Image generation is not connected yet. The protected relay needs an image-generation route. You can import your existing artwork now.');
+  if(body.task==='edit-image'&&caps.imageEditing!==true)throw Error('Image editing is not connected. This connection can generate new artwork; use the local part controls to adjust the accepted design.');
   if(needsVision&&!isImage&&!caps.vision)throw Error('Image analysis is not connected yet. The protected relay needs multimodal image input. You can trace the imported image manually now.');
   if(!caps.text&&!isImage)throw Error(caps.status||'AI connection is unavailable. Your project is kept on this device.');
   const legacy=caps.mode==='drawing-plan',target=caps.endpoint||endpoint;
   if(!validProtectedEndpoint(target))throw Error('Invalid protected relay URL.');
+  if(body.task==='generate-image'&&caps.imageEndpoint)return requestKimiImage(project,args,{...caps,endpoint:target},{fetcher,signal,artworkReader});
   let repair;
   for(let attempt=0;attempt<2;attempt++){
     const attemptArgs={...args,...(repair?{repair}:{})};

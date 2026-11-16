@@ -33,17 +33,17 @@ Background cleanup removes similar colors connected to the image edge; clothing 
 
 ## AI capabilities and current deployment
 
-The published browser uses the existing protected Kimi-hosted Qwen relay. It first checks for the new `/api/studio` service, then uses the known `/api/puppet` text service when necessary.
+**Image generation is connected to the new editor.** In Create, choose optional presets, enter a custom prompt and select **Generate artwork**. Review the image, then accept it to continue in **Image to pieces**. Existing pieces keep their original artwork until you deliberately replace or rebuild them.
 
-The older service still pins fixed-character instructions. It can sometimes provide arbitrary polygon cutting plans as design advice, but live testing found inconsistent compliance and invalid outlines. The client validates returned geometry, makes at most one corrective request, and rejects unusable results without changing the project. Compatibility mode is labelled; it is not equivalent to a fully deployed v2 AI service.
+The browser uses Kimi's protected `/api/puppet/image` route. Its portable image response is decoded, resized to at most 1600 pixels on the longest side and saved as a normal project asset. Custom prompt text is retained in full; selected character, era, style and action fields are added as labelled context. The adapter makes one generation request and does not silently repeat paid calls after a failure. The verified provider response identifies `wan2.7-image-pro`.
 
-**Image generation, image analysis, image editing and image-based part suggestions require the updated protected service.** The implementation is included, but publishing GitHub Pages does not deploy that separate host. Qwen vision analyzes images through chat; Qwen Image generates/edits pixels through a different endpoint, even if the same account key covers both. [Install and verify the updated relay](integration/STUDIO-V2-RELAY.md).
+Generation, image editing and vision are separate capabilities. The working Kimi route generates new artwork from text; it does not inspect the current image or automatically identify body parts. **Image editing, image analysis and AI anatomical separation remain unavailable through this route.** Local extraction, manual correction, splitting and parametric controls remain available after acceptance.
 
-The new service also compares each generated image against the exact student request using vision. It reports missing or uncertain features for student review. This is a visual critique, not proof of identity, historical accuracy, material strength or successful fabrication. These image paths have protocol tests; their live provider behavior must be verified after deployment.
+A successful image response does not establish prompt accuracy. In live tests, the footballer matched the main requested features, but the six-tentacle scholar had eight visible tentacles. The review explicitly asks students to check anatomy, appendage counts, costume and props. Automatic visual evaluation is not claimed.
 
-No API key is requested by or embedded in the browser. The Connection panel accepts a protected endpoint URL only. There is no unannounced fallback to another provider.
+Text cutting plans still use the older `/api/puppet` assistant in compatibility mode and may need correction. The client validates geometry and makes at most one text-plan repair request before rejecting unusable shapes. This does not apply to paid image generation.
 
-Kimi is handling the generation API independently. [Image integration handoff](integration/IMAGE-HANDOFF.md) documents the current studio request and asset response, including how to supply an image for these local tools. The legacy `generateStudioImage` client addition is preserved; its `/api/puppet/image` response alone does not enable the v2 studio's generation controls.
+The optional `/api/studio` server implementation supports richer text/vision/edit workflows, but that separate route was still unavailable in the live checks. See [the working image contract and optional v2 handoff](integration/IMAGE-HANDOFF.md). No API key is entered or embedded in the browser; the existing protected relay retains the provider credentials.
 
 ## Save, print and continue
 

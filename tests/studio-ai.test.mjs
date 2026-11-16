@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createStudioProject,normalizeStudioProject,applyStudioProposal,boundsOf} from '../public/studio-model.mjs';
-import {STUDIO_SYSTEM,STUDIO_RELAY,PLAN_RELAY,makeStudioRequest,makeDrawingPlanRequest,parseStudioResponse,getStudioCapabilities,requestStudioAI,validProtectedEndpoint} from '../public/studio-ai.mjs';
+import {STUDIO_SYSTEM,STUDIO_RELAY,PLAN_RELAY,IMAGE_RELAY,makeStudioRequest,makeDrawingPlanRequest,makeKimiImageRequest,readKimiImageResponse,parseStudioResponse,getStudioCapabilities,requestStudioAI,validProtectedEndpoint} from '../public/studio-ai.mjs';
 import {handleStudioApi,studioConfig,studioChatPayload,studioImagePayload,validateStudioRequest} from '../server/studio-api.mjs';
 
 const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
@@ -79,7 +79,7 @@ test('malformed, truncated and advisory-only replies are not reported as applied
 test('capabilities truthfully fall back to text plans, and custom endpoint failures do not forward prompts elsewhere',async()=>{
   const called=[];
   const caps=await getStudioCapabilities({endpoint:STUDIO_RELAY,fetcher:async url=>{called.push(url);return url.endsWith('/studio/status')?new Response('Missing',{status:404}):Response.json({service:'Shadow Puppet Studio',configured:true});}});
-  assert.equal(caps.mode,'drawing-plan');assert.equal(caps.vision,false);assert.equal(caps.imageGeneration,false);assert.equal(caps.endpoint,PLAN_RELAY);assert.equal(called.length,2);
+  assert.equal(caps.mode,'drawing-plan');assert.equal(caps.vision,false);assert.equal(caps.imageGeneration,true);assert.equal(caps.imageEditing,false);assert.equal(caps.imageEndpoint,IMAGE_RELAY);assert.equal(caps.endpoint,PLAN_RELAY);assert.equal(called.length,2);
   const custom=[];const c=await getStudioCapabilities({endpoint:'https://school.example/api/studio',fetcher:async url=>{custom.push(url);return new Response('',{status:404});}});assert.equal(c.text,false);assert.equal(custom.length,1);
   assert.equal(validProtectedEndpoint('https://secret:password@school.example/api/studio'),false);assert.equal(validProtectedEndpoint('http://school.example/api/studio'),false);
 });
@@ -87,7 +87,76 @@ test('capabilities truthfully fall back to text plans, and custom endpoint failu
 test('unsupported vision and image generation stop before transmitting the reference',async()=>{
   let posted=false;const fetcher=async()=>{posted=true;throw Error('must not call');};const caps={text:true,vision:false,imageGeneration:false,mode:'drawing-plan',endpoint:PLAN_RELAY};
   await assert.rejects(requestStudioAI(createStudioProject(),{task:'segment',prompt:'Trace this image',imageDataUrl:png},{capabilities:caps,fetcher}),/Image analysis is not connected/);
-  await assert.rejects(requestStudioAI(createStudioProject(),{task:'generate-image',prompt:'A fox puppet'},{capabilities:caps,fetcher}),/Image generation is not connected/);assert.equal(posted,false);
+  await assert.rejects(requestStudioAI(createStudioProject(),{task:'generate-image',prompt:'A fox puppet'},{capabilities:caps,fetcher}),error=>{assert.match(error.message,/Image generation is not connected/);assert.match(error.message,/image-generation route/);assert.doesNotMatch(error.message,/Qwen/);return true;});assert.equal(posted,false);
+});
+
+test('generation capabilities do not silently enable image editing or cross-host fallback',async()=>{
+  const calls=[];const caps=await getStudioCapabilities({endpoint:'https://school.example/api/studio',fetcher:async url=>{calls.push(url);return Response.json({version:2,text:true,vision:false,imageGeneration:true});}});
+  assert.equal(caps.imageGeneration,true);assert.equal(caps.imageEditing,false);assert.equal(caps.imageEndpoint,undefined);assert.deepEqual(calls,['https://school.example/api/studio/status']);
+  let posted=false;await assert.rejects(requestStudioAI(createStudioProject(),{task:'edit-image',prompt:'Change the face',imageDataUrl:png},{capabilities:caps,fetcher:async()=>{posted=true;throw Error('Must not post');}}),/Image editing is not connected/);assert.equal(posted,false);
+  await assert.rejects(requestStudioAI(createStudioProject(),{task:'generate-image',prompt:'A fox'},{capabilities:{...caps,imageEndpoint:IMAGE_RELAY},fetcher:async()=>{posted=true;throw Error('Must not post');}}),/configured protected relay/);assert.equal(posted,false);
+});
+
+test('an explicit editing capability is independent of image generation',async()=>{
+  let calls=0;const caps=await getStudioCapabilities({endpoint:STUDIO_RELAY,fetcher:async()=>{calls++;return Response.json({version:2,text:false,vision:false,imageGeneration:false,imageEditing:true});}});
+  assert.equal(calls,1);assert.equal(caps.mode,'studio');assert.equal(caps.imageGeneration,false);assert.equal(caps.imageEditing,true);
+  const result=await requestStudioAI(createStudioProject(),{task:'edit-image',prompt:'Make the coat blue',imageDataUrl:png},{capabilities:caps,fetcher:async(url,options)=>{calls++;assert.equal(url,STUDIO_RELAY);assert.equal(JSON.parse(options.body).imageDataUrl,png);return Response.json({reply:'Review the blue coat.',mode:'image',proposal:null,asset:{id:'edited-art',name:'Coat',mime:'image/png',dataUrl:png,width:1,height:1}});}});
+  assert.equal(calls,2);assert.equal(result.asset.id,'edited-art');
+});
+
+test('Kimi generation keeps the exact student prompt and selected presets without sending the project or reference image',()=>{
+  const p=createStudioProject();p.brief={kind:'creature',era:'imagined',style:'paper-cut',action:'wave',keywords:'Do not duplicate this stale text'};
+  const prompt='  Six tentacles; keep my blue-and-gold pattern.\nSeparate every appendage.  ';
+  const body=makeKimiImageRequest(p,{prompt,imageDataUrl:png,history:[{role:'user',content:'private earlier request'}]});
+  assert.deepEqual(Object.keys(body).sort(),['application','kind','prompt']);assert.equal(body.kind,'reference');assert.equal(body.application,'shadow-puppet-studio');
+  assert.ok(body.prompt.endsWith(prompt));assert.match(body.prompt,/Character type: creature/);assert.match(body.prompt,/World \/ era: imagined/);assert.match(body.prompt,/Visual style: paper-cut/);assert.match(body.prompt,/Movement \/ action: wave/);
+  assert.ok(!JSON.stringify(body).includes('base64'));assert.ok(!JSON.stringify(body).includes('private'));assert.ok(!body.prompt.includes('stale'));
+  assert.equal(makeKimiImageRequest(createStudioProject(),{prompt}).prompt,prompt);
+});
+
+test('the verified Kimi image route is called once and its dimensionless result becomes a bounded portable asset',async()=>{
+  const p=createStudioProject(),snapshot=structuredClone(p);let calls=0,reads=0;
+  const result=await requestStudioAI(p,{task:'generate-image',prompt:'A modern footballer',imageDataUrl:png},{capabilities:{text:true,vision:false,imageGeneration:true,imageEditing:false,mode:'drawing-plan',endpoint:PLAN_RELAY,imageEndpoint:IMAGE_RELAY},fetcher:async(url,options)=>{
+    calls++;assert.equal(url,IMAGE_RELAY);assert.deepEqual(JSON.parse(options.body),{application:'shadow-puppet-studio',kind:'reference',prompt:'A modern footballer'});
+    assert.ok(options.signal instanceof AbortSignal);return Response.json({dataUrl:png,model:'wan2.7-image-pro',kind:'reference'});
+  },artworkReader:async(file,options)=>{
+    reads++;assert.equal(file.type,'image/png');assert.deepEqual(options,{maxDimension:1600,maxBytes:15_000_000});assert.equal(new Uint8Array(await file.arrayBuffer())[0],137);
+    return {id:'new-art',name:file.name,mime:'image/png',dataUrl:png,width:1600,height:900};
+  }});
+  assert.equal(calls,1);assert.equal(reads,1);assert.equal(result.mode,'image');assert.equal(result.proposal,null);assert.equal(result.asset.width,1600);assert.equal(result.asset.height,900);assert.equal(result.providerModel,'wan2.7-image-pro');assert.ok(result.warnings.some(w=>w.includes('not sent')));assert.deepEqual(p,snapshot);
+  for(const requirement of ['anatomy','appendage count','costume','props'])assert.ok(result.reply.includes(requirement));
+  assert.ok(result.warnings.some(w=>w.includes('not been visually verified')));assert.equal(result.evaluation,undefined);
+});
+
+test('Chinese generation results invite visual review without claiming prompt compliance',async()=>{
+  const p=createStudioProject();p.language='zh';let calls=0;
+  const result=await requestStudioAI(p,{task:'generate-image',prompt:'六条触手，白大褂和眼镜',imageDataUrl:png},{capabilities:{imageGeneration:true,imageEditing:false,mode:'drawing-plan',endpoint:PLAN_RELAY,imageEndpoint:IMAGE_RELAY},fetcher:async()=>{calls++;return Response.json({dataUrl:png,model:'wan2.7-image-pro'});},artworkReader:async()=>({id:'generated',name:'Artwork',mime:'image/png',dataUrl:png,width:1,height:1})});
+  assert.equal(calls,1);assert.equal(result.proposal,null);assert.equal(result.evaluation,undefined);
+  for(const requirement of ['接受前','角色形态','肢体数量','服装','道具'])assert.ok(result.reply.includes(requirement));
+  assert.ok(result.warnings.some(w=>w.includes('尚未经过视觉核验')));assert.ok(result.warnings.some(w=>w.includes('现有图像未发送')));
+  assert.doesNotMatch(result.reply+result.warnings.join(' '),/This image|This connection|Before accepting/);
+});
+
+test('generated images use the existing browser decoder and are resized before being saved',async()=>{
+  const previous={document:globalThis.document,createImageBitmap:globalThis.createImageBitmap};let closed=false,drawn;
+  globalThis.createImageBitmap=async blob=>{assert.equal(blob.type,'image/png');return {width:3840,height:2160,close(){closed=true;}};};
+  globalThis.document={createElement(tag){assert.equal(tag,'canvas');return {width:0,height:0,getContext(){return {drawImage(...args){drawn=args.slice(1);}};},toDataURL(type){assert.equal(type,'image/png');return png;}};}};
+  try{const result=await readKimiImageResponse({dataUrl:png,model:'wan2.7-image-pro',kind:'reference'});assert.equal(result.asset.width,1600);assert.equal(result.asset.height,900);assert.deepEqual(drawn,[0,0,1600,900]);assert.equal(closed,true);}
+  finally{for(const [key,value]of Object.entries(previous)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
+});
+
+test('invalid image payloads and provider errors never trigger a second generation call',async()=>{
+  const caps={text:true,imageGeneration:true,imageEditing:false,mode:'drawing-plan',endpoint:PLAN_RELAY,imageEndpoint:IMAGE_RELAY};
+  for(const [response,expected]of [[()=>Response.json({dataUrl:'https://provider.example/temporary.png'}),/portable/],[()=>Response.json({dataUrl:'data:image/png;base64,SGVsbG8='}),/contents match/],[()=>new Response('<html>Denied</html>',{status:401}),/authorization/],[()=>Response.json({message:'Provider quota reached'},{status:429}),/Provider quota reached/],[()=>Response.json({error:{message:'Unsupported generation model'}},{status:400}),/Unsupported generation model/]]){
+    let calls=0,reads=0;await assert.rejects(requestStudioAI(createStudioProject(),{task:'generate-image',prompt:'A fox'},{capabilities:caps,fetcher:async()=>{calls++;return response();},artworkReader:async()=>{reads++;throw Error('Should not decode');}}),expected);assert.equal(calls,1);assert.equal(reads,0);
+  }
+});
+
+test('cancellation before generation or during image decoding keeps the pending image unapplied',async()=>{
+  const caps={text:true,imageGeneration:true,imageEditing:false,mode:'drawing-plan',endpoint:PLAN_RELAY,imageEndpoint:IMAGE_RELAY};
+  const before=new AbortController();before.abort();let calls=0;
+  await assert.rejects(requestStudioAI(createStudioProject(),{task:'generate-image',prompt:'A fox',signal:before.signal},{capabilities:caps,fetcher:async()=>{calls++;throw Error('Should not post');}}),{name:'AbortError'});assert.equal(calls,0);
+  const during=new AbortController();await assert.rejects(requestStudioAI(createStudioProject(),{task:'generate-image',prompt:'A fox',signal:during.signal},{capabilities:caps,fetcher:async()=>{calls++;return Response.json({dataUrl:png});},artworkReader:async()=>{during.abort();return {id:'ignored',name:'Image',mime:'image/png',dataUrl:png,width:1,height:1};}}),{name:'AbortError'});assert.equal(calls,1);
 });
 
 test('real transport converts drawing-plan JSON while keeping changes pending',async()=>{

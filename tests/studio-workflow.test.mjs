@@ -57,18 +57,20 @@ function browserHarness() {
   globalThis.indexedDB={open(){const request={};queueMicrotask(()=>{request.result={objectStoreNames:{contains:()=>true},close(){},transaction(){const transaction={objectStore(){return {get:key=>operation('get',key),put:(value,key)=>operation('put',key,value),delete:key=>operation('delete',key)};}};function operation(kind,key,value){const op={};queueMicrotask(()=>{if(kind==='put')records.set(key,structuredClone(value));if(kind==='delete')records.delete(key);op.result=kind==='get'?structuredClone(records.get(key)):key;op.onsuccess?.();queueMicrotask(()=>transaction.oncomplete?.());});return op;}return transaction;}};request.onsuccess?.();});return request;}};
   let responseFactory=body=>({reply:'Compare the changed cut shape before accepting.',proposal:{parts:[{id:body.project.parts[0].id,fill:'#244466'}]}});
   let capabilities={version:2,text:true,vision:false,imageGeneration:false,status:'Drawing plans only; image services unavailable.'};
+  let getResponseFactory=()=>({ok:true,status:200,json:async()=>capabilities});
   globalThis.fetch=async(url,options={})=>{
     if(options.method==='POST'){
       const body=JSON.parse(options.body);requests.push({url,body});
       return {ok:true,status:200,json:async()=>responseFactory(body)};
     }
-    return {ok:true,status:200,json:async()=>capabilities};
+    return getResponseFactory(url);
   };
   const settle=()=>new Promise(resolve=>nativeTimeout(resolve,25));
   return {root,status,requests,records,downloads,files,settle,rasters,
     error:()=>root.innerHTML.match(/class="error-banner" role="alert">([^<]*)/)?.[1]||'',
     setRaster(value){fixtureRaster=structuredClone(value);const url=fixturePng(value);rasters.set(url,structuredClone(value));return url;},
     setResponse(fn){responseFactory=fn;},
+    setGetResponse(fn){getResponseFactory=fn;},
     setCapabilities(value){capabilities={...capabilities,...value};},
     click:dataset=>rootListeners.get('click')({target:target({dataset})}),
     input:(id,value)=>rootListeners.get('input')({target:target({id,value,dataset:{}})}),
@@ -82,6 +84,7 @@ function browserHarness() {
   };
 }
 const PNG='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+function legacyImageStatus(url){return String(url).endsWith('/api/status')?{ok:true,status:200,json:async()=>({service:'Shadow Puppet Studio',configured:true})}:{ok:false,status:404,json:async()=>({error:'not_found'})};}
 
 test('three-stage student workflow keeps AI edits reviewable and undoable', async () => {
   const h=browserHarness();
@@ -94,7 +97,8 @@ test('three-stage student workflow keeps AI edits reviewable and undoable', asyn
     assert.doesNotMatch(h.root.innerHTML,/data-action="generate-image"/);
     await h.click({action:'settings'});
     assert.match(h.root.innerHTML,/Image analysis<\/span><strong>Not available/);
-    assert.match(h.root.innerHTML,/Image generation \/ editing<\/span><strong>Not available/);
+    assert.match(h.root.innerHTML,/Image generation<\/span><strong>Not available/);
+    assert.match(h.root.innerHTML,/Image editing<\/span><strong>Not available/);
     await h.click({action:'settings'});
 
     await h.click({action:'starter',kind:'tentacles'});
@@ -142,7 +146,9 @@ test('artwork, hand-drawn parts and connections survive portable project export'
     assert.equal(parent.assetId,project.conceptAssetId);
     const drawingScale=unitsPerMm(project);
     await h.click({action:'joint'});
+    await h.click({action:'select',id:parent.id});
     await h.point(30,40,parent.id);
+    await h.click({action:'select',id:child.id});
     await h.point(50,40,child.id);
     await h.settle();
     project=h.records.get('current');
@@ -156,9 +162,11 @@ test('artwork, hand-drawn parts and connections survive portable project export'
     assert.ok(Math.abs(project.joints[0].padRadius-4.2*drawingScale)<1e-8,'inspector millimetres convert into the calibrated design coordinates');
     assert.match(h.root.innerHTML,/data-joint-field="padRadius"[^>]*value="4.2"/);
     await h.click({action:'rod'});
+    await h.click({action:'select',id:parent.id});
     await h.point(30,70,parent.id);
     await h.settle();
     assert.equal(h.records.get('current').rods.length,1);
+    assert.equal(h.records.get('current').rods[0].partId,parent.id,'part-list selection preserves the active rod tool and its target');
     await h.click({action:'save-project'});
     const saved=parseStudioProject(await h.downloads.at(-1).blob.text());
     assert.equal(saved.assets[0].dataUrl,PNG);
@@ -283,7 +291,7 @@ test('fixed connections can move again and AI receives the selected part without
 
 test('shadow view hides the source image and accepted same-frame image edits preserve locked artwork', async () => {
   const h=browserHarness();
-  h.setCapabilities({vision:true,imageGeneration:true,status:'Configured image connection.'});
+  h.setCapabilities({vision:true,imageGeneration:true,imageEditing:true,status:'Configured image connection.'});
   try {
     await import('../public/studio-app.mjs?image-adoption');
     await h.settle();
@@ -454,5 +462,59 @@ test('changing selection or importing artwork clears unfinished cuts and restore
     assert.match(h.root.innerHTML,/class="active" data-action="view-art"/);assert.ok(h.root.innerHTML.includes(original));
     await h.click({action:'preview-split'});assert.doesNotMatch(h.root.innerHTML,/Review the two pieces/);assert.deepEqual(h.records.get('current').parts,before.parts);
     assert.equal(h.requests.length,0);
+  } finally {await h.close();}
+});
+
+test('generation-only relay accepts custom prompts and presets, reviews new pixels, and continues into local hinged parts', async () => {
+  const h=browserHarness();h.setGetResponse(legacyImageStatus);
+  const original=h.setRaster(rasterFixture({rectangles:[{x:5,y:10,w:8,h:80,color:[180,40,20,255]}]}));
+  const generated=h.setRaster(rasterFixture({rectangles:[{x:20,y:10,w:50,h:80,color:[30,70,180,255]}]}));
+  h.setResponse(()=>({dataUrl:generated,model:'configured-image-model',kind:'reference'}));
+  try {
+    await import('../public/studio-app.mjs?generation-only-relay');await h.settle();
+    const project=createStudioProject();project.canvas={width:100,height:100};project.assets=[{id:'kept-original',name:'Original piece',mime:'image/png',dataUrl:original,width:100,height:100}];project.conceptAssetId='kept-original';
+    project.parts=[makePart('Protected original piece',[[5,10],[13,10],[13,90],[5,90]],'kept-original')];project.parts[0].locked=true;
+    await h.openProject(project);await h.click({action:'step',step:'create'});
+    assert.match(h.root.innerHTML,/class="primary full" data-action="generate-image"/);assert.match(h.root.innerHTML,/data-action="create-plan"/);
+    await h.change({dataset:{field:'brief.kind'},value:'human'});await h.change({dataset:{field:'brief.era'},value:'modern'});await h.change({dataset:{field:'brief.style'},value:'paper-cut'});
+    const prompt='A doctor 医生 with a long white coat, two arms and a blue book; keep every finger inside the frame.';h.input('create-prompt',prompt);await h.settle();
+    const before=structuredClone(h.records.get('current'));
+    await h.click({action:'view-shadow'});await h.change({dataset:{view:'concept'},checked:false});
+    await h.click({action:'generate-image'});await h.settle();
+    assert.equal(h.error(),'');assert.equal(h.requests.length,1);assert.equal(h.requests[0].url,'https://6ilmssim2bz2s.kimi.site/api/puppet/image');
+    assert.deepEqual(h.requests[0].body,{application:'shadow-puppet-studio',kind:'reference',prompt:`Selected design settings:\nCharacter type: human\nWorld / era: modern\nVisual style: paper-cut\n\nStudent prompt:\n${prompt}`},'only prompt text and preset context reach the generation route');
+    assert.ok(h.root.innerHTML.includes(generated),'generated pixels remain visible during review even in Shadow mode');assert.ok(h.root.innerHTML.includes(original),'review keeps the original visible for comparison');
+    assert.match(h.root.innerHTML,/has not been visually verified/);assert.deepEqual(h.records.get('current'),before,'generation does not commit until acceptance');
+    await h.click({action:'reject'});assert.deepEqual(h.records.get('current'),before);
+    h.submit('create-form');await h.settle();assert.equal(h.requests.length,2,'the primary form generates artwork on this relay');
+    await h.click({action:'draw'});await h.point(1,1);
+    await h.click({action:'accept'});await h.settle();
+    const accepted=structuredClone(h.records.get('current')),generatedId=accepted.conceptAssetId;
+    assert.notEqual(generatedId,'kept-original');assert.equal(accepted.assets.find(a=>a.id===generatedId).dataUrl,generated);assert.equal(accepted.assets.length,2);
+    assert.deepEqual(accepted.parts,before.parts,'new generation never rebinds or replaces existing cut pieces');assert.match(h.root.innerHTML,/class="active" data-action="view-art"/);assert.match(h.root.innerHTML,/data-step="make" aria-current="step"/);assert.doesNotMatch(h.root.innerHTML,/class="trace-overlay"|data-action="finish-part"/);
+    await h.click({action:'step',step:'refine'});assert.doesNotMatch(h.root.innerHTML,/data-action="edit-image"/);assert.match(h.root.innerHTML,/data-action="analyze" disabled/);
+    h.input('revision-prompt','Make the costume green.');await h.click({action:'edit-image'});assert.match(h.error(),/Image editing is not connected/);assert.equal(h.requests.length,2,'unsupported pixel edits never make a request');
+    await h.click({action:'dismiss-error'});await h.click({action:'undo'});await h.settle();assert.deepEqual(h.records.get('current').assets,before.assets);assert.deepEqual(h.records.get('current').parts,before.parts);
+    await h.click({action:'redo'});await h.settle();await h.click({action:'step',step:'make'});
+    await h.click({action:'extract-silhouette'});await h.click({action:'accept'});await h.settle();assert.equal(h.records.get('current').parts.length,2);
+    await h.click({action:'split-part'});await h.point(10,50);await h.point(80,50);await h.click({action:'preview-split'});await h.click({action:'accept'});await h.settle();
+    const built=structuredClone(h.records.get('current'));assert.equal(built.parts.length,3);assert.equal(built.joints.length,1);assert.deepEqual(built.parts[0],before.parts[0]);assert.ok(built.parts.slice(1).every(p=>p.assetId===generatedId));
+    await h.click({action:'save-project'});const saved=parseStudioProject(await h.downloads.at(-1).blob.text());await h.openProject(saved);
+    assert.deepEqual(h.records.get('current').parts,built.parts);assert.deepEqual(h.records.get('current').joints,built.joints);assert.deepEqual(h.records.get('current').assets,built.assets);assert.equal(h.requests.length,2,'local extraction, splitting and persistence need no additional AI calls');
+  } finally {await h.close();}
+});
+
+test('a delayed generated image cannot replace work changed while generation is pending', async () => {
+  const h=browserHarness();h.setGetResponse(legacyImageStatus);
+  const generated=h.setRaster(rasterFixture({rectangles:[{x:20,y:10,w:50,h:80,color:[30,70,180,255]}]}));let complete;
+  h.setResponse(()=>new Promise(resolve=>{complete=resolve;}));
+  try {
+    await import('../public/studio-app.mjs?stale-generated-image');await h.settle();
+    h.input('create-prompt','A historical astronomer with a wide robe.');await h.settle();
+    const pending=h.click({action:'generate-image'});await h.settle();assert.equal(h.requests.length,1);
+    h.input('create-prompt','A modern astronaut with a blue flight suit.');await h.settle();const changed=structuredClone(h.records.get('current'));
+    complete({dataUrl:generated,model:'configured-image-model',kind:'reference'});await pending;await h.settle();
+    assert.match(h.error(),/design changed while AI was working/i);assert.deepEqual(h.records.get('current'),changed);assert.equal(changed.assets.length,0);assert.doesNotMatch(h.root.innerHTML,/data-action="accept"/);
+    await h.click({action:'accept'});await h.settle();assert.deepEqual(h.records.get('current'),changed);
   } finally {await h.close();}
 });
