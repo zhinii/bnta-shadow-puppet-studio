@@ -6,6 +6,10 @@ export const STUDIO_RELAY = 'https://6ilmssim2bz2s.kimi.site/api/studio';
 export const PLAN_RELAY = 'https://6ilmssim2bz2s.kimi.site/api/puppet';
 export const IMAGE_RELAY = PLAN_RELAY + '/image';
 export const MAX_STUDIO_PROMPT = 4000;
+// Match the existing classic image client's budget. The legacy image route is
+// independent of the v2 studio's 4,000-character student-input contract.
+export const KIMI_IMAGE_PROMPT_LIMIT = 800;
+const KIMI_IMAGE_DEFAULTS = 'Production defaults (explicit student requests override): Single full-body character on plain white; only requested props. No extra text, calligraphy, signatures, watermarks, borders, floating stars, ground decoration, pinhole dots, joint circles or labels. Keep anatomy, pose, costume lettering, tattoos and motifs; show appendages clearly. No cropped parts, duplicate poses or detached part sheets.';
 
 export const IMAGE_PRODUCTION_RULES = `Production rules for editable shadow-puppet artwork:
 These are defaults only. Explicit student requests take precedence, including requested text, decoration, props, background, pose or multiple characters.
@@ -126,9 +130,25 @@ const statusUrl=endpoint=>endpoint.replace(/\/$/,'')+'/status';
 const timeoutSignal=(signal,ms)=>signal?AbortSignal.any([signal,AbortSignal.timeout(ms)]):AbortSignal.timeout(ms);
 async function responseJson(response){try{return await response.json();}catch{return null;}}
 const aborted=signal=>{if(signal?.aborted)throw signal.reason||new DOMException('Request cancelled.','AbortError');};
+function kimiImageContext(project) {
+  const choices=[['Character type',project.brief?.kind],['World / era',project.brief?.era],['Visual style',project.brief?.style],['Movement / action',project.brief?.action]]
+    .filter(([,value])=>typeof value==='string'&&value.trim()).map(([label,value])=>`${label}: ${value}`);
+  return choices.length?`Selected design settings:\n${choices.join('\n')}\n\nStudent prompt (verbatim):\n`:'';
+}
+export function getKimiImagePromptLimit(project) {
+  return Math.max(0,KIMI_IMAGE_PROMPT_LIMIT-kimiImageContext(project).length);
+}
 export function makeKimiImageRequest(project,{prompt=''}={}) {
   makeStudioRequest(project,{task:'generate-image',prompt});
-  return {application:'shadow-puppet-studio',kind:'reference',prompt:makeImageGenerationPrompt(project,prompt)};
+  const context=kimiImageContext(project),required=context+prompt;
+  if(required.length>KIMI_IMAGE_PROMPT_LIMIT){
+    const max=getKimiImagePromptLimit(project),over=required.length-KIMI_IMAGE_PROMPT_LIMIT;
+    throw Error(project.language==='zh'?`此图像连接的提示词和所选设置合计最多 ${KIMI_IMAGE_PROMPT_LIMIT} 字符；当前为 ${required.length}。请至少减少 ${over} 字符，或简化所选设置。当前设置下，描述最多可用 ${max} 字符。原文未被截断。`:`This image connection allows ${KIMI_IMAGE_PROMPT_LIMIT} characters including selected settings; this request uses ${required.length}. Shorten it by at least ${over} characters or simplify the selected settings. Your description can use ${max} characters with the current settings. Nothing was truncated.`);
+  }
+  // Guidance is optional; student wording and every selected preset take priority.
+  const guidance=KIMI_IMAGE_DEFAULTS+'\n\n'+(context?'':'Student prompt (verbatim):\n');
+  const complete=guidance.length+required.length<=KIMI_IMAGE_PROMPT_LIMIT?guidance+required:required;
+  return {application:'shadow-puppet-studio',kind:'reference',prompt:complete};
 }
 export async function readKimiImageResponse(data,{artworkReader=readArtworkFile,signal,language='en'}={}) {
   aborted(signal);
@@ -158,13 +178,29 @@ async function readImageJson(response) {
   const bytes=new Uint8Array(length);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
   try{return JSON.parse(new TextDecoder().decode(bytes));}catch{throw Error('The image service returned an unreadable response. Please retry.');}
 }
+function kimiImageError(data,status,language) {
+  const zh=language==='zh',messages={
+    prompt:['The image service rejected the prompt. Shorten the description or selected settings and try again.','图像服务拒绝了提示词。请缩短描述或简化所选设置后重试。'],
+    provider:['The image provider rejected this request. Your artwork is unchanged.','图像提供方拒绝了此请求。现有作品未改变。'],
+    rate_limit:['The image service is busy or its account limit has been reached. Wait a moment before trying again.','图像服务繁忙或已达到账户限额。请稍后重试。'],
+    image_model_unavailable:['Image generation is not enabled for this connected model or plan. Text assistance is still available.','当前连接的模型或套餐未启用图像生成。文字助手仍可使用。'],
+    server_configuration:['Image generation is not configured on the protected server.','受保护服务器尚未配置图像生成。'],
+    image_too_large:['The generated image was too large to keep. Request a smaller image.','生成图像过大，无法保存。请请求较小的图像。'],
+    size:['The image request is too large. Shorten the description or selected settings.','图像请求过大。请缩短描述或简化所选设置。']
+  };
+  const detail=boundedString(data?.message,1000)||boundedString(data?.error?.message,1000),code=typeof data?.error==='string'?data.error:typeof data?.code==='string'?data.code:detail;
+  if(own(messages,code))return messages[code][zh?1:0];
+  if(detail&&!/^[A-Za-z0-9_.:-]+$/.test(detail))return detail;
+  const statuses={400:['The image service could not read this request. Please revise the description.','图像服务无法读取此请求。请修改描述。'],401:['The image service needs authorization.','图像服务需要授权。'],403:['This studio is not allowed to use the image service.','此工作室尚未获准使用图像服务。'],404:['The image generation route is unavailable.','图像生成连接不可用。'],413:messages.size,429:messages.rate_limit,503:messages.server_configuration};
+  return statuses[status]?.[zh?1:0]||(zh?`图像生成失败（${status}）。现有作品未改变。`:`Image generation failed (${status}). Your artwork is unchanged.`);
+}
 async function requestKimiImage(project,args,caps,{fetcher,signal,artworkReader}) {
   const target=caps.imageEndpoint;
   if(!validProtectedEndpoint(target)||new URL(target).origin!==new URL(caps.endpoint).origin)throw Error('The image endpoint must belong to the configured protected relay.');
   aborted(signal);
   const response=await fetcher(target,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(makeKimiImageRequest(project,args)),signal:timeoutSignal(signal,240000)});
   let data;try{data=await readImageJson(response);}catch(error){if(response.ok)throw error;data=null;}
-  if(!response.ok){const messages={400:'The image service could not read this request.',401:'The image service needs authorization.',403:'This studio is not allowed to use the image service.',404:'The image generation route is unavailable.',413:'The image request is too large.',429:'Image generation is busy or the account limit has been reached.',503:'Image generation is not configured on the protected server.'};throw Error(boundedString(data?.message,1000)||boundedString(data?.error?.message,1000)||boundedString(data?.error,1000)||messages[response.status]||`Image generation failed (${response.status}). Your artwork is unchanged.`);}
+  if(!response.ok)throw Error(kimiImageError(data,response.status,project.language));
   const result=await readKimiImageResponse(data,{artworkReader,signal,language:project.language});
   if(args.imageDataUrl)result.warnings.push(project.language==='zh'?'此连接根据文字生成新图像；现有图像未发送用于编辑。':'This connection generates a new concept from text; the existing image was not sent for editing.');
   return result;

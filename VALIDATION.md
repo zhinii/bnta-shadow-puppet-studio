@@ -2,7 +2,7 @@
 
 ## Automated checks
 
-**Current release verification: 168 automated tests pass, including 21 workflow tests.** Syntax checks, production build and Worker smoke checks pass with 19 public assets. Reproduce with npm run check, npm test, npm run build, and node scripts/smoke.mjs.
+**Current release verification: 173 automated tests pass, including 22 workflow tests.** Syntax checks, production build and Worker smoke checks pass with 19 public assets. Reproduce with npm run check, npm test, npm run build, and node scripts/smoke.mjs.
 
 Coverage includes arbitrary image-backed polygons; branched and chained connections; exact pivot coincidence under rotation; physical scale independent of pose; pin holes and united overlap tabs; invalid outlines and overlapping holes; locked parts and their ancestors; selected-piece AI edits; exact custom prompts; malformed, truncated and advice-only responses; one bounded AI repair; protected multimodal payloads; image retrieval and visual comparison; origin/request limits; secret exclusion; portable image round-trips; and the three-stage UI event workflow. Legacy IndexedDB transaction utility tests remain, but the application no longer saves projects through those utilities.
 
@@ -14,6 +14,16 @@ Model tests verify stable physical scale when adding, removing, splitting and re
 
 The build links modules into isolated scopes, syntax-checks the generated Worker and portable application, and serves both classic and new assets. Smoke tests cover the public assets, both API status routes, CORS preflight, foreign-origin rejection and missing resources.
 
+## v0.5.1 prompt-budget and Create feedback hotfix
+
+A short panda description exposed a route-specific mismatch: the v0.5 adapter expanded 37 characters of student text to a 1,335-character prompt after adding internal generation rules. The known legacy image client limits the complete `/api/puppet/image` prompt to 800 characters, and the service returned the raw error code `prompt`.
+
+The hotfix budgets the entire legacy image prompt at 800 characters. It preserves the exact student text and selected settings; compact internal image guidance is optional and uses only the remaining budget. An oversized required prompt is rejected locally before an image POST rather than truncated or sent with missing choices. The optional v2 route and text-design input retain their 4,000-character limit.
+
+Create now uses the applicable input limit, always shows a live character count and the budget remaining after selected settings, and places request progress/errors inside the form near its action button. The current automated run records prompt-budget, non-truncation, selected-preset and feedback regressions together with the retained session, geometry and lock tests. These are controlled response/event tests, not actual provider acceptance or rendered accessibility evidence.
+
+A network attempt to verify the panda timed out before any HTTP response. No fresh image was returned or assessed. Earlier successful generation trials below remain historical evidence; they do not demonstrate that the 0.5.1 payload or UI has passed a live generation check.
+
 ## Current interface and fresh-session revision
 
 The v0.5 implementation keeps **Create → Refine → Make** and replaces the required four-substep Refine navigation with one next action. **Remove extras** proposes the largest connected foreground region after plain-background cleanup. Review can keep additional separate pieces/props or select a different main region. The default review shows the result with an original/result toggle and a clear accept/keep-original choice; a three-way comparison is no longer the default.
@@ -24,7 +34,7 @@ These are implementation and automated-event checks. They do not establish actua
 
 Remove-extras fixtures exercise largest-component selection, manual subject selection and retention of additional disconnected regions. The operation follows pixel connectivity rather than recognizing a person, puppet, prop or anatomical part. Connected decoration remains; separated intentional details require review. Rebuilding pieces has a visible replacement warning and respects locks.
 
-The generation contract retains the exact custom prompt and adds instructions against unrequested text, borders, floating stars and other presentation extras while retaining requested props and costume details. This revision made no new live image-quality request; prior provider trials remain historical evidence, not validation of these new prompt rules.
+The generation contract preserves the exact custom prompt and selected settings. On the legacy image route, optional compact instructions against unrequested text, stars and borders fit only into the remaining 800-character total budget. V2/text inputs retain the separate 4,000-character limit. No new image output was obtained for the hotfix; prior provider trials remain historical evidence.
 
 Both current and classic editors now keep projects only in the open session. Reloading/reopening starts fresh, including browser back/forward restoration. Explicit Download/Open is the continuation route. The AI endpoint preference remains separate from project content and persists. Former v2 IndexedDB and v1 localStorage project snapshots are cleared best-effort; blocked storage cannot stop the editor and unrelated settings are untouched.
 

@@ -60,8 +60,8 @@ function browserHarness() {
     if(selector==='[data-vertex-index]')return dataset.vertexIndex!==undefined ? this : null;
     return null;
   }});
-  const root = {_html:'',get innerHTML(){return this._html;},set innerHTML(value){this._html=value;canvas.innerHTML=value.match(/<div id="puppet-canvas">([\s\S]*?)<\/div>/)?.[1]||'';},addEventListener:(type,fn)=>rootListeners.set(type,fn),querySelector:selector=>/^\[data-(?:(part|joint)-id|vertex-index)=/.test(selector)?{focus(){focusedSelectors.push(selector);}}:null};
-  const status = {textContent:''}, canvas = {innerHTML:''}, angle = {textContent:''}, toast = {textContent:'',classList:{add(){},remove(){}}};
+  const root = {_html:'',get innerHTML(){return this._html;},set innerHTML(value){this._html=value;canvas.innerHTML=value.match(/<div id="puppet-canvas">([\s\S]*?)<\/div>/)?.[1]||'';promptBudget.textContent=value.match(/<p id="prompt-budget"[^>]*>([^<]*)<\/p>/)?.[1]||'';promptBudget.hidden=!value.includes('id="prompt-budget"');},addEventListener:(type,fn)=>rootListeners.set(type,fn),querySelector:selector=>/^\[data-(?:(part|joint)-id|vertex-index)=/.test(selector)?{focus(){focusedSelectors.push(selector);}}:null};
+  const status = {textContent:''}, canvas = {innerHTML:''}, angle = {textContent:''},promptBudget={textContent:'',hidden:false}, toast = {textContent:'',classList:{add(){},remove(){}}};
   const rect=()=>({left:0,top:0,width:800,height:600,right:800,bottom:600});
   const canvasWrap={getBoundingClientRect:rect,setPointerCapture(id){captures.push(id);},releasePointerCapture(id){releases.push(id);},focus(){focusedSelectors.push('#canvas-wrap');}};
   const svg = {getBoundingClientRect:rect,createSVGPoint(){return {x:0,y:0,matrixTransform(){return {x:this.x,y:this.y};}};},getScreenCTM(){return {inverse(){return {};}};}};
@@ -72,7 +72,7 @@ function browserHarness() {
     if(selector==='#review-heading')return {focus(){focusedSelectors.push(selector);}};
     if(selector==='.canvas-panel')return {scrollIntoView(options){scrollRequests.push(options);}};
     if(/^\[data-vertex-index=/.test(selector))return {focus(){focusedSelectors.push(selector);},setAttribute(){},getBoundingClientRect:rect};
-    return ({'#app':root,'#save-status':status,'#toast':toast,'#puppet-canvas':canvas,'#canvas-wrap':canvasWrap,'#puppet-canvas svg':svg,'#angle-output':angle,'#print-frame':printFrame})[selector] || files.get(selector.slice(1)) || null;
+    return ({'#app':root,'#save-status':status,'#toast':toast,'#puppet-canvas':canvas,'#canvas-wrap':canvasWrap,'#puppet-canvas svg':svg,'#angle-output':angle,'#prompt-budget':promptBudget,'#print-frame':printFrame})[selector] || files.get(selector.slice(1)) || null;
   },createElement(tag) {
     if(tag==='a')return {href:'',download:'',click(){downloads.push({name:this.download,blob:urls.get(this.href)});}};
     if(tag==='canvas'){let pixels=null;const canvas={width:0,height:0,getContext(){return {drawImage(decoded){pixels=structuredClone(decoded.raster||fixtureRaster);},getImageData(){return {data:new Uint8ClampedArray(pixels.data)};},createImageData(width,height){return {width,height,data:new Uint8ClampedArray(width*height*4)};},putImageData(image){pixels={width:canvas.width,height:canvas.height,data:new Uint8ClampedArray(image.data)};}};},toDataURL(){if(!pixels)return PNG;const value=fixturePng(pixels);rasters.set(value,structuredClone(pixels));return value;}};return canvas;}
@@ -87,17 +87,19 @@ function browserHarness() {
   URL.revokeObjectURL=()=>{};
   globalThis.indexedDB={deleteDatabase(name){storageOperations.push({kind:'deleteDatabase',name});const request={};queueMicrotask(()=>{records.clear();request.onsuccess?.();});return request;},open(name){storageOperations.push({kind:'open',name});const request={};queueMicrotask(()=>{request.result={objectStoreNames:{contains:()=>true},close(){},transaction(){const transaction={objectStore(){return {get:key=>operation('get',key),put:(value,key)=>operation('put',key,value),delete:key=>operation('delete',key)};}};function operation(kind,key,value){storageOperations.push({kind,key});const op={};queueMicrotask(()=>{if(kind==='put')records.set(key,structuredClone(value));if(kind==='delete')records.delete(key);op.result=kind==='get'?structuredClone(records.get(key)):key;op.onsuccess?.();queueMicrotask(()=>transaction.oncomplete?.());});return op;}return transaction;}};request.onsuccess?.();});return request;}};
   let responseFactory=body=>({reply:'Compare the changed cut shape before accepting.',proposal:{parts:[{id:body.project.parts[0].id,fill:'#244466'}]}});
+  let postResponseFactory=null;
   let capabilities={version:2,text:true,vision:false,imageGeneration:false,status:'Drawing plans only; image services unavailable.'};
   let getResponseFactory=()=>({ok:true,status:200,json:async()=>capabilities});
   globalThis.fetch=async(url,options={})=>{
     if(options.method==='POST'){
       const body=JSON.parse(options.body);requests.push({url,body});
+      if(postResponseFactory)return postResponseFactory(body,url);
       return {ok:true,status:200,json:async()=>responseFactory(body)};
     }
     return getResponseFactory(url);
   };
   const settle=()=>new Promise(resolve=>nativeTimeout(resolve,25));
-  return {root,status,requests,legacyRecords:records,storageOperations,preferences,downloads,files,settle,rasters,printFrame,focusedSelectors,scrollRequests,captures,releases,
+  return {root,status,requests,legacyRecords:records,storageOperations,preferences,downloads,files,settle,rasters,printFrame,promptBudget,focusedSelectors,scrollRequests,captures,releases,
     async start(name){appModule=await import(`../public/studio-app.mjs?${name}-${++startCount}`);},
     project:()=>appModule.getSessionSnapshot(),
     canvasMarkup:()=>canvas.innerHTML,
@@ -106,6 +108,7 @@ function browserHarness() {
     error:()=>root.innerHTML.match(/class="error-banner" role="alert">([^<]*)/)?.[1]||'',
     setRaster(value){fixtureRaster=structuredClone(value);const url=fixturePng(value);rasters.set(url,structuredClone(value));return url;},
     setResponse(fn){responseFactory=fn;},
+    setPostResponse(fn){postResponseFactory=fn;},
     setGetResponse(fn){getResponseFactory=fn;},
     setCapabilities(value){capabilities={...capabilities,...value};},
     click:dataset=>rootListeners.get('click')({target:target({dataset})}),
@@ -530,7 +533,7 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
     assert.deepEqual(Object.keys(h.requests[0].body).sort(),['application','kind','prompt'],'generation sends the composition prompt without source pixels or editor state');
     assert.equal(h.requests[0].body.application,'shadow-puppet-studio');assert.equal(h.requests[0].body.kind,'reference');
     assert.ok(h.requests[0].body.prompt.endsWith(`Selected design settings:\nCharacter type: human\nWorld / era: modern\nVisual style: paper-cut\n\nStudent prompt (verbatim):\n${prompt}`),'custom prompt and preset context remain intact after the composition guidance');
-    assert.match(h.requests[0].body.prompt,/Explicit student requests take precedence/);assert.match(h.requests[0].body.prompt,/Do not add text/);
+    assert.match(h.requests[0].body.prompt,/explicit student requests override/);assert.match(h.requests[0].body.prompt,/No extra text/);assert.ok(h.requests[0].body.prompt.length<=800,'classic image relay receives its bounded compact prompt');
     assert.ok(h.root.innerHTML.includes(generated),'generated pixels remain visible during review even in Shadow mode');assert.ok(h.root.innerHTML.includes(original),'review keeps the original visible for comparison');
     assert.equal(h.canvasMarkup(),'','review takes the main canvas position');assert.equal(h.focusedSelectors.at(-1),'#review-heading');assert.ok(h.scrollRequests.length,'new proposals request scrolling into view');
     for(const view of ['before','both','after']){await h.click({action:'review-view',view});assert.ok(h.root.innerHTML.includes(`data-review-view="${view}"`));assert.deepEqual(h.project(),before,'comparison controls do not apply the proposal');}
@@ -573,6 +576,41 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
     await h.click({action:'print'});assert.equal(h.error(),'');assert.ok(h.printFrame.srcdoc.includes(generated));assert.match(h.printFrame.srcdoc,/50 mm/,'print preparation includes a physical calibration mark');
     await h.click({action:'save-project'});const saved=parseStudioProject(await h.downloads.at(-1).blob.text());await h.openProject(saved);
     assert.deepEqual(h.project().parts,built.parts);assert.deepEqual(h.project().joints,built.joints);assert.deepEqual(h.project().rods,built.rods);assert.deepEqual(h.project().assets,built.assets);assert.equal(h.requests.length,3,'only two explicit generations and one text revision use AI');
+  } finally {await h.close();}
+});
+
+test('classic image generation accepts a short panda prompt, honors the 800-character boundary and explains HTTP failures beside Create', async () => {
+  const h=browserHarness();h.setGetResponse(legacyImageStatus);
+  const generated=h.setRaster(rasterFixture({rectangles:[{x:25,y:15,w:50,h:65,color:[25,25,25,255]},{x:35,y:25,w:30,h:40,color:[255,255,255,255]}]}));
+  const response=(status,data)=>({ok:status>=200&&status<300,status,json:async()=>data});
+  const relay=body=>body.prompt.length>800?response(400,{error:'prompt'}):response(200,{dataUrl:generated,model:'configured-image-model',kind:'reference'});
+  const createForm=()=>h.root.innerHTML.match(/<form id="create-form"[\s\S]*?<\/form>/)?.[0]||'';
+  const inputLimit=()=>Number(createForm().match(/<textarea[^>]*id="create-prompt"[^>]*maxlength="(\d+)"/)?.[1]);
+  const panda='a panda, dancing';let complete;
+  h.setPostResponse(body=>new Promise(resolve=>{complete=()=>resolve(relay(body));}));
+  try {
+    await h.start('classic-panda-prompt-limit');await h.settle();assert.equal(inputLimit(),800);assert.equal(h.promptBudget.textContent,'0 / 800 characters');assert.equal(h.promptBudget.hidden,false);assert.match(createForm(),/id="prompt-budget"[^>]*aria-live="polite"/);
+    h.input('create-prompt','p'.repeat(37));assert.equal(h.promptBudget.textContent,'37 / 800 characters','the always-visible count updates on each input without waiting for generation');assert.equal(h.promptBudget.hidden,false);
+    h.input('create-prompt',panda);const pending=h.click({action:'generate-image'});await h.settle();
+    assert.equal(h.requests.length,1);assert.equal(h.requests[0].url,'https://6ilmssim2bz2s.kimi.site/api/puppet/image');
+    assert.ok(h.requests[0].body.prompt.length<=800);assert.ok(h.requests[0].body.prompt.endsWith(panda));
+    assert.match(createForm(),/class="busy-banner"/,'pending feedback appears beside the Create action');
+    assert.equal((h.root.innerHTML.match(/class="busy-banner"/g)||[]).length,1,'Create has no duplicate feedback on the distant canvas');
+    complete();await pending;await h.settle();assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="review-heading"/);assert.ok(h.root.innerHTML.includes(generated));
+    await h.click({action:'reject'});assert.equal(h.project().brief.keywords,panda);assert.equal(h.project().assets.length,0);
+    await h.change({dataset:{field:'brief.kind'},value:'animal'});await h.change({dataset:{field:'brief.era'},value:'imagined'});await h.change({dataset:{field:'brief.style'},value:'paper-cut'});
+    const limit=inputLimit();assert.ok(limit>100&&limit<800,'collapsed presets reserve their required space in the relay limit');assert.equal(h.promptBudget.textContent,panda.length+' / '+limit+' characters','changing a preset updates the displayed prompt budget');
+    const boundary='panda '+ 'x'.repeat(limit-6);h.input('create-prompt',boundary);h.setPostResponse(relay);
+    await h.click({action:'generate-image'});await h.settle();assert.equal(h.error(),'');assert.equal(h.requests.at(-1).body.prompt.length,800,'the advertised input boundary is accepted exactly');
+    assert.ok(h.requests.at(-1).body.prompt.endsWith(boundary),'no student text is truncated at the boundary');assert.match(h.requests.at(-1).body.prompt,/Character type: animal/);assert.match(h.root.innerHTML,/id="review-heading"/);
+    await h.click({action:'reject'});const count=h.requests.length,oversized=boundary+'!';h.input('create-prompt',oversized);
+    assert.ok(h.promptBudget.textContent.startsWith(oversized.length+' / '+limit+' characters'),'an over-limit imported value still displays its actual count');assert.match(h.promptBudget.textContent,/Remove 1 characters/);assert.equal(h.promptBudget.hidden,false);
+    await h.click({action:'generate-image'});await h.settle();assert.equal(h.requests.length,count,'an oversized imported or programmatic value is rejected before the network');assert.match(h.error(),/800/);assert.equal(h.project().brief.keywords,oversized);assert.ok(createForm().includes(oversized));assert.match(createForm(),/class="error-banner"/);
+    h.input('create-prompt',panda);h.setPostResponse(()=>response(400,{error:'prompt'}));const before=h.project();
+    await h.click({action:'generate-image'});await h.settle();assert.equal(h.requests.length,count+1,'HTTP 400 does not silently retry or repair image generation');
+    assert.match(h.error(),/rejected the prompt.*Shorten/);assert.notEqual(h.error(),'prompt');assert.deepEqual(h.project(),before);assert.ok(createForm().includes(panda));assert.match(createForm(),/class="error-banner"/);assert.doesNotMatch(h.root.innerHTML,/class="busy-banner"|data-action="accept"/);
+    h.setPostResponse(()=>response(429,{error:'rate_limit'}));await h.click({action:'generate-image'});await h.settle();
+    assert.equal(h.requests.length,count+2,'HTTP 429 waits for an explicit retry');assert.match(h.error(),/busy|limit/);assert.match(createForm(),/class="error-banner"/);assert.deepEqual(h.project(),before);assert.deepEqual(primaryActions(h.root.innerHTML),['generate-image'],'the request finishes and Create becomes available again');
   } finally {await h.close();}
 });
 

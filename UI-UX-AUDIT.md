@@ -1,6 +1,12 @@
 # UI/UX re-audit — simplicity first
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
+## v0.5.1 prompt and counter correction
+
+The panda screenshot exposed an oversized generation request: 37 characters of student text became 1,335 after internal instructions. The legacy image adapter now uses the classic client's 800-character complete-prompt budget, preserves student text and selected settings, and adds compact guidance only if it fits. The optional v2/text route still accepts 4,000 characters. Oversized required content is rejected locally; raw service codes become readable English/Chinese messages.
+
+Create always displays the current count and allowance beneath the prompt, adjusts the allowance for presets, and places progress/errors beside the Create button. The full source is checked through repository CI because the local workspace disconnected after focused AI/workflow checks. A live panda request timed out before an HTTP response; live generation and phone rendering remain unverified.
+
 ## Judgment
 The v0.4 interface did not meet the intended simplicity. Larger text and buttons improved legibility, but students still encountered an editor's tool inventory before a clear task. The v0.5 implementation below reduces the default choices, gives the character the main workspace and keeps one primary next action. Passing functional tests does not establish rendered usability.
 

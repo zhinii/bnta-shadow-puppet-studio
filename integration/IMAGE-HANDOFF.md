@@ -16,11 +16,19 @@ The verified response has `dataUrl`, `model` and `kind`; it does not supply imag
 {"dataUrl":"data:image/png;base64,...","model":"wan2.7-image-pro","kind":"reference"}
 ```
 
-`public/studio-ai.mjs` preserves the custom prompt and adds labelled preset choices, posts once, validates raster bytes and uses the existing browser importer to decode actual dimensions and resize to at most 1600 pixels on the longest side. It returns the editor's normal portable asset. The accepted asset can immediately use background cleanup, extraction, splitting and hinges. The original `public/agent.mjs` helper and classic image UI are preserved.
+`public/studio-ai.mjs` preserves the exact custom prompt and all selected preset choices. The known legacy image route accepts **800 characters maximum in the complete `prompt`**, including those choices and any internal guidance. The v0.5.1 adapter adds compact optional rules only within the remaining budget. It never truncates student text or silently drops a selected preset; if the required description and settings do not fit, it rejects the request locally before a POST. It posts once, validates raster bytes and uses the existing browser importer to decode actual dimensions and resize to at most 1600 pixels on the longest side. It returns the editor's normal portable asset. The accepted asset can immediately use background cleanup, extraction, splitting and hinges. The original `public/agent.mjs` helper and classic image UI are preserved.
 
 The public `/api/status` reports the configured Shadow Puppet Studio relay without individual image capability flags. For this verified known relay, the client exposes generation only. `/api/studio/status` and `/api/puppet/image/status` returned 404. A custom endpoint never falls back to another host; an advertised image endpoint must share its configured relay's origin. Generation is not automatically retried after a failed response.
 
 This route is **text-to-image generation**, not image editing or vision. Existing project images are not sent to it. Do not enable `imageEditing`, `vision` or anatomical separation merely because generation works. Generated anatomy and counts remain unverified: the live six-tentacle request returned eight visible tentacles, which is why the student review remains necessary.
+
+## v0.5.1 compatibility correction
+
+The v0.5 internal generation rules expanded a 37-character panda description into a 1,335-character payload. This exceeded the existing image client's 800-character complete-prompt contract and produced the raw service error `prompt`. The fix applies that limit to the final legacy payload while preserving the exact description and selected settings. Optional compact guidance can be shortened or omitted; student content cannot.
+
+The Create form derives its allowance from the route and selected fields, always shows the live character count against that allowance, and presents validation/request errors beside the creation action. The optional v2/text contract below continues to accept up to 4,000 characters of input; that limit does not apply to the legacy image prompt above.
+
+The panda network verification attempt timed out before an HTTP response. It established neither a new successful generation nor image fidelity. Keep the earlier live PNG evidence separate from the hotfix's controlled payload and UI tests.
 
 ## Optional v2 service
 
@@ -144,6 +152,6 @@ Width and length are **absolute multipliers from 0.25 to 4** relative to the par
 
 ## What works without this API
 
-Imported artwork can be processed on the student's device: plain edge-connected background cleanup, color-region selection, connected silhouette extraction, manual boundary correction, cut splitting, hinge placement and dimension controls. These deterministic tools do not perform semantic AI segmentation and cannot reconstruct hidden artwork. They remain usable while image generation is being connected.
+Imported artwork can be processed on the student's device: plain edge-connected background cleanup, color-region selection, connected silhouette extraction, manual boundary correction, cut splitting, hinge placement and dimension controls. These deterministic tools do not perform semantic AI segmentation and cannot reconstruct hidden artwork. They remain usable when image generation is unavailable or a prompt must be corrected.
 
 Keep the existing `/api/puppet` route available for the classic editor. For the complete supplied server adapter and configuration examples, see [STUDIO-V2-RELAY.md](STUDIO-V2-RELAY.md).

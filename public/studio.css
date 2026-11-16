@@ -545,3 +545,6 @@ html[lang=zh] .empty-canvas h2 { font-size: 30px; }
   .make-controls > .checks { margin: 12px 0; }
   .make-controls .advanced-controls .field { max-width: none; }
 }
+
+/* Keep request progress and recovery beside the action on phones. */
+#create-form > .error-banner, #create-form > .busy-banner, #create-form > .notice-banner { margin-top: 12px; margin-bottom: 0; }
