@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createStudioProject, makePart} from '../public/studio-model.mjs';
-import {saveStudioProject, loadStudioProject, clearStudioProject, serializeStudioProject, parseStudioProject, validateArtworkBytes, artworkDimensions, readArtworkFile, MAX_PROJECT_BYTES} from '../public/studio-storage.mjs';
+import {saveStudioProject, loadStudioProject, clearStudioProject, clearStoredStudioSession, serializeStudioProject, parseStudioProject, validateArtworkBytes, artworkDimensions, readArtworkFile, MAX_PROJECT_BYTES} from '../public/studio-storage.mjs';
 
 function fakeIndexedDB({abortWrites = false, blocked = false} = {}) {
   const records = new Map();
@@ -92,6 +92,40 @@ test('a successful put followed by an aborted transaction is never reported as s
 test('blocked or absent browser storage gives a useful download fallback', async () => {
   await assert.rejects(saveStudioProject(createStudioProject(), {indexedDB:null}), {code:'STORAGE_UNAVAILABLE'});
   await assert.rejects(loadStudioProject(fakeIndexedDB({blocked:true})), {code:'STORAGE_BLOCKED'});
+});
+
+test('fresh-session cleanup deletes only the prior studio database without opening it', async () => {
+  const databases = new Map([['bnta-shadow-studio-v2', imageProject()], ['unrelated-project', {keep:true}]]);
+  const requested = [];
+  const indexedDB = {
+    open() { assert.fail('Cleanup must not open or create a database'); },
+    deleteDatabase(name) {
+      requested.push(name);
+      const request = {};
+      queueMicrotask(() => { databases.delete(name); request.onsuccess?.(); });
+      return request;
+    }
+  };
+  assert.equal(await clearStoredStudioSession({indexedDB}), true);
+  assert.deepEqual(requested, ['bnta-shadow-studio-v2']);
+  assert.equal(databases.has('bnta-shadow-studio-v2'), false);
+  assert.deepEqual(databases.get('unrelated-project'), {keep:true});
+});
+
+test('fresh-session cleanup safely resolves when storage is absent, throws, errors, or is blocked', async () => {
+  assert.equal(await clearStoredStudioSession({indexedDB:null}), false);
+  assert.equal(await clearStoredStudioSession({indexedDB:{deleteDatabase(){throw new DOMException('Denied','SecurityError');}}}), false);
+  for (const event of ['onerror','onblocked']) {
+    const indexedDB = {deleteDatabase() {const request = {}; queueMicrotask(() => request[event]?.()); return request;}};
+    assert.equal(await clearStoredStudioSession({indexedDB}), false);
+  }
+});
+
+test('fresh-session cleanup has a bounded wait even if storage never responds', async () => {
+  let request;
+  const indexedDB = {deleteDatabase() {request = {}; return request;}};
+  assert.equal(await clearStoredStudioSession({indexedDB,timeoutMs:5}), false);
+  assert.doesNotThrow(() => request.onsuccess(), 'A late deletion event remains harmless');
 });
 
 test('artwork type is checked against bytes instead of trusting the extension', () => {

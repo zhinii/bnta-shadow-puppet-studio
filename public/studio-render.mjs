@@ -137,11 +137,11 @@ export function renderStudioSvg(project,options={}) {
  if(showConcept&&concept)all.push([0,0],[concept.width,concept.height]);
  if(draftPoints.length)all.push(...draftPoints);
  if(!all.length)all.push([0,0],[800,1000]);
- const box=bounds(all),pad=Math.max(20,Math.max(box.width,box.height)*.035),view=options.viewBox||[box.x-pad,box.y-pad,Math.max(1,box.width)+2*pad,Math.max(1,box.height)+2*pad],marker=Math.max(4,view[2]/170);
+ const box=bounds(all),pad=Math.max(20,Math.max(box.width,box.height)*.035),view=options.viewBox||[box.x-pad,box.y-pad,Math.max(1,box.width)+2*pad,Math.max(1,box.height)+2*pad],marker=interactive&&Number.isFinite(options.markerSize)&&options.markerSize>0?options.markerSize:Math.max(4,view[2]/170),hitRadius=interactive&&Number.isFinite(options.hitRadius)&&options.hitRadius>0?Math.max(options.hitRadius,marker*1.6):marker*1.6;
  const content=parts.map(p=>`<g transform="matrix(${(transforms[p.id]||identity).map(f).join(' ')})">${partMarkup(project,p,geometries.get(p.id),{prefix,showArt,selected:p.id===selectedPartId,interactive,strokeWidth:Math.max(.8,marker*.23)})}</g>`).join('');
  const joints=showJoints?(project.joints||[]).map((j,i)=>{
   const p=transformPoint(transforms[j.parentId]||identity,j.parentAnchor),stroke=j.id===selectedJointId?'#db5635':'#1b7067';
-  return `<g data-joint-id="${esc(j.id)}" class="studio-joint"${interactive?` role="button" tabindex="0" aria-pressed="${j.id===selectedJointId}" aria-label="${esc(j.type)} connection ${i+1}"`:''}><circle cx="${f(p[0])}" cy="${f(p[1])}" r="${f(marker*1.6)}" fill="#fffdf5" stroke="${stroke}" stroke-width="${f(marker*.36)}"/><text x="${f(p[0])}" y="${f(p[1]+marker*.45)}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="${f(marker*1.7)}" font-weight="700" fill="${stroke}" pointer-events="none">${i+1}</text></g>`;
+  return `<g data-joint-id="${esc(j.id)}" class="studio-joint"${interactive?` role="button" tabindex="0" aria-pressed="${j.id===selectedJointId}" aria-label="${esc(j.type)} connection ${i+1}"`:''}>${interactive?`<circle class="joint-hit" cx="${f(p[0])}" cy="${f(p[1])}" r="${f(hitRadius)}" fill="transparent" stroke="none" pointer-events="all"/>`:''}<circle cx="${f(p[0])}" cy="${f(p[1])}" r="${f(marker*1.6)}" fill="#fffdf5" stroke="${stroke}" stroke-width="${f(marker*.36)}"/><text x="${f(p[0])}" y="${f(p[1]+marker*.45)}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="${f(marker*1.7)}" font-weight="700" fill="${stroke}" pointer-events="none">${i+1}</text></g>`;
  }).join(''):'';
  const rods=showRods?(project.rods||[]).map(r=>{
   const p=transformPoint(transforms[r.partId]||identity,r.point);

@@ -11,4 +11,6 @@ const studioStatus=await(await worker.fetch(new Request('https://studio.test/api
 assert.equal(studioStatus.version,2);assert.equal(studioStatus.text,false);assert.equal(studioStatus.imageGeneration,false);
 const preflight=await worker.fetch(new Request('https://studio.test/api/studio',{method:'OPTIONS',headers:{Origin:'https://zhinii.github.io'}}),{});assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),'https://zhinii.github.io');
 assert.equal((await worker.fetch(new Request('https://studio.test/api/studio',{method:'POST',headers:{Origin:'https://untrusted.test'}}),{})).status,403);
-console.log('Built Worker smoke test passed: 17 assets, both API status routes, CORS and missing route.');
+const viewport=await worker.fetch(new Request('https://studio.test/studio-viewport.mjs'),{});assert.equal(viewport.status,200);assert.match(await viewport.text(),/zoomViewBox/);
+const uiState=await worker.fetch(new Request('https://studio.test/studio-ui-state.mjs'),{});assert.equal(uiState.status,200);assert.match(await uiState.text(),/captureUIState/);
+console.log('Built Worker smoke test passed: 19 assets, both API status routes, CORS and missing route.');

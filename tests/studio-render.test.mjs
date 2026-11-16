@@ -42,6 +42,17 @@ test('interactive canvas controls expose selected state while previews and expor
  }
 });
 
+test('interactive joint hit areas enlarge independently of printed geometry',()=>{
+ const p=puppet(),before=structuredClone(p);
+ const svg=renderStudioSvg(p,{interactive:true,markerSize:7,hitRadius:22});
+ assert.match(svg,/<circle class="joint-hit"[^>]*r="22"[^>]*fill="transparent"/);
+ assert.match(svg,/r="11\.2" fill="#fffdf5"/);
+ const preview=renderStudioSvg(p,{interactive:false,markerSize:700,hitRadius:2200});
+ assert.doesNotMatch(preview,/joint-hit|r="1120"|r="2200"/);
+ assert.deepEqual(p,before);
+ assert.equal(exportSheetSvg(p,{cutOnly:true}).includes('joint-hit'),false);
+});
+
 test('reinforcement outlines are united, without cuts through their overlaps',()=>{
  const rectangle=[[0,0],[10,0],[10,10],[0,10]],overlap=[[5,0],[15,0],[15,10],[5,10]],loops=unionContours([rectangle,overlap]);
  assert.equal(loops.length,1);assert.equal(Math.abs(polygonArea(loops[0])),150);

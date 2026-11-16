@@ -86,6 +86,32 @@ export async function clearStudioProject(options) {
   await operation('readwrite', store => store.delete(CURRENT), options);
 }
 
+// The studio now keeps projects only in memory unless a file is downloaded.
+// Remove the previous version's automatic session snapshot without opening or
+// creating a database. Call this in the background; a blocked/disabled storage
+// service must never delay a fresh project. A blocked deletion may still finish
+// after an older tab closes its database connection.
+export function clearStoredStudioSession({indexedDB, timeoutMs = 1000} = {}) {
+  return new Promise(resolve => {
+    let settled = false, timer;
+    const finish = result => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+    try {
+      const storage = indexedDB === undefined ? globalThis.indexedDB : indexedDB;
+      if (!storage?.deleteDatabase) { finish(false); return; }
+      const request = storage.deleteDatabase(DATABASE);
+      timer = setTimeout(() => finish(false), Number.isFinite(timeoutMs) ? Math.max(0, Math.min(timeoutMs, 5000)) : 1000);
+      request.onsuccess = () => finish(true);
+      request.onerror = () => finish(false);
+      request.onblocked = () => finish(false);
+    } catch { finish(false); }
+  });
+}
+
 export function serializeStudioProject(project) {
   const text = JSON.stringify(normalizeStudioProject(project), null, 2);
   if (new TextEncoder().encode(text).byteLength > MAX_PROJECT_BYTES) throw failure('PROJECT_TOO_LARGE', 'This project is too large to export. Reduce the number or resolution of its images.');
