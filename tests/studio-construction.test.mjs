@@ -160,14 +160,57 @@ test('joint suggestions reject broad body cuts, locked pieces, outside taps and 
  assert.throws(()=>suggestJointAt(narrow,'sleeve',[12,85],{angleDegrees:NaN}),{code:'INVALID_CUT'});
 });
 
-test('an explicit angle makes a reviewable adjusted cut while complex multi-crossing directions reject',()=>{
+test('an explicit angle selects only the interior chord containing the tapped limb',()=>{
  const p=sheet(rect(0,0,24,120));p.heightMm=120;
  const result=suggestJointAt(p,'sleeve',[12,85],{angleDegrees:15});near(result.angleDegrees,15);
  const [a,b]=result.cutLine;near((b[1]-a[1])/(b[0]-a[0]),Math.tan(Math.PI/12));
  near(result.pivot[0],12);near(result.pivot[1],85);
  const u=sheet([[0,0],[100,0],[100,100],[70,100],[70,30],[30,30],[30,100],[0,100]]);u.heightMm=100;
- assert.throws(()=>suggestJointAt(u,'sleeve',[15,60],{angleDegrees:0}),{code:'NO_JOINT_SECTION'});
+ const horizontal=suggestJointAt(u,'sleeve',[15,60],{angleDegrees:0});
+ assert.deepEqual(horizontal.cutLine,[[0,60],[30,60]]);
+ const moving=horizontal.project.parts.find(p=>p.id===horizontal.partIds[1]),retained=horizontal.project.parts.find(p=>p.id==='sleeve');
+ assert.ok(pointInPolygon([15,85],moving.polygon));assert.ok(!pointInPolygon([85,85],moving.polygon));
+ assert.ok(pointInPolygon([85,85],retained.polygon),'The other limb stays intact even below the same infinite line.');
+ near(horizontal.project.parts.reduce((sum,p)=>sum+Math.abs(polygonArea(p.polygon)),0),Math.abs(polygonArea(u.parts[0].polygon)));
+ for(let x=5;x<100;x+=10)for(let y=5;y<100;y+=10){
+  const count=horizontal.project.parts.filter(p=>pointInPolygon([x,y],p.polygon)).length;
+  assert.equal(count,Number(pointInPolygon([x,y],u.parts[0].polygon)),'The finite chord preserves every sampled region without bridging the gap.');
+ }
+ assert.throws(()=>splitPart(u,'sleeve',[-10,60],[110,60]),{code:'COMPLEX_CUT'},'The manual infinite-line split contract is unchanged.');
  // A valid diagonal can separate that limb without bridging across the gap.
  const diagonal=suggestJointAt(u,'sleeve',[15,60],{angleDegrees:45});
  assert.ok(diagonal.project.parts.every(p=>!selfIntersects(p.polygon)));assert.equal(validateStudio(diagonal.project).filter(x=>x.level==='error').length,0);
+});
+
+test('a finite limb chord reassigns only its own children and rods, preserving posed locked neighbors',()=>{
+ let p=sheet([[0,0],[100,0],[100,100],[70,100],[70,30],[30,30],[30,100],[0,100]]);
+ p.parts.unshift({...makePart('Support',rect(-20,-20,140,60),'art'),id:'support',x:35,y:-20,rotation:13});
+ p.parts.push({...makePart('Left hand',rect(5,85,20,35),'art'),id:'left-hand'},{...makePart('Right hand',rect(75,85,20,35),'art'),id:'right-hand'});
+ p=addConnection(p,{id:'incoming',parentId:'support',childId:'sleeve',parentAnchor:[50,15],childAnchor:[50,15],angle:23,min:-90,max:90,padRadius:8});
+ p=addConnection(p,{id:'left-pin',parentId:'sleeve',childId:'left-hand',parentAnchor:[15,103],childAnchor:[15,103],angle:8,min:-90,max:90,padRadius:8});
+ p=addConnection(p,{id:'right-pin',parentId:'sleeve',childId:'right-hand',parentAnchor:[85,103],childAnchor:[85,103],angle:-12,min:-90,max:90,padRadius:8});
+ p.rods=[{id:'left-rod',partId:'sleeve',point:[15,90]},{id:'right-rod',partId:'sleeve',point:[85,90]}];
+ p.parts.find(p=>p.id==='right-hand').locked=true;p.parts.find(p=>p.id==='support').locked=true;
+ const original=structuredClone(p),before=partTransforms(p),scale=unitsPerMm(p),result=suggestJointAt(p,'sleeve',[15,60],{angleDegrees:0}),next=result.project,newId=result.partIds[1],after=partTransforms(next);
+ assert.equal(next.joints.find(j=>j.id==='incoming').childId,'sleeve');
+ assert.equal(next.joints.find(j=>j.id==='left-pin').parentId,newId,'An anchor just outside the contour stays with its reinforced limb.');
+ assert.equal(next.joints.find(j=>j.id==='right-pin').parentId,'sleeve','A different limb below the infinite cut line is not reassigned.');
+ assert.equal(next.rods.find(r=>r.id==='left-rod').partId,newId);assert.equal(next.rods.find(r=>r.id==='right-rod').partId,'sleeve');
+ for(const id of ['support','sleeve','left-hand','right-hand'])sameMatrix(before[id],after[id]);sameMatrix(before.sleeve,after[newId]);
+ assert.deepEqual(next.parts.find(p=>p.id==='right-hand'),original.parts.find(p=>p.id==='right-hand'));
+ assert.deepEqual(next.parts.find(p=>p.id==='support'),original.parts.find(p=>p.id==='support'));
+ assert.deepEqual(next.assets,p.assets);near(unitsPerMm(next),scale);assert.deepEqual(p,original);
+ assert.equal(validateStudio(next).filter(x=>x.level==='error').length,0);
+});
+
+test('a finite chord keeps the original incoming anchor even when it is on the smaller arc',()=>{
+ let p=sheet([[0,0],[100,0],[100,100],[70,100],[70,30],[30,30],[30,100],[0,100]]);p.heightMm=100;
+ p.parts.unshift({...makePart('Holder',rect(0,75,30,30),'art'),id:'holder'});
+ p=addConnection(p,{id:'incoming',parentId:'holder',childId:'sleeve',parentAnchor:[15,90],childAnchor:[15,90],angle:15,min:-90,max:90,padRadius:5});
+ p.rods=[{id:'other-limb',partId:'sleeve',point:[85,90]}];
+ const before=partTransforms(p),result=suggestJointAt(p,'sleeve',[15,60],{angleDegrees:0}),retained=result.project.parts.find(p=>p.id==='sleeve'),separated=result.project.parts.find(p=>p.id===result.partIds[1]);
+ assert.ok(pointInPolygon([15,90],retained.polygon));assert.ok(!pointInPolygon([85,90],retained.polygon));assert.ok(pointInPolygon([85,90],separated.polygon));
+ assert.ok(Math.abs(polygonArea(retained.polygon))<Math.abs(polygonArea(separated.polygon)));
+ assert.equal(result.project.rods[0].partId,separated.id);sameMatrix(before.sleeve,partTransforms(result.project).sleeve);
+ assert.equal(validateStudio(result.project).filter(x=>x.level==='error').length,0);
 });

@@ -1,6 +1,6 @@
 # Criteria audit and refinement
 
-Current implementation: **v0.7.0**. The acceptance criteria come from the supplied character examples and the requested three-process workflow. The reference images show substantially different silhouettes, garments, anatomy and surface detail; changing the colors of one human template would not meet that intent.
+Current implementation: **v0.7.1**. The acceptance criteria come from the supplied character examples and the requested three-process workflow. The reference images show substantially different silhouettes, garments, anatomy and surface detail; changing the colors of one human template would not meet that intent.
 
 | Criterion | Result | Evidence / remaining work |
 | --- | --- | --- |
@@ -39,11 +39,11 @@ Current implementation: **v0.7.0**. The acceptance criteria come from the suppli
 13. **v0.5.1 prompt-budget hotfix:** corrected a 37-character panda prompt expanding to 1,335 characters and receiving the raw `prompt` error. The adapter checks the complete legacy request before sending; Create uses route-specific limits, an always-visible live character count accounting for selected settings, and in-form progress/errors. Student text and selected presets are never truncated to fit. The live panda attempt timed out before an HTTP response.
 14. **v0.6.1 joint simplification:** replaced the default two-point cut with one bend-point tap and a reviewed geometric proposal. Existing-piece joins now select two pieces without manually locating their anchors. Both connected contours retain real overlap material around matching holes, with a visible back/front distinction and explicit layer swap. Movement testing changes a preview copy; accepting keeps the original resting pose. The manual cut and two-anchor tools remain optional.
 
-15. **v0.7.0 automatic joint plan:** added bounded local bend candidates, one AI selection request and a single editable numbered-dot review after cleanup acceptance. Student edits rebuild from the original geometry without more AI calls. Invalid dots require correction/removal; accepting the complete plan is one undoable operation. Automatic magenta and opt-in black mark detection retain source pixels. A live text/outline horse request selected the supplied neck/foreleg candidates; no image understanding is claimed.
+15. **v0.7.1 automatic joint plan:** added bounded local bend candidates, one AI selection request and a single editable numbered-dot review after cleanup acceptance. Student edits rebuild from the original geometry without more AI calls. Invalid dots require correction/removal; accepting the complete plan is one undoable operation. Automatic magenta and opt-in black mark detection retain source pixels. A live text/outline horse request selected the supplied neck/foreleg candidates; no image understanding is claimed.
 
 ## Release judgment
 
-The current workflow prepares movement suggestions automatically, reducing the need to locate every joint from scratch. It retains review of character cleanup, explicit dot editing and one acceptance for the joint plan. Both pieces still receive real overlap material and matching pin holes. v0.7.0 passes 219 automated tests, including 35 workflow tests, plus syntax, build and smoke checks. Browser verification is pending; historical counts and screenshots in [VALIDATION.md](VALIDATION.md) apply to their named releases.
+The current workflow prepares movement suggestions automatically, reducing the need to locate every joint from scratch. It retains review of character cleanup, explicit dot editing and one acceptance for the joint plan. Both pieces still receive real overlap material and matching pin holes. v0.7.1 passes 224 automated tests, including 35 workflow tests, plus syntax, build and smoke checks. Browser verification is pending; historical counts and screenshots in [VALIDATION.md](VALIDATION.md) apply to their named releases.
 
 The new live AI evidence is one successful text/outline selection request, not visual anatomical analysis. Automatic anatomical separation, hidden artwork reconstruction and dependable prompt matching remain incomplete. Local geometry must validate every selected or manually moved dot; no AI-selected coordinate bypasses those checks. Numeric defaults are paper-prototype heuristics, not universal material norms.
 

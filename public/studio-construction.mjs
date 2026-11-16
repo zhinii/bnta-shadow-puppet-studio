@@ -28,6 +28,34 @@ function cutIntersections(points,a,b){
  }
  return hits;
 }
+// Find the finite interior chord containing a chosen point. Other limbs may
+// cross the same infinite line, but are not part of this cut. Boundary positions
+// let us walk each original contour arc and close it with only the chosen chord.
+function interiorSection(points,a,b,sectionPoint){
+ const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy),hits=[];
+ if(length<EPS||distanceToBoundary(sectionPoint,points)<=EPS||Math.abs(cross(a,b,sectionPoint))/length>EPS)return null;
+ const add=(point,position)=>{if(!hits.some(hit=>distance(hit.point,point)<=EPS))hits.push({point,position,t:((point[0]-sectionPoint[0])*dx+(point[1]-sectionPoint[1])*dy)/length});};
+ for(let i=0;i<points.length;i++){
+  const p=points[i],q=points[(i+1)%points.length],dp=cross(a,b,p)/length,dq=cross(a,b,q)/length;
+  if(Math.abs(dp)<=EPS)add([...p],i);
+  if(dp*dq<0&&Math.abs(dp)>EPS&&Math.abs(dq)>EPS){const ratio=dp/(dp-dq);add([p[0]+ratio*(q[0]-p[0]),p[1]+ratio*(q[1]-p[1])],i+ratio);}
+ }
+ hits.sort((x,y)=>x.t-y.t);
+ const left=hits.filter(hit=>hit.t < -EPS).at(-1),right=hits.find(hit=>hit.t>EPS);
+ if(!left||!right)return null;
+ const midpoint=[(left.point[0]+right.point[0])/2,(left.point[1]+right.point[1])/2];
+ if(!pointInPolygon(midpoint,points)||distanceToBoundary(midpoint,points)<=EPS)return null;
+ const arc=(first,last)=>{
+  const end=last.position>first.position?last.position:last.position+points.length,result=[[...first.point]];
+  for(let i=Math.floor(first.position)+1;i<=Math.floor(end);i++)result.push([...points[i%points.length]]);
+  result.push([...last.point]);return cleanPolygon(result);
+ };
+ const pieces=[arc(left,right),arc(right,left)];
+ if(pieces.some(piece=>piece.length<3||piece.length>512||Math.abs(polygonArea(piece))<EPS||selfIntersects(piece)))return null;
+ const originalArea=Math.abs(polygonArea(points)),sum=pieces.reduce((total,piece)=>total+Math.abs(polygonArea(piece)),0);
+ if(Math.abs(sum-originalArea)>Math.max(EPS,originalArea*1e-8))return null;
+ return {hits:[left.point,right.point],pieces};
+}
 function restorePhysicalScale(project,oldUnits){
  const height=neutralProjectBounds(project).height||project.canvas.height;
  project.heightMm=height/oldUnits;
@@ -51,8 +79,10 @@ function pinRadius(project,type,extra=0){const mm=unitsPerMm(project),web=Math.m
  * the original ID and incoming connection. Art pixels are not regenerated.
  * Multiple boundary crossings are deliberately rejected: a half-plane clip of a
  * concave shape can otherwise bridge disconnected islands with invented cuts.
+ * Internal sectionPoint opts into a finite interior chord for a tapped joint;
+ * it walks the original boundary rather than clipping disconnected half-planes.
  */
-export function splitPart(project,partId,lineStart,lineEnd,{connect=true,type='pivot',nameA,nameB}={}){
+export function splitPart(project,partId,lineStart,lineEnd,{connect=true,type='pivot',nameA,nameB,sectionPoint}={}){
  const before=normalizeStudioProject(project),p=copy(before),part=p.parts.find(x=>x.id===partId);
  if(!part)fail('Select an existing part.','PART_NOT_FOUND');
  if(part.locked)fail('Unlock this part before splitting it.','LOCKED_PART');
@@ -60,16 +90,27 @@ export function splitPart(project,partId,lineStart,lineEnd,{connect=true,type='p
  if(!['pivot','fixed','hinge'].includes(type))fail('Choose a pivot, fixed overlap or pin hinge.','INVALID_CONNECTION');
  if(p.parts.length>=80)fail('The project already has the maximum of 80 parts.','PART_LIMIT');
  if(selfIntersects(part.polygon))fail('Repair this outline before splitting it.','INVALID_CUT');
- const cuts=cutIntersections(part.polygon,lineStart,lineEnd);
+ const finite=sectionPoint!==undefined;
+ if(finite&&(!validPoint(sectionPoint)||!pointInPolygon(sectionPoint,part.polygon)))fail('Choose an interior point for the joint section.','INVALID_CUT');
+ const section=finite?interiorSection(part.polygon,lineStart,lineEnd,sectionPoint):null;
+ if(finite&&!section)fail('This section does not produce two separate, simple pieces. Try a different joint position.','INVALID_CUT');
+ const cuts=finite?section.hits:cutIntersections(part.polygon,lineStart,lineEnd);
  if(cuts.length!==2)fail(cuts.length>2?'This line crosses the outline more than twice. Split a simpler section first.':'Draw a line that crosses both sides of the part.','COMPLEX_CUT');
- let retained=clipHalf(part.polygon,lineStart,lineEnd,1),separated=clipHalf(part.polygon,lineStart,lineEnd,-1),retainedSign=1;
+ let retained=finite?section.pieces[0]:clipHalf(part.polygon,lineStart,lineEnd,1),separated=finite?section.pieces[1]:clipHalf(part.polygon,lineStart,lineEnd,-1),retainedSign=1;
+ if(finite&&Math.abs(polygonArea(separated))>Math.abs(polygonArea(retained)))[retained,separated]=[separated,retained];
  if([retained,separated].some(points=>points.length<3||points.length>512||Math.abs(polygonArea(points))<EPS||selfIntersects(points)))fail('This line does not produce two separate, simple pieces. Try a different split.','INVALID_CUT');
+ const belongsToSeparated=point=>{
+  const inRetained=pointInPolygon(point,retained),inSeparated=pointInPolygon(point,separated);
+  // A pre-existing reinforcement anchor can lie just beyond the raw polygon.
+  // Keep it with the contour it touches; points on the shared chord stay put.
+  return inSeparated&&!inRetained||!inRetained&&!inSeparated&&distanceToBoundary(point,separated)<distanceToBoundary(point,retained)-EPS;
+ };
  const incoming=p.joints.find(j=>j.childId===partId);
- if(incoming&&cross(lineStart,lineEnd,incoming.childAnchor)<-EPS){[retained,separated]=[separated,retained];retainedSign=-1;}
+ if(incoming&&(finite?belongsToSeparated(incoming.childAnchor):cross(lineStart,lineEnd,incoming.childAnchor)<-EPS)){[retained,separated]=[separated,retained];retainedSign=-1;}
  const newId=studioId(),world=partTransforms(before)[partId],newPart={...copy(part),id:newId,polygon:separated,name:typeof nameB==='string'&&nameB.trim()?nameB:part.name+(p.language==='zh'?' · 第二段':' · section 2'),x:world[4],y:world[5],rotation:Math.atan2(world[1],world[0])*180/Math.PI,parameters:{width:1,length:1,axisAngle:part.parameters?.axisAngle||0}};
  part.polygon=retained;part.parameters={width:1,length:1,axisAngle:part.parameters?.axisAngle||0};
  if(typeof nameA==='string'&&nameA.trim())part.name=nameA;
- const goesToNew=point=>cross(lineStart,lineEnd,point)*retainedSign<-EPS;
+ const goesToNew=point=>finite?belongsToSeparated(point):cross(lineStart,lineEnd,point)*retainedSign<-EPS;
  for(const joint of p.joints)if(joint.parentId===partId&&goesToNew(joint.parentAnchor))joint.parentId=newId;
  for(const rod of p.rods)if(rod.partId===partId&&goesToNew(rod.point))rod.partId=newId;
  p.parts.splice(p.parts.findIndex(x=>x.id===partId)+1,0,newPart);
@@ -87,9 +128,9 @@ export function splitPart(project,partId,lineStart,lineEnd,{connect=true,type='p
 
 /**
  * Turn a tap on a narrow section into a reviewable pin joint. This is a local
- * geometric suggestion, not anatomical recognition. Only a single straight
- * section with two boundary crossings is accepted, so no disconnected islands
- * or hidden artwork are invented. angleDegrees fixes the cut direction for a
+ * geometric suggestion, not anatomical recognition. The finite interior chord
+ * around the tap splits the original boundary into two arcs; unrelated limbs
+ * crossing the same infinite line remain intact. angleDegrees fixes the cut direction for a
  * student's adjustment; without it the shortest suitable direction is chosen.
  */
 export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
@@ -111,15 +152,14 @@ export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
  const candidates=[];let broad=false,nearPin=false;
  for(const angle of angles){
   const radians=angle*Math.PI/180,a=localPoint,b=[a[0]+Math.cos(radians),a[1]+Math.sin(radians)];
-  let hits;try{hits=cutIntersections(part.polygon,a,b);}catch(error){if(error.code==='CUT_ON_EDGE')continue;throw error;}
-  if(hits.length!==2)continue;
-  const positive=clipHalf(part.polygon,a,b,1),negative=clipHalf(part.polygon,a,b,-1);
-  if([positive,negative].some(points=>points.length<3||points.length>512||selfIntersects(points)||Math.abs(polygonArea(points))<minArea))continue;
+  const section=interiorSection(part.polygon,a,b,localPoint);if(!section)continue;
+  const {hits,pieces:[positive,negative]}=section;
+  if([positive,negative].some(points=>Math.abs(polygonArea(points))<minArea))continue;
   const pivot=[(hits[0][0]+hits[1][0])/2,(hits[0][1]+hits[1][1])/2],width=distance(...hits),snap=distance(pivot,localPoint);
   if(snap>maxSnap)continue;
   if(width>maxWidth){broad=true;continue;}
   if(nearbyPins.some(p=>distance(p,pivot)<minPinSpacing)){nearPin=true;continue;}
-  candidates.push({hits,pivot,angle,score:width+snap*2,positiveArea:Math.abs(polygonArea(positive)),negativeArea:Math.abs(polygonArea(negative)),a,b});
+  candidates.push({hits,pivot,angle,score:width+snap*2});
  }
  candidates.sort((a,b)=>a.score-b.score||a.angle-b.angle);
  const best=candidates[0];
@@ -128,14 +168,10 @@ export function suggestJointAt(project,partId,localPoint,{angleDegrees}={}){
   if(broad)fail('This section is too broad for a suggested bend. Tap a narrower limb, neck or tail, or use the manual split tool.','JOINT_SECTION_TOO_BROAD');
   fail('No simple bend fits here. Tap nearer the middle of a narrow section, adjust the cut angle, or use the manual split tool.','NO_JOINT_SECTION');
  }
- // Preserve the larger body as the original part. splitPart additionally keeps
- // the incoming parent on that original ID when the part is already connected.
- let lineStart=best.a,lineEnd=best.b;
- if(best.negativeArea>best.positiveArea)[lineStart,lineEnd]=[lineEnd,lineStart];
- // Use boundary coordinates for splitPart's finite-coordinate input guard.
- let cutLine=best.hits.map(p=>[...p]);
- if((cutLine[1][0]-cutLine[0][0])*(lineEnd[0]-lineStart[0])+(cutLine[1][1]-cutLine[0][1])*(lineEnd[1]-lineStart[1])<0)cutLine.reverse();
- const result=splitPart(before,partId,...cutLine),p=result.project,joint=p.joints.find(j=>j.id===result.jointId),child=p.parts.find(p=>p.id===result.partIds[1]);
+ // The finite chord keeps the larger body on the original ID unless its
+ // incoming anchor requires the other arc. Manual splitPart remains infinite.
+ const cutLine=best.hits.map(p=>[...p]);
+ const result=splitPart(before,partId,...cutLine,{sectionPoint:best.pivot}),p=result.project,joint=p.joints.find(j=>j.id===result.jointId),child=p.parts.find(p=>p.id===result.partIds[1]);
  joint.padRadius=padRadius;joint.min=-60;joint.max=60;
  // Place the moving piece immediately over the retained body without changing
  // existing layers. At the maximum layer, insertion order is the tie breaker.

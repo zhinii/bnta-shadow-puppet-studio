@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createStudioProject,makePart,addConnection,normalizeStudioProject,partTransforms,transformPoint,unitsPerMm,polygonArea,pointInPolygon,validateStudio} from '../public/studio-model.mjs';
+import {readFileSync} from 'node:fs';
+import {createStudioProject,makePart,addConnection,normalizeStudioProject,partTransforms,transformPoint,unitsPerMm,polygonArea,pointInPolygon,validateStudio,jointGeometry} from '../public/studio-model.mjs';
 import {suggestJointMarkers,buildJointPlan} from '../public/studio-joint-plan.mjs';
 
 const rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
@@ -88,4 +89,41 @@ test('suggestion work remains bounded with eighty dense contours',()=>{
  assert.deepEqual(suggestJointMarkers(p),[]);
  const result=buildJointPlan(p,[marker('full',[0,0],'piece-0')]);assert.ok(result.markers.every(m=>m.status==='needs-review'));assert.equal(result.project.parts.length,80);
  p.parts.pop();const markers=suggestJointMarkers(p,{maxMarkers:6});assert.equal(markers.length,1);assert.deepEqual(markers,suggestJointMarkers(p,{maxMarkers:6}));
+});
+
+test('the generated 399-vertex horse gets useful local bends without losing mane, neighboring legs or material',()=>{
+ const p=JSON.parse(readFileSync(new URL('./fixtures/generated-horse-outline.puppet.json',import.meta.url),'utf8')),original=JSON.stringify(p),outline=p.parts[0].polygon;
+ assert.equal(outline.length,399);assert.equal(p.assets.length,0);
+ const markers=suggestJointMarkers(p),result=buildJointPlan(p,markers);
+ assert.ok(markers.length>=4&&markers.length<=6);assert.ok(markers.filter(m=>m.point[1]>650&&m.point[0]<800).length>=4,'The separate legs should receive useful bend candidates.');
+ assert.ok(markers.every(m=>m.point[1]>390),'Mane tips and ears should not displace limb candidates.');
+ assert.deepEqual(markers,suggestJointMarkers(p));assert.ok(result.markers.every(m=>m.status==='ready'));
+ assert.equal(result.jointIds.length,markers.length);assert.equal(result.project.parts.length,markers.length+1);assert.equal(validateStudio(result.project).filter(i=>i.level==='error').length,0);
+ near(result.project.parts.reduce((sum,part)=>sum+Math.abs(polygonArea(part.polygon)),0),Math.abs(polygonArea(outline)));near(unitsPerMm(result.project),unitsPerMm(p));
+ for(const point of outline)assert.ok(result.project.parts.some(part=>pointInPolygon(point,part.polygon)),'Every original outline vertex, including the mane, must survive.');
+ for(let x=120;x<=947;x+=31)for(let y=90;y<=948;y+=31)assert.equal(result.project.parts.some(part=>pointInPolygon([x,y],part.polygon)),pointInPolygon([x,y],outline),'A local cut must neither fill neighboring gaps nor delete neighboring limbs.');
+ for(const joint of result.project.joints){
+  const geometry=jointGeometry(result.project,joint);assert.equal(geometry.sides.length,2);assert.ok(geometry.padRadius>geometry.holeRadius);
+  for(const side of geometry.sides)assert.ok(pointInPolygon(side.anchor,result.project.parts.find(part=>part.id===side.partId).polygon));
+  joint.angle=60;const transforms=partTransforms(result.project),a=transformPoint(transforms[joint.parentId],joint.parentAnchor),b=transformPoint(transforms[joint.childId],joint.childAnchor);near(a[0],b[0]);near(a[1],b[1]);
+ }
+ assert.equal(JSON.stringify(p),original);
+});
+
+test('the horse AI shortlist includes a valid head/neck branch and all wider candidates replay',()=>{
+ const p=JSON.parse(readFileSync(new URL('./fixtures/generated-horse-outline.puppet.json',import.meta.url),'utf8')),markers=suggestJointMarkers(p,{maxMarkers:12});
+ const neck=markers.find(m=>m.point[0]>280&&m.point[0]<390&&m.point[1]>210&&m.point[1]<380),front=markers.find(m=>m.point[0]<440&&m.point[1]>650);
+ assert.ok(neck,'A real head/neck section must be available for a requested nod.');assert.ok(front,'A front-leg section must remain available.');
+ const result=buildJointPlan(p,markers);assert.ok(result.markers.every(m=>m.status==='ready'));assert.equal(validateStudio(result.project).filter(i=>i.level==='error').length,0);
+ near(result.project.parts.reduce((sum,part)=>sum+Math.abs(polygonArea(part.polygon)),0),Math.abs(polygonArea(p.parts[0].polygon)));
+ for(const selected of [[neck,front],[front,neck]])assert.deepEqual(buildJointPlan(p,selected).markers.map(m=>m.status),['ready','ready'],'The requested neck and front leg must also work without the unused shortlist markers.');
+});
+
+test('batch geometry restores distinct artwork mappings and saved revisions exactly once',()=>{
+ const p=character();p.assets.push({...p.assets[0],id:'other-art',name:'Other source'});p.parts.push({...makePart('Other',rect(160,0,24,180),'other-art'),id:'other'});
+ p.revisions=[{id:'revision',label:'Before movement',createdAt:'2026-11-16',snapshot:{parts:structuredClone(p.parts),joints:[],rods:[],heightMm:p.heightMm}}];
+ const original=normalizeStudioProject(p),result=buildJointPlan(original,[marker('first',[60,100]),marker('second',[172,100],'other')]);
+ assert.ok(result.markers.every(m=>m.status==='ready'));assert.deepEqual(result.project.assets,original.assets);assert.equal(result.project.conceptAssetId,original.conceptAssetId);assert.deepEqual(result.project.revisions,original.revisions);
+ for(const report of result.markers){const joint=result.project.joints.find(j=>j.id===report.jointId),expected=report.partId==='other'?'other-art':'art';for(const id of [joint.parentId,joint.childId])assert.equal(result.project.parts.find(part=>part.id===id).assetId,expected);}
+ assert.equal(validateStudio(result.project).filter(i=>i.level==='error').length,0);
 });

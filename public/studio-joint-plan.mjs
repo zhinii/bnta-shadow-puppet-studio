@@ -1,5 +1,5 @@
 import {normalizeStudioProject,partTransforms,transformPoint,inverseMatrix,unitsPerMm,boundsOf,polygonArea,pointInPolygon,validateStudio} from './studio-model.mjs';
-import {suggestJointAt} from './studio-construction.mjs';
+import {suggestJointAt} from './studio-construction.mjs?v=0.7.1';
 
 const EPS=1e-7,MAX_MARKERS=12,MAX_PARTS_TO_SCAN=12,MAX_TRIALS=24;
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
@@ -10,21 +10,36 @@ const markerId=(partId,point,angle)=>{
  return 'bend-'+(hash>>>0).toString(36);
 };
 
-// Sample an infinite line without constructing geometry. More than two hits
-// means that a straight split could bridge islands, so it is never suggested.
-function sectionAt(polygon,normal,offset){
+// A scan line can cross several independent limbs. Keep each interior interval
+// as its own finite chord instead of discarding the whole line. Construction
+// later validates that exact local section without cutting neighboring limbs.
+function sectionsAt(polygon,normal,offset,minWidth,maxWidth,minArea,totalArea){
  const hits=[];
  for(let i=0;i<polygon.length;i++){
   const a=polygon[i],b=polygon[(i+1)%polygon.length],da=a[0]*normal[0]+a[1]*normal[1]-offset,db=b[0]*normal[0]+b[1]*normal[1]-offset;
-  if(Math.abs(da)<EPS&&Math.abs(db)<EPS)return null;
+  if(Math.abs(da)<EPS&&Math.abs(db)<EPS)return [];
   let hit=null;
   if(Math.abs(da)<EPS)hit=[...a];
   else if(da*db<0&&Math.abs(db)>EPS){const t=da/(da-db);hit=[a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])];}
-  if(hit&&!hits.some(p=>distance(p,hit)<EPS))hits.push(hit);
-  if(hits.length>2)return null;
+  if(hit&&!hits.some(p=>distance(p.point,hit)<EPS))hits.push({point:hit,edge:i});
  }
- if(hits.length!==2)return null;
- return {point:[(hits[0][0]+hits[1][0])/2,(hits[0][1]+hits[1][1])/2],width:distance(...hits)};
+ hits.sort((a,b)=>(a.point[0]-b.point[0])*-normal[1]+(a.point[1]-b.point[1])*normal[0]);
+ const sections=[];
+ for(let i=0;i<hits.length-1;i++){
+  const a=hits[i],b=hits[i+1],width=distance(a.point,b.point);
+  if(width<minWidth||width>maxWidth)continue;
+  const point=[(a.point[0]+b.point[0])/2,(a.point[1]+b.point[1])/2];
+  if(!pointInPolygon(point,polygon))continue;
+  // Reject tiny mane tips and decorations before spending a construction trial.
+  // This follows the existing contour; it never smooths or edits the artwork.
+  const side=[a.point];let vertex=(a.edge+1)%polygon.length;
+  while(vertex!==(b.edge+1)%polygon.length){side.push(polygon[vertex]);vertex=(vertex+1)%polygon.length;}
+  side.push(b.point);const area=Math.abs(polygonArea(side));
+  if(Math.min(area,totalArea-area)<minArea)continue;
+  sections.push({point,width,smallArea:Math.min(area,totalArea-area)});
+ }
+ // Bound pathological comb outlines while keeping substantial narrow sections.
+ return sections.sort((a,b)=>a.width-b.width).slice(0,16);
 }
 
 /**
@@ -38,21 +53,25 @@ export function suggestJointMarkers(project,{maxMarkers=6}={}){
  if(!limit||!p.parts.length)return [];
  const mm=unitsPerMm(p),pinSpacing=(p.holeMm+Math.max(2,p.materialMm*2))*mm,spacing=Math.max(16*mm,pinSpacing*2),candidates=[],sketches=new Map();
  const eligible=p.parts.filter(part=>!part.locked).map(part=>({part,area:Math.abs(polygonArea(part.polygon)),box:boundsOf(part.polygon)})).filter(({area,box})=>area>Math.PI*(p.holeMm/2+Math.max(2,p.materialMm*2))**2*mm*mm*2&&Math.max(box.width,box.height)>spacing*1.5).sort((a,b)=>b.area-a.area||a.part.id.localeCompare(b.part.id)).slice(0,MAX_PARTS_TO_SCAN);
- for(const {part,box} of eligible){
+ for(const {part,box,area} of eligible){
   const physicalHeight=box.height/mm;if(physicalHeight<1||physicalHeight>1200)continue;
   // Candidate trials need contours only; do not duplicate large image assets.
   const sketch=normalizeStudioProject({...p,assets:[],conceptAssetId:null,parts:[{...part,assetId:null,x:0,y:0,rotation:0}],joints:[],rods:[],revisions:[],heightMm:physicalHeight});
   sketches.set(part.id,sketch);
-  const pins=p.joints.filter(j=>j.parentId===part.id||j.childId===part.id).map(j=>j.parentId===part.id?j.parentAnchor:j.childAnchor),maxWidth=Math.min(40*mm,Math.max(box.width,box.height)*.45);
+  const pins=p.joints.filter(j=>j.parentId===part.id||j.childId===part.id).map(j=>j.parentId===part.id?j.parentAnchor:j.childAnchor),minWidth=(p.holeMm+2*Math.max(2,p.materialMm*2))*mm,maxWidth=Math.min(60*mm,Math.max(box.width,box.height)*.65),minMovingArea=Math.max(area*.012,Math.PI*(minWidth/2)**2*4);
   for(let direction=0;direction<8;direction++){
    const angleDegrees=direction*22.5,radians=angleDegrees*Math.PI/180,normal=[-Math.sin(radians),Math.cos(radians)],projections=part.polygon.map(point=>point[0]*normal[0]+point[1]*normal[1]),min=Math.min(...projections),max=Math.max(...projections);
    for(let band=1;band<10;band++){
-    const section=sectionAt(part.polygon,normal,min+(max-min)*band/10);
-    if(!section||section.width>maxWidth||!pointInPolygon(section.point,part.polygon)||pins.some(pin=>distance(pin,section.point)<pinSpacing))continue;
+    for(const section of sectionsAt(part.polygon,normal,min+(max-min)*band/10,minWidth,maxWidth,minMovingArea,area)){
+    if(pins.some(pin=>distance(pin,section.point)<pinSpacing))continue;
+    // A wider head/neck branch can be useful. Avoid proposing a wide cut that
+    // simply divides the main body into two similarly sized halves.
+    if(section.width>40*mm&&section.smallArea>area*.35)continue;
     // A short diagonal across a body corner is not a useful narrow section.
     // Require material to continue along both sides of the proposed bend.
     if([-1,1].some(sign=>!pointInPolygon([section.point[0]+normal[0]*section.width*.7*sign,section.point[1]+normal[1]*section.width*.7*sign],part.polygon)))continue;
-    candidates.push({partId:part.id,point:section.point,angleDegrees,width:section.width,spacing:Math.max(spacing,Math.max(box.width,box.height)*.14),score:section.width*(1+Math.abs(band-5)*.04)});
+    candidates.push({partId:part.id,point:section.point,angleDegrees,width:section.width,minMovingArea,spacing:Math.max(spacing,Math.max(box.width,box.height)*.14),score:section.width*(1+Math.abs(band-5)*.04)});
+    }
    }
   }
  }
@@ -66,6 +85,7 @@ export function suggestJointMarkers(project,{maxMarkers=6}={}){
   trials++;
   try{
    const result=suggestJointAt(sketch,part.id,candidate.point,{angleDegrees:candidate.angleDegrees});
+   if(result.partIds.some(id=>Math.abs(polygonArea(result.project.parts.find(part=>part.id===id).polygon))<candidate.minMovingArea))continue;
    sketches.set(candidate.partId,result.project);
    markers.push({id:markerId(candidate.partId,result.pivot,candidate.angleDegrees),partId:candidate.partId,point:[...result.pivot],label:text(p,'Bend '+(markers.length+1),'关节 '+(markers.length+1)),angleDegrees:candidate.angleDegrees});
   }catch{/* A rejected trial contributes no geometry or marker. */}
@@ -80,7 +100,10 @@ export function suggestJointMarkers(project,{maxMarkers=6}={}){
  */
 export function buildJointPlan(project,markers){
  const before=normalizeStudioProject(project),originalTransforms=partTransforms(before),originalParts=new Map(before.parts.map(part=>[part.id,part])),lineages=new Map(before.parts.map(part=>[part.id,new Set([part.id])])),statuses=[],jointIds=[],warnings=[],seenIds=new Set();
- let working=before;
+ // Split geometry without repeatedly serializing the same large image payload.
+ // Every fragment inherits its source image association, restored exactly once.
+ const artworkIds=new Map(before.parts.map(part=>[part.id,part.assetId]));
+ let working=normalizeStudioProject({...before,assets:[],conceptAssetId:null,revisions:[],parts:before.parts.map(part=>({...part,assetId:null}))});
  const input=Array.isArray(markers)?markers:[];
  if(!Array.isArray(markers))warnings.push(text(before,'No joint markers were supplied.','没有提供关节标记。'));
  for(let i=0;i<input.length;i++){
@@ -105,7 +128,7 @@ export function buildJointPlan(project,markers){
    }
    const result=suggestJointAt(working,target.id,point,{angleDegrees});
    const errors=validateStudio(result.project).filter(issue=>issue.level==='error');if(errors.length)throw new Error(errors.map(issue=>issue.message).join(' '));
-   working=result.project;for(const id of result.partIds)lineages.get(marker.partId).add(id);
+   working=result.project;for(const id of result.partIds){lineages.get(marker.partId).add(id);artworkIds.set(id,originalPart.assetId);}
    jointIds.push(result.jointId);
    const originalPivot=transformPoint(inverseMatrix(originalTransforms[marker.partId]),transformPoint(currentTransforms[target.id],result.pivot));
    statuses.push({...report,point:originalPivot,status:'ready',jointId:result.jointId,resolvedPartId:target.id,angleDegrees:marker.angleDegrees??result.angleDegrees});
@@ -114,5 +137,6 @@ export function buildJointPlan(project,markers){
  }
  const skipped=statuses.filter(marker=>marker.status==='needs-review').length;
  if(skipped)warnings.unshift(text(before,`${skipped} bend marker${skipped===1?' needs':'s need'} review; ${jointIds.length} joint${jointIds.length===1?' is':'s are'} ready.`,`${skipped} 个关节标记需要检查；${jointIds.length} 个关节已准备好。`));
- return {project:working,markers:statuses,jointIds,warnings};
+ const restored=jointIds.length?normalizeStudioProject({...working,assets:before.assets,conceptAssetId:before.conceptAssetId,revisions:before.revisions,parts:working.parts.map(part=>({...part,assetId:artworkIds.get(part.id)??null}))}):before;
+ return {project:restored,markers:statuses,jointIds,warnings};
 }

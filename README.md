@@ -1,6 +1,6 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.0**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.1**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
 [Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/)
 
@@ -16,7 +16,7 @@ The first screen contains no authored character or story. The former decoration 
 
 Artwork, cut contours and connections are separate. Imported or generated artwork retains texture and colors inside editable cut contours. Characters are not restricted to ten human body parts: a character can contain up to 80 pieces with arbitrary connection trees.
 
-**Project** provides New, Open, Download and AI connection settings. Work stays in the open session only. Download before closing or reloading. The previous v0.6.1 desktop joint flow and cut download were checked live. The new v0.7.0 automatic-plan interface is awaiting browser verification; tablet, operating-system print-dialog and physical assembly also remain unverified; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
+**Project** provides New, Open, Download and AI connection settings. Work stays in the open session only. Download before closing or reloading. The previous v0.6.1 desktop joint flow and cut download were checked live. The new v0.7.1 automatic-plan interface is awaiting browser verification; tablet, operating-system print-dialog and physical assembly also remain unverified; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
 
 ## Keep the character, then add movement
 
