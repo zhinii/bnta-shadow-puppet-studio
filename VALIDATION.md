@@ -14,6 +14,12 @@ A further live check exposed irrelevant image-cleanup controls beside a blank dr
 
 UI fixes let blank joint artwork scroll vertically, reserve touch dragging for dots, recompute marker hit areas after layout/resizing, and provide an Add your first movement point action when no dots exist. Creation now waits for a confirmed service capability and allowance instead of offering a transient text-draft route. Connection responses are scoped to their endpoint and session.
 
+### Published v0.7.5 startup check
+
+After deployment, reloading cleared the synthetic project and returned to Create with Refine/Make disabled. The page initially showed Connecting and a pending allowance, then enabled Create character. The exact prompt `A panda wearing a birthday party hat.` displayed **37 / 800 characters**. No generation request was submitted in this check.
+
+![Published v0.7.5 Create screen and character count](validation/v075-create.jpg)
+
 ### Live v0.7.4 browser workflow
 
 A newly authored synthetic test used a plain vertical paper strip and requested one lower bend. After drawing the rectangle, **Prepare joints** returned one near-bottom dot; **About these suggestions** confirmed AI selection. The test then removed that dot, used **Add your first movement point**, and placed a replacement near the bottom. It produced one reviewed joint.
