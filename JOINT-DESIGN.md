@@ -1,6 +1,6 @@
 # Rounded overlap design · interim classroom construction
 
-19 November 2026 · v0.7.7
+19 November 2026 · v0.7.8
 
 ## Implemented construction
 
@@ -10,7 +10,7 @@ The overlap remains common to both pieces as they rotate about their shared pivo
 
 Connecting two already separate pieces has no original split section. It uses the smaller oriented width of the selected pieces plus their gap as a geometric starting estimate. Review and adjust this estimate; it is not anatomical recognition. Arbitrary vertex edits also require a fresh size/movement review.
 
-The image for each piece is clipped to its original polygon. Newly added material uses the editable piece/overlap color. This prevents a wider tab from copying neighboring limbs or background pixels. Hidden artwork is not generated or reconstructed.
+Original piece artwork remains clipped to its own contour. Each image-backed joint also receives a shared printed patch on both round ends, restricted to source artwork belonging to its connected pieces. Exact shared artwork is preferred; reflected and repeated nearby artwork continues the print into added areas. A shared source image is reused rather than embedded for every copied patch. Plain shapes retain their editable fill. This deliberately duplicates existing printed pixels; it does not reconstruct hidden anatomy, decorations or fabric. Check repeated motifs and transparent edges before fabrication.
 
 ## Student workflow
 

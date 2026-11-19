@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import worker from '../dist/server/index.js';
-for(const [path,type] of [['/','text/html'],['/legacy.html','text/html'],['/app.mjs','text/javascript'],['/model.mjs','text/javascript'],['/render.mjs','text/javascript'],['/agent.mjs','text/javascript'],['/style.css','text/css'],['/studio-app.mjs','text/javascript'],['/studio-model.mjs','text/javascript'],['/studio-render.mjs','text/javascript'],['/studio-ai.mjs','text/javascript'],['/studio-storage.mjs','text/javascript'],['/studio-starters.mjs','text/javascript'],['/studio.css','text/css'],['/studio-parametric.mjs','text/javascript'],['/studio-image-tools.mjs','text/javascript'],['/studio-construction.mjs','text/javascript'],['/studio-joint-plan.mjs','text/javascript'],['/studio-joint-ai.mjs','text/javascript'],['/studio-joint-markers.mjs','text/javascript']]){
+for(const [path,type] of [['/','text/html'],['/legacy.html','text/html'],['/app.mjs','text/javascript'],['/model.mjs','text/javascript'],['/render.mjs','text/javascript'],['/agent.mjs','text/javascript'],['/style.css','text/css'],['/studio-app.mjs','text/javascript'],['/studio-model.mjs','text/javascript'],['/studio-render.mjs','text/javascript'],['/studio-ai.mjs','text/javascript'],['/studio-storage.mjs','text/javascript'],['/studio-starters.mjs','text/javascript'],['/studio.css','text/css'],['/studio-parametric.mjs','text/javascript'],['/studio-image-tools.mjs','text/javascript'],['/studio-construction.mjs','text/javascript'],['/studio-joint-plan.mjs','text/javascript'],['/studio-joint-ai.mjs','text/javascript'],['/studio-joint-markers.mjs','text/javascript'],['/studio-joint-artwork.mjs','text/javascript']]){
  const response=await worker.fetch(new Request('https://studio.test'+path),{});
  assert.equal(response.status,200,path);assert.ok(response.headers.get('content-type').startsWith(type));assert.ok((await response.text()).length>100);
 }
@@ -24,4 +24,4 @@ assert.doesNotMatch(portable,/new URL\('\.\/legacy\.html/,'Portable classic-edit
 assert.match(pages,/href="\.\/public\/studio\.css\?v=0\.7\.8"/);
 assert.match(pages,/src="\.\/public\/studio-app\.mjs\?v=0\.7\.8"/);
 assert.match(legacy,/src="\.\/app\.mjs\?v=0\.7\.8"/);
-console.log('Built Worker smoke test passed: 22 assets, versioned entry/dependencies, standalone portable HTML, both API status routes, CORS and missing route.');
+console.log('Built Worker smoke test passed: 23 assets, versioned entry/dependencies, standalone portable HTML, both API status routes, CORS and missing route.');

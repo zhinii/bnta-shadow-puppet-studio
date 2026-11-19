@@ -496,7 +496,7 @@ test('local image extraction, hinged splitting and parametric artwork resizing r
     assert.equal(resized.assets[0].dataUrl,original,'source image bytes remain intact');
     await h.click({action:'undo'});await h.settle();assert.deepEqual(h.project().parts,split.parts);
     await h.click({action:'redo'});await h.settle();assert.deepEqual(h.project().parts,resized.parts);
-    await h.click({action:'export-art'});assert.equal(h.downloads.length,1,h.error());const svg=await h.downloads.at(-1).blob.text();assert.match(svg,/<image[^>]*transform="matrix\(/);assert.ok(svg.includes(original));
+    await h.click({action:'export-art'});assert.equal(h.downloads.length,1,h.error());const svg=await h.downloads.at(-1).blob.text();assert.match(svg,/<use[^>]*data-part-artwork[^>]*transform="matrix\(/);assert.ok(svg.includes(original));
     await h.click({action:'save-project'});const portable=parseStudioProject(await h.downloads.at(-1).blob.text());await h.openProject(portable);
     project=h.project();assert.deepEqual(project.parts,resized.parts);assert.deepEqual(project.joints,resized.joints);assert.equal(project.assets[0].dataUrl,original);
     assert.equal(h.requests.length,0,'the complete local pipeline never sends an AI request');
@@ -658,7 +658,7 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
     built=structuredClone(h.project());assert.equal(built.joints[0].angle,30);assert.equal(built.rods.length,1);
     await h.click({action:'next-stage'});assert.match(h.root.innerHTML,/data-step="make" aria-current="step"/);
     await h.click({action:'view-shadow'});assert.doesNotMatch(h.canvasMarkup(),/<image\b/);await h.click({action:'view-art'});
-    await h.click({action:'export-art'});assert.equal(h.error(),'');assert.match(h.downloads.at(-1).name,/-artwork\.svg$/);const art=await h.downloads.at(-1).blob.text();assert.ok(art.includes(generated));assert.match(art,/<image[^>]*transform="matrix\(/);
+    await h.click({action:'export-art'});assert.equal(h.error(),'');assert.match(h.downloads.at(-1).name,/-artwork\.svg$/);const art=await h.downloads.at(-1).blob.text();assert.ok(art.includes(generated));assert.match(art,/<use[^>]*data-part-artwork[^>]*transform="matrix\(/);
     await h.click({action:'export-cut'});assert.match(h.downloads.at(-1).name,/-cut\.svg$/);assert.doesNotMatch(await h.downloads.at(-1).blob.text(),/<image\b/);
     await h.click({action:'print'});assert.equal(h.error(),'');assert.ok(h.printFrame.srcdoc.includes(generated));assert.match(h.printFrame.srcdoc,/50 mm/,'print preparation includes a physical calibration mark');
     await h.click({action:'save-project'});const saved=parseStudioProject(await h.downloads.at(-1).blob.text());await h.openProject(saved);

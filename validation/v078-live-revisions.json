@@ -1,0 +1,63 @@
+{
+  "fixture": "Newly authored generic vector shapes; no user artwork or project sent",
+  "date": "2026-11-19",
+  "results": [
+    {
+      "kind": "horizontal",
+      "prompt": "Mirror only the selected hand left to right. Keep its wrist pivot and current angle.",
+      "pass": true,
+      "requests": 1,
+      "elapsedMs": 10820,
+      "proposal": {
+        "parts": [
+          {
+            "id": "test-hand",
+            "transform": {
+              "mirror": "horizontal"
+            },
+            "assetId": null
+          }
+        ]
+      },
+      "reply": "Review this change"
+    },
+    {
+      "kind": "vertical",
+      "prompt": "Flip only the selected hand up–down around its wrist. Do not rotate it.",
+      "pass": true,
+      "requests": 1,
+      "elapsedMs": 2005,
+      "proposal": {
+        "parts": [
+          {
+            "id": "test-hand",
+            "transform": {
+              "mirror": "vertical"
+            },
+            "assetId": null
+          }
+        ]
+      },
+      "reply": "Review this change"
+    },
+    {
+      "kind": "width",
+      "prompt": "Make only the selected hand 20% wider. Keep its length and angle. Do not mirror it.",
+      "pass": true,
+      "requests": 1,
+      "elapsedMs": 1798,
+      "proposal": {
+        "parts": [
+          {
+            "id": "test-hand",
+            "parameters": {
+              "width": 1.2
+            },
+            "assetId": null
+          }
+        ]
+      },
+      "reply": "Review this change"
+    }
+  ]
+}

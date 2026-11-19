@@ -16,7 +16,8 @@ function puppet() {
 
 test('custom artwork is clipped to independent cut parts and pin holes are transparent',()=>{
  const p=puppet(),svg=renderStudioSvg(p,{selectedPartId:'tentacle',showJoints:false});
- assert.equal((svg.match(/<image /g)||[]).length,2);
+ assert.equal((svg.match(/<image /g)||[]).length,1,'Source image is embedded once and reused by both pieces and joint print.');
+ assert.equal((svg.match(/data-part-artwork=/g)||[]).length,2);
  assert.match(svg,/mask="url\(#studio-\d+-body-holes\)"/);assert.match(svg,/data-part-id="tentacle"/);assert.match(svg,/is-selected/);
  const r=p.holeMm*unitsPerMm(p)/2;
  assert.ok(svg.includes(`a${r} ${r} 0 1 0 ${2*r} 0`),'Both exact circular holes are part of the clip and contour.');
@@ -190,8 +191,8 @@ test('source artwork transforms independently inside the cut boundary on canvas 
  p.parts[1].artworkMatrix=[1,0,0,1,0,0];
  const stage=renderStudioSvg(p,{showConcept:true,showJoints:false}),sheet=exportSheetSvg(p),printed=exportPrintHtml(p);
  for(const markup of [stage,sheet,printed]){
-  assert.match(markup,/<image data-part-artwork="body"[^>]* transform="matrix\(1\.5 0 0 1\.2 -50 -90\)"\/>/);
-  assert.match(markup,/<image data-part-artwork="tentacle"[^>]* transform="matrix\(1 0 0 1 0 0\)"\/>/);
+  assert.match(markup,/<use data-part-artwork="body"[^>]* transform="matrix\(1\.5 0 0 1\.2 -50 -90\)"\/>/);
+  assert.match(markup,/<use data-part-artwork="tentacle"[^>]* transform="matrix\(1 0 0 1 0 0\)"\/>/);
  }
  const reference=stage.match(/<image class="concept-reference"[^>]*\/>/)[0];
  assert.ok(!reference.includes('transform='),'Original reference remains in its source coordinate system.');
@@ -203,7 +204,7 @@ test('source artwork transforms independently inside the cut boundary on canvas 
 test('invalid raw artwork mappings cannot inject SVG attributes',()=>{
  const p=puppet();p.parts[0].artworkMatrix=['1)" onload="bad',0,0,1,0,0];
  const stage=renderStudioSvg(p,{showConcept:false});
- assert.match(stage,/<image data-part-artwork="body"[^>]* transform="matrix\(1 0 0 1 0 0\)"\/>/);
+ assert.match(stage,/<use data-part-artwork="body"[^>]* transform="matrix\(1 0 0 1 0 0\)"\/>/);
  assert.ok(!stage.includes('onload='));
 });
 
@@ -221,8 +222,8 @@ test('parametric resize keeps texture, contours, moving children and physical pi
  const metrics=getFabricationMetrics(resized),sheet=exportSheetSvg(resized),cut=exportSheetSvg(resized,{cutOnly:true}),stage=renderStudioSvg(resized,{showJoints:false});
  assert.ok(Math.abs(metrics.scaleMmPerUnit-scaleBefore)<1e-12);
  assert.equal(metrics.parts[1].heightMm,getFabricationMetrics(before).parts[1].heightMm,'The child is not resized by its parent.');
- assert.match(sheet,/<image data-part-artwork="body"[^>]*transform="matrix\(0\.8 0 0 1\.5 10 -125\)"/);
- assert.match(stage,/<image data-part-artwork="tentacle"[^>]*transform="matrix\(1 0 0 1 0 0\)"/);
+ assert.match(sheet,/<use data-part-artwork="body"[^>]*transform="matrix\(0\.8 0 0 1\.5 10 -125\)"/);
+ assert.match(stage,/<use data-part-artwork="tentacle"[^>]*transform="matrix\(1 0 0 1 0 0\)"/);
  const radius=Number(cut.match(/a([\d.e+-]+) [\d.e+-]+ 0 1 0/)[1]);
  assert.ok(Math.abs(radius*2*metrics.scaleMmPerUnit-before.holeMm)<1e-10,'Nonuniform artwork scaling does not turn a 3 mm pin into an ellipse.');
 });

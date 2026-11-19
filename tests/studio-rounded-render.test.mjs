@@ -65,7 +65,7 @@ test('large round ends use identical geometry for stage, artwork sheet and print
  assert.doesNotMatch(cut,/<circle|<image|data-overlap-/,'No decorative guide or separate disk becomes a cut.');
 });
 
-test('enlarged material pads do not copy raster pixels from outside either original piece polygon',()=>{
+test('original piece artwork stays bounded and rounded ends reuse the shared printed joint design',()=>{
  const {project:p}=splitFixture(100,0);
  for(const markup of [renderStudioSvg(p,{showJoints:false}),exportSheetSvg(p),exportPrintHtml(p)]){
   for(const part of p.parts){
@@ -73,6 +73,8 @@ test('enlarged material pads do not copy raster pixels from outside either origi
    assert.ok(clip,'The source raster has a separate clip to this original piece polygon.');
    assert.ok(markup.includes(`clip-path="url(#${clip[1]})"`),'The source-only clip is applied to artwork.');
   }
-  assert.match(markup,/<path d="[^"]+" fill="#bd6a43"[^>]*\/>/,'New material retains a deliberate solid part colour beneath the original image.');
+  assert.match(markup,/data-joint-artwork=/,'Both round ends now carry copied print.');
+  assert.match(markup,/without-joint-print/,'Solid backing is removed from the printed round ends.');
+  assert.match(markup,/<path d="[^"]+" fill="#bd6a43"[^>]*\/>/,'A backing remains available outside the copied printed joint.');
  }
 });

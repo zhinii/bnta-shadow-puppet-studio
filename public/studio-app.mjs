@@ -3,7 +3,7 @@ import {renderStudioSvg,exportSheetSvg,exportPrintHtml,getFabricationMetrics} fr
 import {clearStoredStudioSession,serializeStudioProject,parseStudioProject,readArtworkFile} from './studio-storage.mjs?v=0.7.8';
 import {requestStudioAI,getStudioCapabilities,getKimiImagePromptLimit} from './studio-ai.mjs?v=0.7.8';
 import {createStarter} from './studio-starters.mjs';
-import {resizePart,setPartParameterAxis,getPartParameters,preservePhysicalScale,assertLockedPartsUnchanged} from './studio-parametric.mjs';
+import {resizePart,setPartParameterAxis,getPartParameters,preservePhysicalScale,assertLockedPartsUnchanged} from './studio-parametric.mjs?v=0.7.8';
 import {isolateImageSubject,removeConnectedBackground,removeTappedBackground,selectImageRegion,extractImageSilhouette,decodeArtwork,assetFromImageData} from './studio-image-tools.mjs?v=0.7.8';
 import {splitPart,suggestConnection,suggestJointAt,setJointOverlapDiameter,getJointOverlapLimits} from './studio-construction.mjs?v=0.7.8';
 import {zoomViewBox,normalizeCamera,panCamera,screenUnitScale} from './studio-viewport.mjs';

@@ -1,6 +1,6 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.7**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.8**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
 [Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality list](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md) · [Middle-school usability audit](MIDDLE-SCHOOL-UX-AUDIT.md)
 
@@ -48,9 +48,15 @@ Manual construction remains available under **More editing tools → Place one j
 
 Both overlap tabs are united with their own piece's outer cut boundary, so cutting does not detach the tabs. The print guide labels the back and front pieces at each connection. Keep both tabs, punch the matching holes, and pass one paper fastener through the layers loosely enough for movement. Existing artwork stays intact; these added material tabs do not reconstruct hidden image content.
 
+## Visible change previews
+
+Select a piece, then use **Flip left–right** or **Flip up–down** for an immediate visual proposal. The outline and artwork flip around the incoming pivot; review the result, apply it, or keep the original. Undo remains available. AI revision accepts validated structured edits, retries an unusable response once, and reports clearly when there is no change to preview. It never treats negative width or an ignored attached-piece rotation as a successful edit.
+
+Before refreshing an open session for this update, use **Project → Download project**, then reopen that file afterward.
+
 ## Rounded overlap joints
 
-New splits use complete rounded ends on both pieces, sized to the local section width. The hole remains independent. Open **Joint size** to review or adjust the physical overlap diameter; existing downloaded projects retain their saved sizes. Width/length edits keep the paired round ends large enough for the stored section. Added overlap uses the editable **Piece / overlap color**, while image pixels stay inside their own piece. Test each bend and the backlit appearance on a paper prototype. These are interim classroom defaults awaiting practitioner and material review; see [joint design and next review](JOINT-DESIGN.md).
+New splits use complete rounded ends on both pieces, sized to the local section width. The hole remains independent. Open **Joint size** to review or adjust the physical overlap diameter; existing downloaded projects retain their saved sizes. Width/length edits keep the paired round ends large enough for the stored section. Image-backed rounded ends copy a shared region of the existing printed design onto both layers. Exact artwork from the connected pieces is retained; reflected and repeated nearby print fills added areas. This copies existing pixels rather than inventing hidden details. Plain shapes retain their editable color. Test each bend and the backlit appearance on a paper prototype. These are interim classroom defaults awaiting practitioner and material review; see [joint design and next review](JOINT-DESIGN.md).
 
 ## Optional editing tools
 

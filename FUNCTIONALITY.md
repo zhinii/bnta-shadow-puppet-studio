@@ -1,6 +1,6 @@
 # Shadow Puppet Studio · functionality and acceptance review
 
-Current version: **v0.7.7**. The student workflow is **Create → Refine → Make**. AI prepares proposals; students retain control over the character, movement and final result.
+Current version: **v0.7.8**. The student workflow is **Create → Refine → Make**. AI prepares proposals; students retain control over the character, movement and final result.
 
 | Process | Available functionality | Practical boundary |
 | --- | --- | --- |
@@ -9,7 +9,9 @@ Current version: **v0.7.7**. The student workflow is **Create → Refine → Mak
 | Refine | Automatic cleanup, visible tap-to-remove background, checkerboard/cut-edge preview, Undo last removal, retain missing props, choose the character | Suspected opaque rectangles pause for review; complex backgrounds and connected decorations may need correction |
 | Refine | AI selects among validated movement candidates; editable numbered dots; empty plans offer a first movement point or an explicit still-puppet choice | Current relay uses the brief and outline measurements, not visual anatomy recognition |
 | Refine | Add, move, drag, keyboard-nudge and remove dots; detect magenta markers, opt-in black markers | Embedded dots remain source artwork; eyes and decoration can resemble black markers |
-| Refine | Split at local movement sections; full-width rounded ends on both pieces; independent aligned pin holes | Added overlap uses editable piece color; hidden artwork is not reconstructed; not a material-strength simulation |
+| Refine | Split at local movement sections; full-width rounded ends on both pieces; independent aligned pin holes | Image-backed ends duplicate nearby print on both layers; plain shapes retain color; missing artwork is not reconstructed; not a material-strength simulation |
+| Refine | Left–right/up–down flip with visible artwork preview, compare, apply/reject and undo | Shared pivot and circular holes retained; attached pieces follow their connections |
+| Refine | Parse labelled structured relay edits and repair unusable or unchanged revisions once | Advice remains advice; unsupported or invalid edits never count as a visual preview |
 | Refine | Optional Joint size in plan/single/accepted review; physical diameter, full-width minimum, lock protection and undo | New split sizes follow section width; old saved joint sizes stay unchanged; arbitrary outline edits need review |
 | Refine | Motion preview, close-up, front/back swap, one acceptance and one undo for a whole joint plan | Trial poses do not change the accepted resting pose; front/back swapping resets the trial angle |
 | Refine | Natural-language design proposals, selected-piece edits, before/after review, reject, undo/redo | Supported AI capabilities depend on the connected relay |

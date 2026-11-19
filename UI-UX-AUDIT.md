@@ -1,7 +1,16 @@
 # UI/UX re-audit — simplicity first
+
+## Current v0.7.8 change preview and printed joints — 19 November 2026
+
+The reported Preview change failure had two concrete causes: structured edits were embedded in prose, and suggested negative dimensions/axis fields were unsupported. Validated Parts arrays are now read, unsuitable replies receive one correction request, and unchanged/advice-only results show a short failure instead of a large green prose banner. Direct Flip left–right and Flip up–down buttons open the same review/apply/undo flow without a relay call. Both source artwork and its cut outline move; the incoming pin remains fixed. Review focuses the preview and hides the unedited reference overlay.
+
+Rounded overlap ends now duplicate nearby printed artwork on both layers instead of defaulting to orange material. The source region is restricted to connected pieces, with nearby reflected/repeated print used for new areas. Plain shapes retain their color. This is pixel reuse, not hidden-image reconstruction.
+
+The three prior bad formats (axisAngle, negative width, polygon-only mirror) have targeted regressions. Three live synthetic relay requests passed before the development host disconnected: horizontal flip, vertical flip, and 20% width increase. No current user project or image was sent. Recovered code and the added renderer are checked in GitHub CI. Real browser/touch usability and physical backlit printing remain unverified in this release.
+
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
-## Current v0.7.7 joint review — 19 November 2026
+## Previous v0.7.7 joint review — 19 November 2026
 
 Full-width round ends replace the small default disk on new splits. Joint size is a collapsed, optional control in the batch plan, single-joint review and accepted-piece inspector. Its diameter is distinct from the pin hole; invalid changes are rejected without replacing the current proposal. Selected joints show both material layers. Piece / overlap color describes the flat material added beyond original image pixels. Direct outline edits show a size/movement review reminder. Create → Refine → Make remains unchanged.
 

@@ -1,5 +1,19 @@
 # Validation — 19 November 2026
 
+## v0.7.8 editable previews and printed joint overlaps
+
+**Release verification:** PENDING_FINAL_VERIFICATION.
+
+The reported Preview change failure is covered with the three actual response formats: unsupported axisAngle, negative width, and a polygon proposed as a mirror. Each receives at most one correction request for a supported mirror operation; advice-only and unchanged replies do not become previews. Direct flips preview the raster artwork and outline, keep the wrist pivot, preserve scale, and support compare, reject, apply and undo. Ignored attached-piece pose edits are rejected.
+
+**Live protected relay:** all three [synthetic checks](validation/v078-live-revisions.json) passed on the first request: left–right mirror (10.820 s), up–down mirror (2.005 s), and 20% wider (1.798 s). Only newly authored generic vector shapes were sent. These checks establish that the deployed legacy relay can supply supported edits for these prompts; they do not establish a general success rate or test the user's basketball artwork.
+
+**Printed overlap:** image-backed ends share source artwork from their connected pieces. Exact print is preferred, with reflected/repeated nearby print in added areas. Source alpha and pin holes are retained. The artwork mapping follows flips and dimensions; cut geometry is unchanged. Tests cover both ends, shared source pixels, taper/angle, motion, import/export, plain-color fallback, locks and bounded image embedding.
+
+The development host disconnected after the preview tests and live checks. Tested changes were recovered from the immutable baseline and patches, checkpointed on GitHub, and then validated together with the new joint renderer. No user browser session was reset.
+
+**Limits:** browser automation remained unavailable, so no new live browser/phone usability or screenshot claim is made. Physical paper assembly, material/translucency behavior and practitioner review remain outstanding. Copied print does not reconstruct unseen anatomy or missing costume details. Download the active project before refreshing and reopen it afterward.
+
 ## v0.7.7 full-width rounded overlaps
 
 **Automated:** all **264 tests pass**, including **47 workflow tests**. Syntax, production build, generated Worker syntax and the 22-asset smoke check pass. Nine new geometry tests, three renderer tests and two workflow tests cover complete round ends, independent pin holes, shared pivots, affine resizing, legacy-project preservation, optional diameter controls, locks, undo and atomic rejection of invalid size changes.
