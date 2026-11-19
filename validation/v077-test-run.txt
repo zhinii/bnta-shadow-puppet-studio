@@ -1,0 +1,1594 @@
+TAP version 13
+# Subtest: fresh projects and new puppets have no authored premise or decoration
+ok 1 - fresh projects and new puppets have no authored premise or decoration
+  ---
+  duration_ms: 5.4005
+  type: 'test'
+  ...
+# Subtest: legacy student projects retain their own story and visual settings
+ok 2 - legacy student projects retain their own story and visual settings
+  ---
+  duration_ms: 0.9442
+  type: 'test'
+  ...
+# Subtest: every age and face-shape option produces a visible drawing change
+ok 3 - every age and face-shape option produces a visible drawing change
+  ---
+  duration_ms: 2.982
+  type: 'test'
+  ...
+# Subtest: garment controls change cut contours but never change bones or pivots
+ok 4 - garment controls change cut contours but never change bones or pivots
+  ---
+  duration_ms: 1.0451
+  type: 'test'
+  ...
+# Subtest: feature locks survive broad AI edits, including face artwork
+ok 5 - feature locks survive broad AI edits, including face artwork
+  ---
+  duration_ms: 1.8131
+  type: 'test'
+  ...
+# Subtest: selected proposal changes apply individually and respect the scope
+ok 6 - selected proposal changes apply individually and respect the scope
+  ---
+  duration_ms: 0.6329
+  type: 'test'
+  ...
+# Subtest: unsupported AI changes do not create an empty success proposal
+ok 7 - unsupported AI changes do not create an empty success proposal
+  ---
+  duration_ms: 0.1973
+  type: 'test'
+  ...
+# Subtest: short hems retain the hip connection area and oversized sheets are flagged
+ok 8 - short hems retain the hip connection area and oversized sheets are flagged
+  ---
+  duration_ms: 0.8398
+  type: 'test'
+  ...
+# Subtest: prop sheets preserve physical scale and separate large props across pages
+ok 9 - prop sheets preserve physical scale and separate large props across pages
+  ---
+  duration_ms: 0.7035
+  type: 'test'
+  ...
+# Subtest: custom prompt and bilingual constraints are preserved without leaking image bytes into text context
+ok 10 - custom prompt and bilingual constraints are preserved without leaking image bytes into text context
+  ---
+  duration_ms: 4.2384
+  type: 'test'
+  ...
+# Subtest: existing relay receives the exact custom brief as advice with arbitrary polygon instructions
+ok 11 - existing relay receives the exact custom brief as advice with arbitrary polygon instructions
+  ---
+  duration_ms: 0.5282
+  type: 'test'
+  ...
+# Subtest: AI context retains resized artwork coordinates and dimensions without sending image bytes
+ok 12 - AI context retains resized artwork coordinates and dimensions without sending image bytes
+  ---
+  duration_ms: 0.9968
+  type: 'test'
+  ...
+# Subtest: AI dimension patches are bounded and cannot rewrite artwork mapping or combine geometric edits
+ok 13 - AI dimension patches are bounded and cannot rewrite artwork mapping or combine geometric edits
+  ---
+  duration_ms: 1.0776
+  type: 'test'
+  ...
+# Subtest: a selected parametric proposal resizes its source artwork through the model and keeps siblings untouched
+ok 14 - a selected parametric proposal resizes its source artwork through the model and keeps siblings untouched
+  ---
+  duration_ms: 12.5073
+  type: 'test'
+  ...
+# Subtest: nested advisory plans become editable polygon proposals without invoking a fixed human template
+ok 15 - nested advisory plans become editable polygon proposals without invoking a fixed human template
+  ---
+  duration_ms: 0.5033
+  type: 'test'
+  ...
+# Subtest: malformed, truncated and advisory-only replies are not reported as applied artwork
+ok 16 - malformed, truncated and advisory-only replies are not reported as applied artwork
+  ---
+  duration_ms: 0.2725
+  type: 'test'
+  ...
+# Subtest: capabilities truthfully fall back to text plans, and custom endpoint failures do not forward prompts elsewhere
+ok 17 - capabilities truthfully fall back to text plans, and custom endpoint failures do not forward prompts elsewhere
+  ---
+  duration_ms: 1.2162
+  type: 'test'
+  ...
+# Subtest: unsupported vision and image generation stop before transmitting the reference
+ok 18 - unsupported vision and image generation stop before transmitting the reference
+  ---
+  duration_ms: 1.3904
+  type: 'test'
+  ...
+# Subtest: generation capabilities do not silently enable image editing or cross-host fallback
+ok 19 - generation capabilities do not silently enable image editing or cross-host fallback
+  ---
+  duration_ms: 1.102
+  type: 'test'
+  ...
+# Subtest: an explicit editing capability is independent of image generation
+ok 20 - an explicit editing capability is independent of image generation
+  ---
+  duration_ms: 0.8106
+  type: 'test'
+  ...
+# Subtest: Kimi generation keeps the exact student prompt and selected presets without sending the project or reference image
+ok 21 - Kimi generation keeps the exact student prompt and selected presets without sending the project or reference image
+  ---
+  duration_ms: 0.4723
+  type: 'test'
+  ...
+# Subtest: both generation providers share production defaults while preserving Chinese requests and costume detail
+ok 22 - both generation providers share production defaults while preserving Chinese requests and costume detail
+  ---
+  duration_ms: 0.5763
+  type: 'test'
+  ...
+# Subtest: generation preserves the full input limit without adding its policy to text or edit requests
+ok 23 - generation preserves the full input limit without adding its policy to text or edit requests
+  ---
+  duration_ms: 0.4345
+  type: 'test'
+  ...
+# Subtest: legacy image budget preserves 800 characters exactly and rejects 801 before posting
+ok 24 - legacy image budget preserves 800 characters exactly and rejects 801 before posting
+  ---
+  duration_ms: 0.2929
+  type: 'test'
+  ...
+# Subtest: legacy budget reserves every selected preset and localizes oversized requests without truncation
+ok 25 - legacy budget reserves every selected preset and localizes oversized requests without truncation
+  ---
+  duration_ms: 0.3952
+  type: 'test'
+  ...
+# Subtest: panda generation succeeds against a relay double enforcing the entire 800-character payload budget
+ok 26 - panda generation succeeds against a relay double enforcing the entire 800-character payload budget
+  ---
+  duration_ms: 1.6626
+  type: 'test'
+  ...
+# Subtest: the verified Kimi image route is called once and its dimensionless result becomes a bounded portable asset
+ok 27 - the verified Kimi image route is called once and its dimensionless result becomes a bounded portable asset
+  ---
+  duration_ms: 1.0104
+  type: 'test'
+  ...
+# Subtest: Chinese generation results invite visual review without claiming prompt compliance
+ok 28 - Chinese generation results invite visual review without claiming prompt compliance
+  ---
+  duration_ms: 0.7277
+  type: 'test'
+  ...
+# Subtest: generated images use the existing browser decoder and are resized before being saved
+ok 29 - generated images use the existing browser decoder and are resized before being saved
+  ---
+  duration_ms: 0.8609
+  type: 'test'
+  ...
+# Subtest: invalid image payloads and provider errors never trigger a second generation call
+ok 30 - invalid image payloads and provider errors never trigger a second generation call
+  ---
+  duration_ms: 1.6325
+  type: 'test'
+  ...
+# Subtest: legacy image errors explain known codes and unknown statuses in both languages without retries
+ok 31 - legacy image errors explain known codes and unknown statuses in both languages without retries
+  ---
+  duration_ms: 2.1173
+  type: 'test'
+  ...
+# Subtest: cancellation before generation or during image decoding keeps the pending image unapplied
+ok 32 - cancellation before generation or during image decoding keeps the pending image unapplied
+  ---
+  duration_ms: 0.6268
+  type: 'test'
+  ...
+# Subtest: real transport converts drawing-plan JSON while keeping changes pending
+ok 33 - real transport converts drawing-plan JSON while keeping changes pending
+  ---
+  duration_ms: 0.4764
+  type: 'test'
+  ...
+# Subtest: selected-part revisions retain artwork and cannot modify other pieces or joints
+ok 34 - selected-part revisions retain artwork and cannot modify other pieces or joints
+  ---
+  duration_ms: 0.5824
+  type: 'test'
+  ...
+# Subtest: one geometry-guided repair corrects an invalid outline without changing the student request
+ok 35 - one geometry-guided repair corrects an invalid outline without changing the student request
+  ---
+  duration_ms: 0.581
+  type: 'test'
+  ...
+# Subtest: repeated invalid geometry is rejected after one repair attempt
+ok 36 - repeated invalid geometry is rejected after one repair attempt
+  ---
+  duration_ms: 0.4155
+  type: 'test'
+  ...
+# Subtest: server pins vision instructions and sends reference pixels as multimodal input to configured Qwen Max
+ok 37 - server pins vision instructions and sends reference pixels as multimodal input to configured Qwen Max
+  ---
+  duration_ms: 1.9615
+  type: 'test'
+  ...
+# Subtest: image service uses its own endpoint and retains generated PNG bytes for durable projects
+ok 38 - image service uses its own endpoint and retains generated PNG bytes for durable projects
+  ---
+  duration_ms: 1.0977
+  type: 'test'
+  ...
+# Subtest: server does not enable images from a chat-only configuration or expose credentials
+ok 39 - server does not enable images from a chat-only configuration or expose credentials
+  ---
+  duration_ms: 0.6367
+  type: 'test'
+  ...
+# Subtest: server rejects forged image URLs, locked pixel edits and foreign origins before an upstream call
+ok 40 - server rejects forged image URLs, locked pixel edits and foreign origins before an upstream call
+  ---
+  duration_ms: 0.4457
+  type: 'test'
+  ...
+# Subtest: generated downloads cannot turn provider output into an arbitrary network request
+ok 41 - generated downloads cannot turn provider output into an arbitrary network request
+  ---
+  duration_ms: 0.525
+  type: 'test'
+  ...
+# Subtest: removing a retained image background turns a rejected knee into a valid overlapping pin joint
+ok 42 - removing a retained image background turns a rejected knee into a valid overlapping pin joint
+  ---
+  duration_ms: 68.1555
+  type: 'test'
+  ...
+# Subtest: batch source eligibility checks the same original chord while standalone joint placement uses the current piece
+ok 43 - batch source eligibility checks the same original chord while standalone joint placement uses the current piece
+  ---
+  duration_ms: 9.247
+  type: 'test'
+  ...
+# Subtest: split retains image pixels, closes both cut shapes and creates a valid overlap hinge
+ok 44 - split retains image pixels, closes both cut shapes and creates a valid overlap hinge
+  ---
+  duration_ms: 2.8251
+  type: 'test'
+  ...
+# Subtest: splitting a posed linked part preserves its incoming joint, outgoing children, rods and current world pose
+ok 45 - splitting a posed linked part preserves its incoming joint, outgoing children, rods and current world pose
+  ---
+  duration_ms: 1.7876
+  type: 'test'
+  ...
+# Subtest: an unconnected split section preserves the current world transform instead of jumping to raw source coordinates
+ok 46 - an unconnected split section preserves the current world transform instead of jumping to raw source coordinates
+  ---
+  duration_ms: 1.6715
+  type: 'test'
+  ...
+# Subtest: simple concave splits are supported, while disconnected half-plane fragments and tangential cuts reject
+ok 47 - simple concave splits are supported, while disconnected half-plane fragments and tangential cuts reject
+  ---
+  duration_ms: 10.6046
+  type: 'test'
+  ...
+# Subtest: locked pieces cannot be split and locked descendants retain their artwork and world geometry
+ok 48 - locked pieces cannot be split and locked descendants retain their artwork and world geometry
+  ---
+  duration_ms: 8.6445
+  type: 'test'
+  ...
+# Subtest: source artwork transforms survive a split and per-piece size controls rebase without moving pixels
+ok 49 - source artwork transforms survive a split and per-piece size controls rebase without moving pixels
+  ---
+  duration_ms: 0.6884
+  type: 'test'
+  ...
+# Subtest: an explicit overlapping pair gets an interior geometric pivot without changing either pose
+ok 50 - an explicit overlapping pair gets an interior geometric pivot without changing either pose
+  ---
+  duration_ms: 2.0468
+  type: 'test'
+  ...
+# Subtest: nearby outlines can use overlap tabs, but distant props and already-parented parts are not auto-connected
+ok 51 - nearby outlines can use overlap tabs, but distant props and already-parented parts are not auto-connected
+  ---
+  duration_ms: 0.7748
+  type: 'test'
+  ...
+# Subtest: suggested pivots preserve relative rotation and fixed joins reject an unexpected orientation change
+ok 52 - suggested pivots preserve relative rotation and fixed joins reject an unexpected orientation change
+  ---
+  duration_ms: 1.1984
+  type: 'test'
+  ...
+# Subtest: small traced components below 50 mm retain their physical scale when split and connected
+ok 53 - small traced components below 50 mm retain their physical scale when split and connected
+  ---
+  duration_ms: 1.5794
+  type: 'test'
+  ...
+# Subtest: one tap selects the short cross-section and retains the larger body without changing pixels or scale
+ok 54 - one tap selects the short cross-section and retains the larger body without changing pixels or scale
+  ---
+  duration_ms: 1.4413
+  type: 'test'
+  ...
+# Subtest: an arbitrary animal silhouette splits at the tapped narrow leg without cutting the body
+ok 55 - an arbitrary animal silhouette splits at the tapped narrow leg without cutting the body
+  ---
+  duration_ms: 1.3961
+  type: 'test'
+  ...
+# Subtest: both cut pieces receive real positive overlap around the same pin throughout the preview range
+ok 56 - both cut pieces receive real positive overlap around the same pin throughout the preview range
+  ---
+  duration_ms: 1.2785
+  type: 'test'
+  ...
+# Subtest: a posed chain preserves the incoming side, descendants, control rods and locked artwork
+ok 57 - a posed chain preserves the incoming side, descendants, control rods and locked artwork
+  ---
+  duration_ms: 1.6885
+  type: 'test'
+  ...
+# Subtest: joint suggestions reject broad body cuts, locked pieces, outside taps and nearby existing pins
+ok 58 - joint suggestions reject broad body cuts, locked pieces, outside taps and nearby existing pins
+  ---
+  duration_ms: 2.0504
+  type: 'test'
+  ...
+# Subtest: wide garment branches remain reviewable while broad halves and over-limit sections reject
+ok 59 - wide garment branches remain reviewable while broad halves and over-limit sections reject
+  ---
+  duration_ms: 2.142
+  type: 'test'
+  ...
+# Subtest: the generated 469-vertex horse accepts its actual wide neck without admitting a torso half-cut
+ok 60 - the generated 469-vertex horse accepts its actual wide neck without admitting a torso half-cut
+  ---
+  duration_ms: 103.6054
+  type: 'test'
+  ...
+# Subtest: an explicit angle selects only the interior chord containing the tapped limb
+ok 61 - an explicit angle selects only the interior chord containing the tapped limb
+  ---
+  duration_ms: 2.2601
+  type: 'test'
+  ...
+# Subtest: a finite limb chord reassigns only its own children and rods, preserving posed locked neighbors
+ok 62 - a finite limb chord reassigns only its own children and rods, preserving posed locked neighbors
+  ---
+  duration_ms: 1.4229
+  type: 'test'
+  ...
+# Subtest: a finite chord keeps the original incoming anchor even when it is on the smaller arc
+ok 63 - a finite chord keeps the original incoming anchor even when it is on the smaller arc
+  ---
+  duration_ms: 0.6788
+  type: 'test'
+  ...
+# Subtest: background removal only clears edge-connected color and preserves enclosed white clothing and original alpha
+ok 64 - background removal only clears edge-connected color and preserves enclosed white clothing and original alpha
+  ---
+  duration_ms: 2.2628
+  type: 'test'
+  ...
+# Subtest: transparent artwork is not whitened and background removal exposes its edge risk honestly
+ok 65 - transparent artwork is not whitened and background removal exposes its edge risk honestly
+  ---
+  duration_ms: 0.3093
+  type: 'test'
+  ...
+# Subtest: a background tap clears an enclosed background while preserving the frame and white character details
+ok 66 - a background tap clears an enclosed background while preserving the frame and white character details
+  ---
+  duration_ms: 1.4669
+  type: 'test'
+  ...
+# Subtest: tapped removal does not cross transparent gaps or drift through a color gradient
+ok 67 - tapped removal does not cross transparent gaps or drift through a color gradient
+  ---
+  duration_ms: 0.3829
+  type: 'test'
+  ...
+# Subtest: background taps reject empty, invalid and remove-everything selections without changing the source
+ok 68 - background taps reject empty, invalid and remove-everything selections without changing the source
+  ---
+  duration_ms: 1.2796
+  type: 'test'
+  ...
+# Subtest: magic wand selects connected seed colors, respects its box, and does not drift through a gradient
+ok 69 - magic wand selects connected seed colors, respects its box, and does not drift through a gradient
+  ---
+  duration_ms: 0.6071
+  type: 'test'
+  ...
+# Subtest: a concave connected outline stays concave and holes are explicitly not promised as cutouts
+ok 70 - a concave connected outline stays concave and holes are explicitly not promised as cutouts
+  ---
+  duration_ms: 0.765
+  type: 'test'
+  ...
+# Subtest: separated part sheets keep distinct silhouettes including diagonal-only contacts, and select largest regions first
+ok 71 - separated part sheets keep distinct silhouettes including diagonal-only contacts, and select largest regions first
+  ---
+  duration_ms: 0.4751
+  type: 'test'
+  ...
+# Subtest: opaque backgrounds and invalid selections fail explicitly instead of producing a claimed body part
+ok 72 - opaque backgrounds and invalid selections fail explicitly instead of producing a claimed body part
+  ---
+  duration_ms: 0.3347
+  type: 'test'
+  ...
+# Subtest: subject cleanup keeps a multicolor horse while removing more than forty stars, text marks and a disconnected border
+ok 73 - subject cleanup keeps a multicolor horse while removing more than forty stars, text marks and a disconnected border
+  ---
+  duration_ms: 11.1141
+  type: 'test'
+  ...
+# Subtest: a clicked subject replaces the largest draft and extra seeds keep or remove separate props and limbs
+ok 74 - a clicked subject replaces the largest draft and extra seeds keep or remove separate props and limbs
+  ---
+  duration_ms: 2.3928
+  type: 'test'
+  ...
+# Subtest: cleanup preserves internal transparent holes, enclosed white artwork and diagonal separation
+ok 75 - cleanup preserves internal transparent holes, enclosed white artwork and diagonal separation
+  ---
+  duration_ms: 1.1466
+  type: 'test'
+  ...
+# Subtest: cleanup rejects empty, unseparated and invalid selections without silently truncating components
+ok 76 - cleanup rejects empty, unseparated and invalid selections without silently truncating components
+  ---
+  duration_ms: 55.2794
+  type: 'test'
+  ...
+# Subtest: a valid clicked subject can exclude a larger opaque frame remnant elsewhere
+ok 77 - a valid clicked subject can exclude a larger opaque frame remnant elsewhere
+  ---
+  duration_ms: 6.1071
+  type: 'test'
+  ...
+# Subtest: an existing cutout with a thin transparent border remains selectable with a review warning
+ok 78 - an existing cutout with a thin transparent border remains selectable with a review warning
+  ---
+  duration_ms: 1.2535
+  type: 'test'
+  ...
+# Subtest: partial transparency does not certify a remaining opaque rectangular background
+ok 79 - partial transparency does not certify a remaining opaque rectangular background
+  ---
+  duration_ms: 2.2884
+  type: 'test'
+  ...
+# Subtest: complex jagged silhouettes simplify to a bounded non-crossing cut boundary
+ok 80 - complex jagged silhouettes simplify to a bounded non-crossing cut boundary
+  ---
+  duration_ms: 37.9365
+  type: 'test'
+  ...
+# Subtest: local image helpers preserve original canvas dimensions and release the decoder
+ok 81 - local image helpers preserve original canvas dimensions and release the decoder
+  ---
+  duration_ms: 1.5087
+  type: 'test'
+  ...
+# Subtest: legacy AI selects only supplied markers with the exact brief and no image bytes or shape mutation
+ok 82 - legacy AI selects only supplied markers with the exact brief and no image bytes or shape mutation
+  ---
+  duration_ms: 15.2162
+  type: 'test'
+  ...
+# Subtest: horse selection request focuses explicit movements and supplies bounded measured regions without anatomical labels
+ok 83 - horse selection request focuses explicit movements and supplies bounded measured regions without anatomical labels
+  ---
+  duration_ms: 235.335
+  type: 'test'
+  ...
+# Subtest: AI coordinates or extra artwork cannot replace a selected measured candidate
+ok 84 - AI coordinates or extra artwork cannot replace a selected measured candidate
+  ---
+  duration_ms: 0.4312
+  type: 'test'
+  ...
+# Subtest: structured and nested replies accept a deliberate empty AI selection without geometry fallback
+ok 85 - structured and nested replies accept a deliberate empty AI selection without geometry fallback
+  ---
+  duration_ms: 11.7349
+  type: 'test'
+  ...
+# Subtest: unknown, duplicate, malformed or truncated AI choices fall back honestly without a second request
+ok 86 - unknown, duplicate, malformed or truncated AI choices fall back honestly without a second request
+  ---
+  duration_ms: 5.4106
+  type: 'test'
+  ...
+# Subtest: invalid candidate coordinates, duplicates and locks never reach the service
+ok 87 - invalid candidate coordinates, duplicates and locks never reach the service
+  ---
+  duration_ms: 0.5318
+  type: 'test'
+  ...
+# Subtest: custom relay stays on its configured host and never forwards a failed request elsewhere
+ok 88 - custom relay stays on its configured host and never forwards a failed request elsewhere
+  ---
+  duration_ms: 2.5413
+  type: 'test'
+  ...
+# Subtest: reference pixels are sent only to an advertised v2 vision route on the configured host
+ok 89 - reference pixels are sent only to an advertised v2 vision route on the configured host
+  ---
+  duration_ms: 1.7841
+  type: 'test'
+  ...
+# Subtest: cancellation before and during planning throws instead of applying fallback suggestions
+ok 90 - cancellation before and during planning throws instead of applying fallback suggestions
+  ---
+  duration_ms: 1.2752
+  type: 'test'
+  ...
+# Subtest: a stalled request or response body has a bounded timeout and preserves geometry provenance
+ok 91 - a stalled request or response body has a bounded timeout and preserves geometry provenance
+  ---
+  duration_ms: 25.1462
+  type: 'test'
+  ...
+# Subtest: oversized replies and unavailable or empty plans do not claim AI success
+ok 92 - oversized replies and unavailable or empty plans do not claim AI success
+  ---
+  duration_ms: 2.5641
+  type: 'test'
+  ...
+# Subtest: round magenta dots and rings retain original image coordinates without changing pixels
+ok 93 - round magenta dots and rings retain original image coordinates without changing pixels
+  ---
+  duration_ms: 35.1867
+  type: 'test'
+  ...
+# Subtest: antialiasing, saturated pink and transparent ring interiors remain detectable
+ok 94 - antialiasing, saturated pink and transparent ring interiors remain detectable
+  ---
+  duration_ms: 1.5108
+  type: 'test'
+  ...
+# Subtest: lines, speckles, large costume regions, squares and border marks are not treated as joints
+ok 95 - lines, speckles, large costume regions, squares and border marks are not treated as joints
+  ---
+  duration_ms: 4.8446
+  type: 'test'
+  ...
+# Subtest: black dots are opt-in and explicitly identified as potentially decorative
+ok 96 - black dots are opt-in and explicitly identified as potentially decorative
+  ---
+  duration_ms: 4.1177
+  type: 'test'
+  ...
+# Subtest: marker limit reports omitted candidates instead of silently implying a complete plan
+ok 97 - marker limit reports omitted candidates instead of silently implying a complete plan
+  ---
+  duration_ms: 4.4793
+  type: 'test'
+  ...
+# Subtest: unsupported rasters and unbounded detector settings reject before allocation
+ok 98 - unsupported rasters and unbounded detector settings reject before allocation
+  ---
+  duration_ms: 4.8791
+  type: 'test'
+  ...
+# Subtest: small usable dots survive pixel-grid angular gaps while isolated speckles do not
+ok 99 - small usable dots survive pixel-grid angular gaps while isolated speckles do not
+  ---
+  duration_ms: 6.0019
+  type: 'test'
+  ...
+# Subtest: deterministic suggestions find separate narrow limbs and avoid torso corners
+ok 100 - deterministic suggestions find separate narrow limbs and avoid torso corners
+  ---
+  duration_ms: 39.0804
+  type: 'test'
+  ...
+# Subtest: a sequence of markers resolves into newly split descendants using original image coordinates
+ok 101 - a sequence of markers resolves into newly split descendants using original image coordinates
+  ---
+  duration_ms: 2.6538
+  type: 'test'
+  ...
+# Subtest: plans preserve transformed chains, incoming joints, locked descendants and control rods
+ok 102 - plans preserve transformed chains, incoming joints, locked descendants and control rods
+  ---
+  duration_ms: 3.1281
+  type: 'test'
+  ...
+# Subtest: duplicates and failed markers are individually reported while valid later bends still build
+ok 103 - duplicates and failed markers are individually reported while valid later bends still build
+  ---
+  duration_ms: 2.4787
+  type: 'test'
+  ...
+# Subtest: locked pieces and existing joints remain untouched, and suggestions do not link separate props
+ok 104 - locked pieces and existing joints remain untouched, and suggestions do not link separate props
+  ---
+  duration_ms: 2.9618
+  type: 'test'
+  ...
+# Subtest: invalid entries and a marker count over twelve are bounded and explicitly reported
+ok 105 - invalid entries and a marker count over twelve are bounded and explicitly reported
+  ---
+  duration_ms: 8.4362
+  type: 'test'
+  ...
+# Subtest: broad blocks and small scraps do not receive automatic marker suggestions
+ok 106 - broad blocks and small scraps do not receive automatic marker suggestions
+  ---
+  duration_ms: 0.5136
+  type: 'test'
+  ...
+# Subtest: suggestion work remains bounded with eighty dense contours
+ok 107 - suggestion work remains bounded with eighty dense contours
+  ---
+  duration_ms: 289.4746
+  type: 'test'
+  ...
+# Subtest: the generated 399-vertex horse gets useful local bends without losing mane, neighboring legs or material
+ok 108 - the generated 399-vertex horse gets useful local bends without losing mane, neighboring legs or material
+  ---
+  duration_ms: 121.3695
+  type: 'test'
+  ...
+# Subtest: the horse AI shortlist includes a valid head/neck branch and all wider candidates replay
+ok 109 - the horse AI shortlist includes a valid head/neck branch and all wider candidates replay
+  ---
+  duration_ms: 102.1147
+  type: 'test'
+  ...
+# Subtest: the second generated horse keeps a wide neck and foreleg in its bounded shortlist and replays either order
+ok 110 - the second generated horse keeps a wide neck and foreleg in its bounded shortlist and replays either order
+  ---
+  duration_ms: 230.7639
+  type: 'test'
+  ...
+# Subtest: batch geometry restores distinct artwork mappings and saved revisions exactly once
+ok 111 - batch geometry restores distinct artwork mappings and saved revisions exactly once
+  ---
+  duration_ms: 1.3623
+  type: 'test'
+  ...
+# Subtest: a branching creature keeps broad-section eligibility when AI selects only two source branches in either order
+ok 112 - a branching creature keeps broad-section eligibility when AI selects only two source branches in either order
+  ---
+  duration_ms: 16.1418
+  type: 'test'
+  ...
+# Subtest: a batch still rejects a source torso division even when previous cuts make it a small fragment
+ok 113 - a batch still rejects a source torso division even when previous cuts make it a small fragment
+  ---
+  duration_ms: 0.4078
+  type: 'test'
+  ...
+# Subtest: automatic plans preserve the robe silhouette and its separate prop
+ok 114 - automatic plans preserve the robe silhouette and its separate prop
+  ---
+  duration_ms: 4.9033
+  type: 'test'
+  ...
+# Subtest: automatic plans preserve the footballer silhouette and its separate prop
+ok 115 - automatic plans preserve the footballer silhouette and its separate prop
+  ---
+  duration_ms: 10.4097
+  type: 'test'
+  ...
+# Subtest: automatic plans preserve the tentacles silhouette and its separate prop
+ok 116 - automatic plans preserve the tentacles silhouette and its separate prop
+  ---
+  duration_ms: 28.4784
+  type: 'test'
+  ...
+# Subtest: new projects start blank and round-trip arbitrary image-backed parts
+ok 117 - new projects start blank and round-trip arbitrary image-backed parts
+  ---
+  duration_ms: 3.9449
+  type: 'test'
+  ...
+# Subtest: arbitrary chains keep every pin aligned through nested rotations
+ok 118 - arbitrary chains keep every pin aligned through nested rotations
+  ---
+  duration_ms: 1.4585
+  type: 'test'
+  ...
+# Subtest: posing does not change the physical cut scale or drill diameter
+ok 119 - posing does not change the physical cut scale or drill diameter
+  ---
+  duration_ms: 0.5592
+  type: 'test'
+  ...
+# Subtest: joining different original anchor positions aligns both sides at rest
+ok 120 - joining different original anchor positions aligns both sides at rest
+  ---
+  duration_ms: 0.1992
+  type: 'test'
+  ...
+# Subtest: the connection graph rejects cycles, missing references and two parents
+ok 121 - the connection graph rejects cycles, missing references and two parents
+  ---
+  duration_ms: 0.7283
+  type: 'test'
+  ...
+# Subtest: unsafe assets and invalid coordinates fail at the import boundary
+ok 122 - unsafe assets and invalid coordinates fail at the import boundary
+  ---
+  duration_ms: 0.6601
+  type: 'test'
+  ...
+# Subtest: geometry checks distinguish internal pins from detached or too-small pads
+ok 123 - geometry checks distinguish internal pins from detached or too-small pads
+  ---
+  duration_ms: 0.7811
+  type: 'test'
+  ...
+# Subtest: natural language proposal patches preserve untouched artwork and locked descendants
+ok 124 - natural language proposal patches preserve untouched artwork and locked descendants
+  ---
+  duration_ms: 9.3067
+  type: 'test'
+  ...
+# Subtest: new custom parts can be added and connected in one accepted proposal
+ok 125 - new custom parts can be added and connected in one accepted proposal
+  ---
+  duration_ms: 31.909
+  type: 'test'
+  ...
+# Subtest: crossed boundaries and malformed proposals are never accepted
+ok 126 - crossed boundaries and malformed proposals are never accepted
+  ---
+  duration_ms: 0.6299
+  type: 'test'
+  ...
+# Subtest: fixed joins stay fixed and hinge previews carry a fabrication test reminder
+ok 127 - fixed joins stay fixed and hinge previews carry a fabrication test reminder
+  ---
+  duration_ms: 0.3909
+  type: 'test'
+  ...
+# Subtest: saved versions reference image assets and keep restorable geometry
+ok 128 - saved versions reference image assets and keep restorable geometry
+  ---
+  duration_ms: 0.438
+  type: 'test'
+  ...
+# Subtest: legacy projects get an explicit non-destructive migration instruction
+ok 129 - legacy projects get an explicit non-destructive migration instruction
+  ---
+  duration_ms: 0.1485
+  type: 'test'
+  ...
+# Subtest: point-in-polygon includes boundary and handles concave custom contours
+ok 130 - point-in-polygon includes boundary and handles concave custom contours
+  ---
+  duration_ms: 0.0766
+  type: 'test'
+  ...
+# Subtest: UI audit revisions retain their timestamp without requiring a snapshot
+ok 131 - UI audit revisions retain their timestamp without requiring a snapshot
+  ---
+  duration_ms: 0.2398
+  type: 'test'
+  ...
+# Subtest: short hex colors expand but invalid proposed appearance or connection types do not silently substitute
+ok 132 - short hex colors expand but invalid proposed appearance or connection types do not silently substitute
+  ---
+  duration_ms: 0.5019
+  type: 'test'
+  ...
+# Subtest: a new image can be adopted before a geometry proposal while locked parts keep their previous artwork
+ok 133 - a new image can be adopted before a geometry proposal while locked parts keep their previous artwork
+  ---
+  duration_ms: 0.4285
+  type: 'test'
+  ...
+# Subtest: overlapping distinct drill holes are blocked while a shared pin center is allowed
+ok 134 - overlapping distinct drill holes are blocked while a shared pin center is allowed
+  ---
+  duration_ms: 0.3183
+  type: 'test'
+  ...
+# Subtest: older v2 parts acquire neutral dimension and artwork parameters without changing contours
+ok 135 - older v2 parts acquire neutral dimension and artwork parameters without changing contours
+  ---
+  duration_ms: 4.2513
+  type: 'test'
+  ...
+# Subtest: length and width reshape imported pixels and outlines while connected children only move
+ok 136 - length and width reshape imported pixels and outlines while connected children only move
+  ---
+  duration_ms: 5.6718
+  type: 'test'
+  ...
+# Subtest: resizing a part preserves material scale, drill diameter and unrelated dimensions
+ok 137 - resizing a part preserves material scale, drill diameter and unrelated dimensions
+  ---
+  duration_ms: 1.6341
+  type: 'test'
+  ...
+# Subtest: absolute sliders are idempotent and return an asymmetric rotated shape to its baseline
+ok 138 - absolute sliders are idempotent and return an asymmetric rotated shape to its baseline
+  ---
+  duration_ms: 2.3227
+  type: 'test'
+  ...
+# Subtest: axis changes rebase controls without moving pixels, contours, anchors or physical dimensions
+ok 139 - axis changes rebase controls without moving pixels, contours, anchors or physical dimensions
+  ---
+  duration_ms: 1.0035
+  type: 'test'
+  ...
+# Subtest: locked selected pieces and locked descendants block dimension changes that would move them
+ok 140 - locked selected pieces and locked descendants block dimension changes that would move them
+  ---
+  duration_ms: 1.2665
+  type: 'test'
+  ...
+# Subtest: a locked parent permits child resizing around its unchanged incoming pivot
+ok 141 - a locked parent permits child resizing around its unchanged incoming pivot
+  ---
+  duration_ms: 0.5665
+  type: 'test'
+  ...
+# Subtest: natural-language parameter proposals use the same deterministic resize and preserve unrelated pieces
+ok 142 - natural-language parameter proposals use the same deterministic resize and preserve unrelated pieces
+  ---
+  duration_ms: 4.3883
+  type: 'test'
+  ...
+# Subtest: image mappings and parameter baselines survive a portable project round trip
+ok 143 - image mappings and parameter baselines survive a portable project round trip
+  ---
+  duration_ms: 0.6573
+  type: 'test'
+  ...
+# Subtest: invalid dimensions and collapsed or executable artwork transforms are rejected
+ok 144 - invalid dimensions and collapsed or executable artwork transforms are rejected
+  ---
+  duration_ms: 1.1832
+  type: 'test'
+  ...
+# Subtest: first traced pieces below 50 mm retain the source image calibration
+ok 145 - first traced pieces below 50 mm retain the source image calibration
+  ---
+  duration_ms: 0.4133
+  type: 'test'
+  ...
+# Subtest: adding connected pieces retains prior part dimensions and physical pin diameters
+ok 146 - adding connected pieces retains prior part dimensions and physical pin diameters
+  ---
+  duration_ms: 1.2909
+  type: 'test'
+  ...
+# Subtest: removing pieces including the final piece preserves calibration for the next trace
+ok 147 - removing pieces including the final piece preserves calibration for the next trace
+  ---
+  duration_ms: 0.5477
+  type: 'test'
+  ...
+# Subtest: scale preservation rejects unprintably small or excessive envelopes instead of clamping
+ok 148 - scale preservation rejects unprintably small or excessive envelopes instead of clamping
+  ---
+  duration_ms: 0.3032
+  type: 'test'
+  ...
+# Subtest: custom artwork is clipped to independent cut parts and pin holes are transparent
+ok 149 - custom artwork is clipped to independent cut parts and pin holes are transparent
+  ---
+  duration_ms: 9.3774
+  type: 'test'
+  ...
+# Subtest: interactive canvas controls expose selected state while previews and exports remain noninteractive
+ok 150 - interactive canvas controls expose selected state while previews and exports remain noninteractive
+  ---
+  duration_ms: 3.3798
+  type: 'test'
+  ...
+# Subtest: interactive joint hit areas enlarge independently of printed geometry
+ok 151 - interactive joint hit areas enlarge independently of printed geometry
+  ---
+  duration_ms: 1.4378
+  type: 'test'
+  ...
+# Subtest: reinforcement outlines are united, without cuts through their overlaps
+ok 152 - reinforcement outlines are united, without cuts through their overlaps
+  ---
+  duration_ms: 7.9832
+  type: 'test'
+  ...
+# Subtest: small reinforcement disks on a split edge form one closed contour at every artwork resolution
+ok 153 - small reinforcement disks on a split edge form one closed contour at every artwork resolution
+  ---
+  duration_ms: 13.6173
+  type: 'test'
+  ...
+# Subtest: both sides of a split retain real overlapping material and matching holes in every output
+ok 154 - both sides of a split retain real overlapping material and matching holes in every output
+  ---
+  duration_ms: 3.5107
+  type: 'test'
+  ...
+# Subtest: optional joint review shows both overlap layers and keeps guides out of exports
+ok 155 - optional joint review shows both overlap layers and keeps guides out of exports
+  ---
+  duration_ms: 5.7745
+  type: 'test'
+  ...
+# Subtest: assembly stacking and print instructions agree even when parent is the front piece
+ok 156 - assembly stacking and print instructions agree even when parent is the front piece
+  ---
+  duration_ms: 5.3178
+  type: 'test'
+  ...
+# Subtest: export blocks detached joint tabs instead of delivering disconnected cutting geometry
+ok 157 - export blocks detached joint tabs instead of delivering disconnected cutting geometry
+  ---
+  duration_ms: 0.6043
+  type: 'test'
+  ...
+# Subtest: physical export scale and hole diameter do not change when the puppet is posed
+ok 158 - physical export scale and hole diameter do not change when the puppet is posed
+  ---
+  duration_ms: 0.5487
+  type: 'test'
+  ...
+# Subtest: fixed overlaps have no pin holes while pin hinges have the same exact circles as pivots
+ok 159 - fixed overlaps have no pin holes while pin hinges have the same exact circles as pivots
+  ---
+  duration_ms: 1.1271
+  type: 'test'
+  ...
+# Subtest: a shared pin through three pieces is punched once in each piece
+ok 160 - a shared pin through three pieces is punched once in each piece
+  ---
+  duration_ms: 0.467
+  type: 'test'
+  ...
+# Subtest: large parts print across overlapping A4 tiles at actual size
+ok 161 - large parts print across overlapping A4 tiles at actual size
+  ---
+  duration_ms: 1.7328
+  type: 'test'
+  ...
+# Subtest: rendered markup cannot execute imported names or non-raster image data
+ok 162 - rendered markup cannot execute imported names or non-raster image data
+  ---
+  duration_ms: 0.2684
+  type: 'test'
+  ...
+# Subtest: reference and tracing points remain visible before any cut part exists
+ok 163 - reference and tracing points remain visible before any cut part exists
+  ---
+  duration_ms: 0.2972
+  type: 'test'
+  ...
+# Subtest: source artwork transforms independently inside the cut boundary on canvas and print
+ok 164 - source artwork transforms independently inside the cut boundary on canvas and print
+  ---
+  duration_ms: 1.6041
+  type: 'test'
+  ...
+# Subtest: invalid raw artwork mappings cannot inject SVG attributes
+ok 165 - invalid raw artwork mappings cannot inject SVG attributes
+  ---
+  duration_ms: 0.239
+  type: 'test'
+  ...
+# Subtest: parametric resize keeps texture, contours, moving children and physical pin size aligned
+ok 166 - parametric resize keeps texture, contours, moving children and physical pin size aligned
+  ---
+  duration_ms: 1.6848
+  type: 'test'
+  ...
+# Subtest: union preserves enclosed openings with the correct winding
+ok 167 - union preserves enclosed openings with the correct winding
+  ---
+  duration_ms: 0.322
+  type: 'test'
+  ...
+# Subtest: extreme source coordinates preserve the declared physical scale
+ok 168 - extreme source coordinates preserve the declared physical scale
+  ---
+  duration_ms: 27.9363
+  type: 'test'
+  ...
+# Subtest: an unreliable outline stays editable but cannot silently become a cutting file
+ok 169 - an unreliable outline stays editable but cannot silently become a cutting file
+  ---
+  duration_ms: 0.5909
+  type: 'test'
+  ...
+# Subtest: Chinese print guidance and long connection lists are paginated without losing joints
+ok 170 - Chinese print guidance and long connection lists are paginated without losing joints
+  ---
+  duration_ms: 153.4254
+  type: 'test'
+  ...
+# Subtest: rounded ends follow the complete limb width instead of a fixed fastener allowance
+ok 171 - rounded ends follow the complete limb width instead of a fixed fastener allowance
+  ---
+  duration_ms: 9.992
+  type: 'test'
+  ...
+# Subtest: manual splits and broad short branches retain full ends without an oversized disk area rejection
+ok 172 - manual splits and broad short branches retain full ends without an oversized disk area rejection
+  ---
+  duration_ms: 5.383
+  type: 'test'
+  ...
+# Subtest: physical diameter editing is immutable and keeps full-width coverage, pin size and calibration
+ok 173 - physical diameter editing is immutable and keeps full-width coverage, pin size and calibration
+  ---
+  duration_ms: 3.0895
+  type: 'test'
+  ...
+# Subtest: legacy projects retain existing small joint sizes until explicitly edited
+ok 174 - legacy projects retain existing small joint sizes until explicitly edited
+  ---
+  duration_ms: 2.9987
+  type: 'test'
+  ...
+# Subtest: anisotropic piece resizing updates only its width vector and both round ends
+ok 175 - anisotropic piece resizing updates only its width vector and both round ends
+  ---
+  duration_ms: 2.9577
+  type: 'test'
+  ...
+# Subtest: locked connected pieces prevent changes to their actual round-end geometry
+ok 176 - locked connected pieces prevent changes to their actual round-end geometry
+  ---
+  duration_ms: 1.1165
+  type: 'test'
+  ...
+# Subtest: separate-piece connections use the smaller oriented limb extent while preserving pose
+ok 177 - separate-piece connections use the smaller oriented limb extent while preserving pose
+  ---
+  duration_ms: 1.787
+  type: 'test'
+  ...
+# Subtest: unsafe imported rounded spans and incomplete or detached overlaps cannot be accepted
+ok 178 - unsafe imported rounded spans and incomplete or detached overlaps cannot be accepted
+  ---
+  duration_ms: 1.7586
+  type: 'test'
+  ...
+# Subtest: a nearby second bend retains inherited round ends and requests a physical overlap check
+ok 179 - a nearby second bend retains inherited round ends and requests a physical overlap check
+  ---
+  duration_ms: 1.5444
+  type: 'test'
+  ...
+# Subtest: full-width rounded ends remain united material on both pieces throughout rotation, including oblique cuts
+ok 180 - full-width rounded ends remain united material on both pieces throughout rotation, including oblique cuts
+  ---
+  duration_ms: 41.714
+  type: 'test'
+  ...
+# Subtest: large round ends use identical geometry for stage, artwork sheet and print, with bounds that include both caps
+ok 181 - large round ends use identical geometry for stage, artwork sheet and print, with bounds that include both caps
+  ---
+  duration_ms: 4.9321
+  type: 'test'
+  ...
+# Subtest: enlarged material pads do not copy raster pixels from outside either original piece polygon
+ok 182 - enlarged material pads do not copy raster pixels from outside either original piece polygon
+  ---
+  duration_ms: 2.4528
+  type: 'test'
+  ...
+# Subtest: all optional constructions have supported holes, simple cut shapes and usable rod points
+ok 183 - all optional constructions have supported holes, simple cut shapes and usable rod points
+  ---
+  duration_ms: 22.4506
+  type: 'test'
+  ...
+# Subtest: templates offer materially different part graphs and outlines
+ok 184 - templates offer materially different part graphs and outlines
+  ---
+  duration_ms: 6.7719
+  type: 'test'
+  ...
+# Subtest: template joints stay connected throughout their permitted rotation and scale stays constant
+ok 185 - template joints stay connected throughout their permitted rotation and scale stays constant
+  ---
+  duration_ms: 9.0644
+  type: 'test'
+  ...
+# Subtest: localized templates remain unnamed and reject an unsupported template
+ok 186 - localized templates remain unnamed and reject an unsupported template
+  ---
+  duration_ms: 3.3687
+  type: 'test'
+  ...
+# Subtest: portable project roundtrip preserves artwork, custom geometry, and locks
+ok 187 - portable project roundtrip preserves artwork, custom geometry, and locks
+  ---
+  duration_ms: 3.876
+  type: 'test'
+  ...
+# Subtest: project import rejects malformed, oversized, and legacy files explicitly
+ok 188 - project import rejects malformed, oversized, and legacy files explicitly
+  ---
+  duration_ms: 0.4938
+  type: 'test'
+  ...
+# Subtest: IndexedDB saves an atomic snapshot and restores it independently of later mutations
+ok 189 - IndexedDB saves an atomic snapshot and restores it independently of later mutations
+  ---
+  duration_ms: 1.2067
+  type: 'test'
+  ...
+# Subtest: a successful put followed by an aborted transaction is never reported as saved
+ok 190 - a successful put followed by an aborted transaction is never reported as saved
+  ---
+  duration_ms: 1.2533
+  type: 'test'
+  ...
+# Subtest: blocked or absent browser storage gives a useful download fallback
+ok 191 - blocked or absent browser storage gives a useful download fallback
+  ---
+  duration_ms: 0.3638
+  type: 'test'
+  ...
+# Subtest: fresh-session cleanup deletes only the prior studio database without opening it
+ok 192 - fresh-session cleanup deletes only the prior studio database without opening it
+  ---
+  duration_ms: 0.4528
+  type: 'test'
+  ...
+# Subtest: fresh-session cleanup safely resolves when storage is absent, throws, errors, or is blocked
+ok 193 - fresh-session cleanup safely resolves when storage is absent, throws, errors, or is blocked
+  ---
+  duration_ms: 1.3657
+  type: 'test'
+  ...
+# Subtest: fresh-session cleanup has a bounded wait even if storage never responds
+ok 194 - fresh-session cleanup has a bounded wait even if storage never responds
+  ---
+  duration_ms: 29.7423
+  type: 'test'
+  ...
+# Subtest: artwork type is checked against bytes instead of trusting the extension
+ok 195 - artwork type is checked against bytes instead of trusting the extension
+  ---
+  duration_ms: 0.4606
+  type: 'test'
+  ...
+# Subtest: image dimensions preserve aspect ratio without upscaling and reject excessive decodes
+ok 196 - image dimensions preserve aspect ratio without upscaling and reject excessive decodes
+  ---
+  duration_ms: 0.2982
+  type: 'test'
+  ...
+# Subtest: oversized and spoofed images are rejected before browser decoding
+ok 197 - oversized and spoofed images are rejected before browser decoding
+  ---
+  duration_ms: 0.3623
+  type: 'test'
+  ...
+# Subtest: artwork import re-encodes a decoded image at bounded size and releases the bitmap
+ok 198 - artwork import re-encodes a decoded image at bounded size and releases the bitmap
+  ---
+  duration_ms: 1.011
+  type: 'test'
+  ...
+# Subtest: open details survive a DOM refresh by identity rather than position
+ok 199 - open details survive a DOM refresh by identity rather than position
+  ---
+  duration_ms: 1.063
+  type: 'test'
+  ...
+# Subtest: focus and caret restore to the same duplicate title field without restoring its value
+ok 200 - focus and caret restore to the same duplicate title field without restoring its value
+  ---
+  duration_ms: 0.7289
+  type: 'test'
+  ...
+# Subtest: data-field number controls keep focus and review may suppress focus restoration
+ok 201 - data-field number controls keep focus and review may suppress focus restoration
+  ---
+  duration_ms: 7.5621
+  type: 'test'
+  ...
+# Subtest: fit and zoom preserve the artwork center without mutating geometry or camera
+ok 202 - fit and zoom preserve the artwork center without mutating geometry or camera
+  ---
+  duration_ms: 1.1011
+  type: 'test'
+  ...
+# Subtest: zoom bounds and malformed camera values remain finite
+ok 203 - zoom bounds and malformed camera values remain finite
+  ---
+  duration_ms: 0.3828
+  type: 'test'
+  ...
+# Subtest: panning changes only the view origin and fit resets offsets
+ok 204 - panning changes only the view origin and fit resets offsets
+  ---
+  duration_ms: 0.1711
+  type: 'test'
+  ...
+# Subtest: screen-sized handles account for portrait and landscape letterboxing
+ok 205 - screen-sized handles account for portrait and landscape letterboxing
+  ---
+  duration_ms: 0.129
+  type: 'test'
+  ...
+# Subtest: cold startup waits for known image capabilities without sending a surprise text draft
+ok 206 - cold startup waits for known image capabilities without sending a surprise text draft
+  ---
+  duration_ms: 100.6442
+  type: 'test'
+  ...
+# Subtest: superseded capability checks cannot change the current session or endpoint
+ok 207 - superseded capability checks cannot change the current session or endpoint
+  ---
+  duration_ms: 167.6853
+  type: 'test'
+  ...
+# Subtest: three-stage student workflow keeps AI edits reviewable and undoable
+ok 208 - three-stage student workflow keeps AI edits reviewable and undoable
+  ---
+  duration_ms: 231.0787
+  type: 'test'
+  ...
+# Subtest: artwork, hand-drawn parts and connections survive portable project export
+ok 209 - artwork, hand-drawn parts and connections survive portable project export
+  ---
+  duration_ms: 277.9649
+  type: 'test'
+  ...
+# Subtest: opening a portable project preserves student artwork and custom shape identity
+ok 210 - opening a portable project preserves student artwork and custom shape identity
+  ---
+  duration_ms: 107.8023
+  type: 'test'
+  ...
+# Subtest: an unsubmitted custom prompt stays in the session and a new Create proposal replaces parts only on acceptance
+ok 211 - an unsubmitted custom prompt stays in the session and a new Create proposal replaces parts only on acceptance
+  ---
+  duration_ms: 216.6306
+  type: 'test'
+  ...
+# Subtest: fixed connections can move again and AI receives the selected part without changing other pieces
+ok 212 - fixed connections can move again and AI receives the selected part without changing other pieces
+  ---
+  duration_ms: 279.041
+  type: 'test'
+  ...
+# Subtest: shadow view hides the source image and accepted same-frame image edits preserve locked artwork
+ok 213 - shadow view hides the source image and accepted same-frame image edits preserve locked artwork
+  ---
+  duration_ms: 186.9461
+  type: 'test'
+  ...
+# Subtest: local image extraction, hinged splitting and parametric artwork resizing round-trip without AI
+ok 214 - local image extraction, hinged splitting and parametric artwork resizing round-trip without AI
+  ---
+  duration_ms: 386.5438
+  type: 'test'
+  ...
+# Subtest: background cleanup previews alpha changes and preserves the original until acceptance
+ok 215 - background cleanup previews alpha changes and preserves the original until acceptance
+  ---
+  duration_ms: 247.4637
+  type: 'test'
+  ...
+# Subtest: local resize protects locked descendants and New discards a pending image proposal
+ok 216 - local resize protects locked descendants and New discards a pending image proposal
+  ---
+  duration_ms: 263.0148
+  type: 'test'
+  ...
+# Subtest: color selection, reviewed connection suggestions and drawn parameter direction work locally
+ok 217 - color selection, reviewed connection suggestions and drawn parameter direction work locally
+  ---
+  duration_ms: 370.721
+  type: 'test'
+  ...
+# Subtest: changing selection or importing artwork clears unfinished cuts and restores an editable image view
+ok 218 - changing selection or importing artwork clears unfinished cuts and restores an editable image view
+  ---
+  duration_ms: 170.5369
+  type: 'test'
+  ...
+# Subtest: generation-only relay accepts custom prompts and presets, reviews new pixels, and continues into local hinged parts
+ok 219 - generation-only relay accepts custom prompts and presets, reviews new pixels, and continues into local hinged parts
+  ---
+  duration_ms: 617.2946
+  type: 'test'
+  ...
+# Subtest: classic image generation accepts a short panda prompt, honors the 800-character boundary and explains HTTP failures beside Create
+ok 220 - classic image generation accepts a short panda prompt, honors the 800-character boundary and explains HTTP failures beside Create
+  ---
+  duration_ms: 263.6823
+  type: 'test'
+  ...
+# Subtest: the simple image route automatically reviews the character and joint plan, then poses and prints it
+ok 221 - the simple image route automatically reviews the character and joint plan, then poses and prints it
+  ---
+  duration_ms: 374.4889
+  type: 'test'
+  ...
+# Subtest: a new generated character prepares before reusing an old rig, keeps chosen props and protects locked construction
+ok 222 - a new generated character prepares before reusing an old rig, keeps chosen props and protects locked construction
+  ---
+  duration_ms: 387.0287
+  type: 'test'
+  ...
+# Subtest: a delayed generated image cannot replace work changed while generation is pending
+ok 223 - a delayed generated image cannot replace work changed while generation is pending
+  ---
+  duration_ms: 229.7734
+  type: 'test'
+  ...
+# Subtest: a drawing-plan response containing advice without editable shapes remains visible
+ok 224 - a drawing-plan response containing advice without editable shapes remains visible
+  ---
+  duration_ms: 124.1792
+  type: 'test'
+  ...
+# Subtest: keyboard part and joint buttons and clicking a joint select the correct inspector without changing geometry
+ok 225 - keyboard part and joint buttons and clicking a joint select the correct inspector without changing geometry
+  ---
+  duration_ms: 171.4875
+  type: 'test'
+  ...
+# Subtest: projects remain session-only across reload, back-forward restoration and New while downloaded projects reopen explicitly
+ok 226 - projects remain session-only across reload, back-forward restoration and New while downloaded projects reopen explicitly
+  ---
+  duration_ms: 339.1298
+  type: 'test'
+  ...
+# Subtest: reset cancels an old generation without overwriting a new session or its newer pending request
+ok 227 - reset cancels an old generation without overwriting a new session or its newer pending request
+  ---
+  duration_ms: 199.3488
+  type: 'test'
+  ...
+# Subtest: a pending review isolates angle and shape controls until the student accepts the proposal
+ok 228 - a pending review isolates angle and shape controls until the student accepts the proposal
+  ---
+  duration_ms: 137.5779
+  type: 'test'
+  ...
+# Subtest: a prepared joint plan rebuilds edits from the original and commits all joints in one undo step
+ok 229 - a prepared joint plan rebuilds edits from the original and commits all joints in one undo step
+  ---
+  duration_ms: 154.2958
+  type: 'test'
+  ...
+# Subtest: joint diameter remains a reviewable choice through plan swaps and valid moves, and blocks a narrower size at a wider section
+ok 230 - joint diameter remains a reviewable choice through plan swaps and valid moves, and blocks a narrower size at a wider section
+  ---
+  duration_ms: 138.2835
+  type: 'test'
+  ...
+# Subtest: single-joint size review and accepted edits retain hole size, respect locks, and remain undoable
+ok 231 - single-joint size review and accepted edits retain hole size, respect locks, and remain undoable
+  ---
+  duration_ms: 153.0223
+  type: 'test'
+  ...
+# Subtest: front and back choices remain consistent through a multi-joint chain after later marker edits
+ok 232 - front and back choices remain consistent through a multi-joint chain after later marker edits
+  ---
+  duration_ms: 170.4661
+  type: 'test'
+  ...
+# Subtest: automatic joint review zooms to the selected pin without changing its trial movement or accepted construction
+ok 233 - automatic joint review zooms to the selected pin without changing its trial movement or accepted construction
+  ---
+  duration_ms: 138.2746
+  type: 'test'
+  ...
+# Subtest: joint review keeps touch targets, motion and placement state when the viewport changes
+ok 234 - joint review keeps touch targets, motion and placement state when the viewport changes
+  ---
+  duration_ms: 122.8084
+  type: 'test'
+  ...
+# Subtest: AI connection errors stay inside the dialog and Escape preserves the joint trial underneath
+ok 235 - AI connection errors stay inside the dialog and Escape preserves the joint trial underneath
+  ---
+  duration_ms: 122.2529
+  type: 'test'
+  ...
+# Subtest: moving and dragging an automatic dot recomputes its cut direction for a differently oriented limb
+ok 236 - moving and dragging an automatic dot recomputes its cut direction for a differently oriented limb
+  ---
+  duration_ms: 126.2363
+  type: 'test'
+  ...
+# Subtest: a failed planner offers local suggestions while cancellation and New discard late selections
+ok 237 - a failed planner offers local suggestions while cancellation and New discard late selections
+  ---
+  duration_ms: 292.7667
+  type: 'test'
+  ...
+# Subtest: switching from pending AI planning to manual joint placement or drawing preserves the manual work
+ok 238 - switching from pending AI planning to manual joint placement or drawing preserves the manual work
+  ---
+  duration_ms: 244.5276
+  type: 'test'
+  ...
+# Subtest: detecting image dots again preserves a moved marker instead of duplicating its identity
+ok 239 - detecting image dots again preserves a moved marker instead of duplicating its identity
+  ---
+  duration_ms: 124.307
+  type: 'test'
+  ...
+# Subtest: rotated-part keyboard and drag movement begin at the snapped dot in world coordinates
+ok 240 - rotated-part keyboard and drag movement begin at the snapped dot in world coordinates
+  ---
+  duration_ms: 123.0716
+  type: 'test'
+  ...
+# Subtest: joint dots drag with a stable pointer offset and support cancellation and keyboard adjustment
+ok 241 - joint dots drag with a stable pointer offset and support cancellation and keyboard adjustment
+  ---
+  duration_ms: 108.7872
+  type: 'test'
+  ...
+# Subtest: an empty movement plan leads to adding a point while a still puppet stays an explicit option
+ok 242 - an empty movement plan leads to adding a point while a still puppet stays an explicit option
+  ---
+  duration_ms: 125.7846
+  type: 'test'
+  ...
+# Subtest: a generated character retains its exact custom request through cleanup and joint planning without committing rejected ideas
+ok 243 - a generated character retains its exact custom request through cleanup and joint planning without committing rejected ideas
+  ---
+  duration_ms: 140.9392
+  type: 'test'
+  ...
+# Subtest: one bend tap previews a joint and movement without committing the trial pose
+ok 244 - one bend tap previews a joint and movement without committing the trial pose
+  ---
+  duration_ms: 124.3449
+  type: 'test'
+  ...
+# Subtest: joint layer changes and repicking stay in review until one accepted edit
+ok 245 - joint layer changes and repicking stay in review until one accepted edit
+  ---
+  duration_ms: 122.5564
+  type: 'test'
+  ...
+# Subtest: joining existing pieces uses two actual hits and reviews the automatic pin position
+ok 246 - joining existing pieces uses two actual hits and reviews the automatic pin position
+  ---
+  duration_ms: 123.9059
+  type: 'test'
+  ...
+# Subtest: locked pieces reject joint placement and reopening discards a pending joint review
+ok 247 - locked pieces reject joint placement and reopening discards a pending joint review
+  ---
+  duration_ms: 218.3614
+  type: 'test'
+  ...
+# Subtest: zoom, pan cancellation and touch-sized keyboard or pointer outline edits preserve the correct geometry
+ok 248 - zoom, pan cancellation and touch-sized keyboard or pointer outline edits preserve the correct geometry
+  ---
+  duration_ms: 122.7736
+  type: 'test'
+  ...
+# Subtest: a suspected background rectangle pauses joints and offers obvious tap, cancel and intentional-shape choices
+ok 249 - a suspected background rectangle pauses joints and offers obvious tap, cancel and intentional-shape choices
+  ---
+  duration_ms: 156.87
+  type: 'test'
+  ...
+# Subtest: tapping a retained background previews new outlines, preserves enclosed white artwork and commits once before planning
+ok 250 - tapping a retained background previews new outlines, preserves enclosed white artwork and commits once before planning
+  ---
+  duration_ms: 262.3392
+  type: 'test'
+  ...
+# Subtest: background recovery from a failed joint restores its review on Cancel and cannot alter locked pieces
+ok 251 - background recovery from a failed joint restores its review on Cancel and cannot alter locked pieces
+  ---
+  duration_ms: 124.8577
+  type: 'test'
+  ...
+# Subtest: background removal handles an empty-space tap and ignores a late result after New
+ok 252 - background removal handles an empty-space tap and ignores a late result after New
+  ---
+  duration_ms: 185.7317
+  type: 'test'
+  ...
+# Subtest: projects round trip without losing drawings, props or joint settings
+ok 253 - projects round trip without losing drawings, props or joint settings
+  ---
+  duration_ms: 3.0079
+  type: 'test'
+  ...
+# Subtest: all child joint positions match the rotated parent anchor
+ok 254 - all child joint positions match the rotated parent anchor
+  ---
+  duration_ms: 0.5491
+  type: 'test'
+  ...
+# Subtest: AI part selection and shape locks are enforced locally
+ok 255 - AI part selection and shape locks are enforced locally
+  ---
+  duration_ms: 0.5952
+  type: 'test'
+  ...
+# Subtest: malformed projects fail and untrusted SVG/color input never becomes markup
+ok 256 - malformed projects fail and untrusted SVG/color input never becomes markup
+  ---
+  duration_ms: 1.1111
+  type: 'test'
+  ...
+# Subtest: largest supported pieces fit on A4 print pages and each part appears once
+ok 257 - largest supported pieces fit on A4 print pages and each part appears once
+  ---
+  duration_ms: 1.544
+  type: 'test'
+  ...
+# Subtest: relay envelope retains robot-compatible scene container but uses puppet instruction
+ok 258 - relay envelope retains robot-compatible scene container but uses puppet instruction
+  ---
+  duration_ms: 0.3863
+  type: 'test'
+  ...
+# Subtest: robot-only and truncated replies are not presented as puppet success
+ok 259 - robot-only and truncated replies are not presented as puppet success
+  ---
+  duration_ms: 0.4907
+  type: 'test'
+  ...
+# Subtest: API rejects foreign origin and oversized input before an upstream call
+ok 260 - API rejects foreign origin and oversized input before an upstream call
+  ---
+  duration_ms: 5.2714
+  type: 'test'
+  ...
+# Subtest: server pins instructions and keeps key out of status and response
+ok 261 - server pins instructions and keeps key out of status and response
+  ---
+  duration_ms: 1.8498
+  type: 'test'
+  ...
+# Subtest: proxy uses the configured protected Kimi endpoint without a browser secret
+ok 262 - proxy uses the configured protected Kimi endpoint without a browser secret
+  ---
+  duration_ms: 0.9921
+  type: 'test'
+  ...
+# Subtest: student workflow, AI review, selective apply, versions and printing
+ok 263 - student workflow, AI review, selective apply, versions and printing
+  ---
+  duration_ms: 88.2726
+  type: 'test'
+  ...
+# Subtest: classic sessions start fresh, erase only their former snapshot, and retain explicit download/open
+ok 264 - classic sessions start fresh, erase only their former snapshot, and retain explicit download/open
+  ---
+  duration_ms: 11.6206
+  type: 'test'
+  ...
+1..264
+# tests 264
+# suites 0
+# pass 264
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10057.771

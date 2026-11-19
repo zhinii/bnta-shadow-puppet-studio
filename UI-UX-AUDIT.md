@@ -1,7 +1,13 @@
 # UI/UX re-audit — simplicity first
 16 November 2026. Based on the student's mobile horse screenshot, the current application source, and the earlier concept images.
 
-## Current v0.7.6 middle-school recovery audit · 17 November 2026
+## Current v0.7.7 joint review — 19 November 2026
+
+Full-width round ends replace the small default disk on new splits. Joint size is a collapsed, optional control in the batch plan, single-joint review and accepted-piece inspector. Its diameter is distinct from the pin hole; invalid changes are rejected without replacing the current proposal. Selected joints show both material layers. Piece / overlap color describes the flat material added beyond original image pixels. Direct outline edits show a size/movement review reminder. Create → Refine → Make remains unchanged.
+
+Automated evidence is in VALIDATION.md. This release could not be visually exercised in the available browser environment; no new desktop/phone/student usability result is claimed. Physical samples and practitioner review remain necessary; see JOINT-DESIGN.md.
+
+## Previous v0.7.6 middle-school recovery audit · 17 November 2026
 
 The panda feedback exposed a discoverability failure: background selection was hidden, and an image rectangle could be treated as a puppet outline. The revised cleanup screen names the task, places background selection beside the image, previews empty space and the actual cut edge, and makes mistakes reversible. Suspect rectangles pause before joints. Failed image-based joint plans offer **Fix background**.
 

@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 2,
+  "id": "3661ebc7-9c88-4565-9cfa-536e49b1c283",
+  "title": "Rounded joint paper test",
+  "language": "en",
+  "brief": {
+    "kind": "",
+    "era": "",
+    "style": "",
+    "keywords": "",
+    "action": ""
+  },
+  "canvas": {
+    "width": 800,
+    "height": 1000
+  },
+  "assets": [],
+  "conceptAssetId": null,
+  "parts": [
+    {
+      "id": "strip",
+      "name": "Upper piece",
+      "polygon": [
+        [
+          30,
+          65
+        ],
+        [
+          30,
+          140
+        ],
+        [
+          0,
+          140
+        ],
+        [
+          0,
+          65
+        ]
+      ],
+      "assetId": null,
+      "fill": "#315e53",
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "locked": false,
+      "z": 0,
+      "artworkMatrix": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "parameters": {
+        "width": 1,
+        "length": 1,
+        "axisAngle": 0,
+        "origin": [
+          15,
+          102.5
+        ]
+      }
+    },
+    {
+      "id": "dd3bd6c9-efca-40dd-ade0-70291b6bb3db",
+      "name": "Lower piece",
+      "polygon": [
+        [
+          0,
+          65
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          30,
+          0
+        ],
+        [
+          30,
+          65
+        ]
+      ],
+      "assetId": null,
+      "fill": "#b95335",
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "locked": false,
+      "z": 1,
+      "artworkMatrix": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "parameters": {
+        "width": 1,
+        "length": 1,
+        "axisAngle": 0,
+        "origin": [
+          15,
+          32.5
+        ]
+      }
+    }
+  ],
+  "joints": [
+    {
+      "id": "561c5fa2-8008-45fe-a0f6-a02d2fff20db",
+      "parentId": "strip",
+      "childId": "dd3bd6c9-efca-40dd-ade0-70291b6bb3db",
+      "parentAnchor": [
+        15,
+        65
+      ],
+      "childAnchor": [
+        15,
+        65
+      ],
+      "type": "pivot",
+      "angle": 0,
+      "min": -60,
+      "max": 60,
+      "padRadius": 15.008035490156578,
+      "overlapSpans": {
+        "parent": [
+          30,
+          0
+        ],
+        "child": [
+          30,
+          0
+        ]
+      }
+    }
+  ],
+  "rods": [],
+  "heightMm": 140,
+  "holeMm": 3,
+  "materialMm": 1,
+  "revisions": []
+}

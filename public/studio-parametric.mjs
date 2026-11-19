@@ -1,4 +1,4 @@
-import {resizePart as resizeStudioPart,setPartParameterAxis as setStudioPartAxis,getPartParameters as getStudioPartParameters,assertLockedPartsUnchanged as assertStudioLocks,preservePhysicalScale as preserveStudioScale} from './studio-model.mjs';
+import {resizePart as resizeStudioPart,setPartParameterAxis as setStudioPartAxis,getPartParameters as getStudioPartParameters,assertLockedPartsUnchanged as assertStudioLocks,preservePhysicalScale as preserveStudioScale} from './studio-model.mjs?v=0.7.7';
 
 // Public dimension API; the core lives with the model so AI proposals use exactly
 // the same deterministic operation without circular module imports.

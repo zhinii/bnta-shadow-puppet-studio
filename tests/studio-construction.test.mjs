@@ -132,7 +132,8 @@ test('an arbitrary animal silhouette splits at the tapped narrow leg without cut
 test('both cut pieces receive real positive overlap around the same pin throughout the preview range',()=>{
  const p=sheet(rect(0,0,24,120));p.heightMm=120;p.materialMm=1.5;
  const result=suggestJointAt(p,'sleeve',[12,85]),joint=result.project.joints.find(j=>j.id===result.jointId),geometry=jointGeometry(result.project,joint);
- assert.equal(geometry.sides.length,2);near(geometry.padRadius-geometry.holeRadius,3*unitsPerMm(p));
+ assert.equal(geometry.sides.length,2);assert.ok(geometry.padRadius-geometry.holeRadius>=3*unitsPerMm(p));
+ assert.ok(geometry.padRadius*Math.cos(Math.PI/96)>=12,'The full round end covers the 24-unit limb width.');
  assert.deepEqual(joint.parentAnchor,joint.childAnchor);
  for(const side of geometry.sides){
   const part=result.project.parts.find(p=>p.id===side.partId);

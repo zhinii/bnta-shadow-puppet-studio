@@ -1,4 +1,4 @@
-import {normalizeStudioProject,studioId,partTransforms,transformPoint,inverseMatrix,unitsPerMm,neutralProjectBounds,polygonArea,pointInPolygon,distanceToBoundary,selfIntersects,validateStudio} from './studio-model.mjs';
+import {normalizeStudioProject,studioId,partTransforms,transformPoint,inverseMatrix,unitsPerMm,neutralProjectBounds,polygonArea,pointInPolygon,distanceToBoundary,selfIntersects,validateStudio,roundedOverlapRadius} from './studio-model.mjs?v=0.7.7';
 
 const EPS=1e-7;
 // Finite paper-prototype heuristics, not material-strength limits. Broader
@@ -76,6 +76,38 @@ function ensureLockedUnchanged(before,after){
  }
 }
 function pinRadius(project,type,extra=0){const mm=unitsPerMm(project),web=Math.max(1,project.materialMm);return extra+mm*(type==='fixed'?Math.max(3,web+1):project.holeMm/2+web+.5);}
+function fullRoundOverlap(project,cuts){
+ const span=[cuts[1][0]-cuts[0][0],cuts[1][1]-cuts[0][1]],overlapSpans={parent:[...span],child:[...span]},mm=unitsPerMm(project);
+ const padRadius=Math.max(roundedOverlapRadius(overlapSpans),(project.holeMm/2+Math.max(2,project.materialMm*2))*mm);
+ if(padRadius>300)fail('This rounded joint is too large. Choose a narrower section or reduce the piece width.','JOINT_SIZE_LIMIT');
+ return {padRadius,overlapSpans};
+}
+
+/** Physical controls for both concentric ends; old joint sizes are never migrated. */
+export function getJointOverlapLimits(project,jointId){
+ const p=normalizeStudioProject(project),joint=p.joints.find(j=>j.id===jointId);
+ if(!joint)fail('Select an existing joint.','JOINT_NOT_FOUND');
+ const mm=unitsPerMm(p),web=Math.max(2,p.materialMm*2)*mm;
+ let minimum=Math.max(roundedOverlapRadius(joint.overlapSpans),joint.type==='fixed'?web:p.holeMm*mm/2+web);
+ for(const [partId,anchor] of [[joint.parentId,joint.parentAnchor],[joint.childId,joint.childAnchor]]){
+  const part=p.parts.find(piece=>piece.id===partId);
+  if(!pointInPolygon(anchor,part.polygon))minimum=Math.max(minimum,distanceToBoundary(anchor,part.polygon)+web);
+ }
+ return {diameterMm:2*joint.padRadius/mm,minDiameterMm:2*minimum/mm,maxDiameterMm:600/mm,fullWidth:!!joint.overlapSpans};
+}
+
+/** Change both round ends together, retaining hole size, rest pose and material scale. */
+export function setJointOverlapDiameter(project,jointId,diameterMm){
+ const before=normalizeStudioProject(project),p=copy(before),joint=p.joints.find(j=>j.id===jointId);
+ if(!joint)fail('Select an existing joint.','JOINT_NOT_FOUND');
+ if(p.parts.some(part=>part.locked&&(part.id===joint.parentId||part.id===joint.childId)))fail('Unlock both connected pieces before changing the joint size.','LOCKED_PART');
+ const limits=getJointOverlapLimits(before,jointId);
+ if(typeof diameterMm!=='number'||!Number.isFinite(diameterMm)||diameterMm<limits.minDiameterMm-EPS||diameterMm>limits.maxDiameterMm+EPS)fail(`Choose a joint width from ${Math.ceil(limits.minDiameterMm*10)/10} to ${Math.floor(limits.maxDiameterMm*10)/10} mm. Both rounded ends must cover the piece and support the hole.`,'JOINT_SIZE_RANGE');
+ joint.padRadius=Math.min(300,diameterMm*unitsPerMm(before)/2);
+ restorePhysicalScale(p,unitsPerMm(before));
+ const normalized=normalizeStudioProject(p);ensureLockedUnchanged(before,normalized);ensureGeometry(normalized);
+ return normalized;
+}
 
 /**
  * Split one local cut contour along an infinite line. The first result retains
@@ -120,11 +152,12 @@ export function splitPart(project,partId,lineStart,lineEnd,{connect=true,type='p
  let jointId=null;
  if(connect){
   const anchor=[(cuts[0][0]+cuts[1][0])/2,(cuts[0][1]+cuts[1][1])/2];jointId=studioId();
-  p.joints.push({id:jointId,parentId:partId,childId:newId,parentAnchor:[...anchor],childAnchor:[...anchor],type,angle:0,min:type==='fixed'?0:-90,max:type==='fixed'?0:90,padRadius:pinRadius(before,type)});
+  p.joints.push({id:jointId,parentId:partId,childId:newId,parentAnchor:[...anchor],childAnchor:[...anchor],type,angle:0,min:type==='fixed'?0:-90,max:type==='fixed'?0:90,...(type==='fixed'?{padRadius:pinRadius(before,type)}:fullRoundOverlap(before,cuts))});
  }
  restorePhysicalScale(p,unitsPerMm(before));
  const normalized=normalizeStudioProject(p);ensureLockedUnchanged(before,normalized);ensureGeometry(normalized);
  const warnings=[p.language==='zh'?'已保留原图像。检查关节重叠区：原图中被遮挡的细节不会自动重建。':'Original artwork is retained. Review the overlap around the new joint; hidden artwork has not been reconstructed.'];
+ if(validateStudio(normalized).some(issue=>issue.code==='ROUND_ENDS_OVERLAP'))warnings.push(p.language==='zh'?'相邻的圆形关节区域有重叠。请用纸样检查两个关节能否顺畅转动，并观察背光效果。':'Nearby rounded joint regions overlap. Test that both joints turn freely and check the backlit shadow with a paper prototype.');
  if(!connect)warnings.push(p.language==='zh'?'两个部件保持原位置，需要时再添加连接。':'The two pieces retain their positions. Add a connection if they should move together.');
  return {project:normalized,partIds:[partId,newId],jointId,warnings};
 }
@@ -186,7 +219,10 @@ export function suggestJointAt(project,partId,localPoint,{angleDegrees,sourcePol
  // incoming anchor requires the other arc. Manual splitPart remains infinite.
  const cutLine=best.hits.map(p=>[...p]);
  const result=splitPart(before,partId,...cutLine,{sectionPoint:best.pivot}),p=result.project,joint=p.joints.find(j=>j.id===result.jointId),child=p.parts.find(p=>p.id===result.partIds[1]);
- joint.padRadius=padRadius;joint.min=-60;joint.max=60;
+ // splitPart supplies the full-width round ends. The minimum fastener radius
+ // above is only for candidate area/spacing; using the full disk there would
+ // wrongly reject short, broad limbs and later cuts in a multi-joint plan.
+ joint.min=-60;joint.max=60;
  // Place the moving piece immediately over the retained body without changing
  // existing layers. At the maximum layer, insertion order is the tie breaker.
  const nextLayer=Math.min(...p.parts.filter(p=>p.id!==child.id&&p.z>part.z).map(p=>p.z));
@@ -221,6 +257,18 @@ function bestConnectionPoint(a,b){
  return {point:[(closest.a[0]+closest.b[0])/2,(closest.a[1]+closest.b[1])/2],gap:closest.gap,clearance:0};
 }
 
+function narrowExtent(points){
+ // A pair already exists, so there is no reliable split chord to preserve.
+ // Use its smaller oriented extent as a bounded starting width, never the
+ // torso's full width when the selected moving piece is a narrow limb.
+ let width=Infinity;
+ for(let i=0;i<36;i++){
+  const angle=i*Math.PI/36,c=Math.cos(angle),s=Math.sin(angle),values=points.map(p=>p[0]*c+p[1]*s);
+  width=Math.min(width,Math.max(...values)-Math.min(...values));
+ }
+ return width;
+}
+
 /** Suggest a geometric pivot for one explicitly chosen pair. Never auto-rig props. */
 export function suggestConnection(project,parentId,childId,{type='pivot',maxGapMm=8}={}){
  const before=normalizeStudioProject(project),p=copy(before),parent=p.parts.find(x=>x.id===parentId),child=p.parts.find(x=>x.id===childId);
@@ -234,7 +282,9 @@ export function suggestConnection(project,parentId,childId,{type='pivot',maxGapM
  const parentAngle=Math.atan2(transforms[parentId][1],transforms[parentId][0])*180/Math.PI,childAngle=Math.atan2(transforms[childId][1],transforms[childId][0])*180/Math.PI;
  const angle=((childAngle-parentAngle+540)%360)-180;
  if(type==='fixed'&&Math.abs(angle)>1e-5)fail('A fixed connection would rotate this child. Align the pieces first or use a pivot.','FIXED_ALIGNMENT');
- const joint={id:studioId(),parentId,childId,parentAnchor:transformPoint(inverseMatrix(transforms[parentId]),suggestion.point),childAnchor:transformPoint(inverseMatrix(transforms[childId]),suggestion.point),type,angle:type==='fixed'?0:angle,min:type==='fixed'?0:-180,max:type==='fixed'?0:180,padRadius:pinRadius(before,type,suggestion.gap/2)};
+ const padRadius=type==='fixed'?pinRadius(before,type,suggestion.gap/2):Math.max(pinRadius(before,type,suggestion.gap/2),(Math.min(narrowExtent(a),narrowExtent(b))+suggestion.gap)/(2*Math.cos(Math.PI/96)));
+ if(padRadius>300)fail('These pieces need a smaller joint region. Move their ends together or place the anchors yourself.','JOINT_SIZE_LIMIT');
+ const joint={id:studioId(),parentId,childId,parentAnchor:transformPoint(inverseMatrix(transforms[parentId]),suggestion.point),childAnchor:transformPoint(inverseMatrix(transforms[childId]),suggestion.point),type,angle:type==='fixed'?0:angle,min:type==='fixed'?0:-180,max:type==='fixed'?0:180,padRadius};
  p.joints.push(joint);restorePhysicalScale(p,mm);
  const normalized=normalizeStudioProject(p);ensureLockedUnchanged(before,normalized);ensureGeometry(normalized);
  const warnings=[p.language==='zh'?'这是根据形状重叠位置建议的连接，不是自动识别的解剖关节。请检查运动方向和图层顺序。':'This is a geometric connection suggestion, not an identified anatomical joint. Check the intended movement and layer order.'];

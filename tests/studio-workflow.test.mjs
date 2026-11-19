@@ -289,10 +289,11 @@ test('artwork, hand-drawn parts and connections survive portable project export'
     assert.deepEqual(project.joints[0].childAnchor,[50,40]);
     assert.ok(Math.abs(unitsPerMm(project)-drawingScale)<1e-8);
     assert.ok(Math.abs(project.joints[0].padRadius/unitsPerMm(project)-3)<1e-8,'default 3 mm overlap radius stays physical even on a 100 px image');
-    await h.change({dataset:{jointField:'padRadius'},type:'number',value:'4.2'});await h.settle();
+    assert.match(h.root.innerHTML,/data-overlap-size="part"[^>]*value="6"/,'the inspector shows the existing compact size without silently upgrading it');
+    await h.change({dataset:{overlapSize:'part',overlapJoint:project.joints[0].id},type:'number',value:'8.4'});await h.settle();
     project=h.project();
     assert.ok(Math.abs(project.joints[0].padRadius-4.2*drawingScale)<1e-8,'inspector millimetres convert into the calibrated design coordinates');
-    assert.match(h.root.innerHTML,/data-joint-field="padRadius"[^>]*value="4.2"/);
+    assert.match(h.root.innerHTML,/data-overlap-size="part"[^>]*value="8.4"/);
     await h.click({action:'rod'});
     await h.click({action:'select',id:parent.id});
     await h.point(30,70,parent.id);
@@ -927,6 +928,35 @@ test('a prepared joint plan rebuilds edits from the original and commits all joi
     await h.click({action:'undo'});assert.deepEqual(h.project(),before,'one undo restores the entire original before the plan');
     await h.click({action:'redo'});assert.deepEqual(h.project(),accepted);
   } finally {await h.close();}
+});
+
+test('joint diameter remains a reviewable choice through plan swaps and valid moves, and blocks a narrower size at a wider section',async()=>{
+ const h=browserHarness();h.setPlanResponse(()=>({selectedIds:[]}));
+ const sizeInput=()=>{const tag=h.root.innerHTML.match(/<input[^>]*data-overlap-size="plan"[^>]*>/)?.[0];assert.ok(tag,'the selected planned joint exposes a size control');return {id:tag.match(/data-overlap-joint="([^"]+)"/)[1],value:Number(tag.match(/value="([^"]+)"/)[1])};};
+ try{
+  await h.start('joint-size-plan');await h.settle();const project=createStudioProject();project.canvas={width:100,height:300};project.parts=[makePart('Stepped limb',[[0,0],[20,0],[20,100],[60,100],[60,300],[0,300]])];await h.openProject(project);const before=h.project();
+  await h.click({action:'prepare-joints'});await h.click({action:'plan-add'});await h.planPoint(10,60);assert.equal(h.error(),'');const marker=h.planMarkers()[0];
+  assert.match(h.root.innerHTML,/<details[^>]*joint-size[^>]*><summary>Joint size<\/summary>/);assert.match(h.root.innerHTML,/Pin hole：3 mm/);assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);
+  await h.change({dataset:{overlapSize:'plan',overlapJoint:sizeInput().id},value:'25'});assert.equal(h.error(),'');assert.equal(sizeInput().value,25);assert.deepEqual(h.project(),before);
+  h.planInput(30);await h.click({action:'plan-swap'});assert.equal(sizeInput().value,25,'front/back rebuild retains the chosen physical diameter');
+  await h.click({action:'plan-move'});await h.planPoint(10,80);assert.equal(h.error(),'');assert.equal(sizeInput().value,25);const location=h.planLocation(marker);
+  await h.click({action:'plan-move'});await h.planPoint(30,180);assert.match(h.error(),/Adjust Joint size before moving/);assert.deepEqual(h.planLocation(marker),location,'an invalid smaller overlap cannot partially install the wider-section cut');assert.equal(sizeInput().value,25);
+  await h.click({action:'plan-cancel'});await h.click({action:'dismiss-error'});await h.change({dataset:{overlapSize:'plan',overlapJoint:sizeInput().id},value:'1'});assert.ok(h.error());assert.equal(sizeInput().value,25);assert.deepEqual(h.project(),before);
+  await h.click({action:'dismiss-error'});await h.click({action:'accept'});const accepted=h.project(),joint=accepted.joints[0];assert.equal(accepted.joints.length,1);assert.ok(Math.abs(joint.padRadius*2/unitsPerMm(accepted)-25)<1e-7);assert.equal(accepted.holeMm,3);assert.equal(joint.angle,0);assert.ok(accepted.parts.find(p=>p.id===joint.childId).z<accepted.parts.find(p=>p.id===joint.parentId).z);assert.equal(h.requests.length,1);
+  await h.click({action:'undo'});assert.deepEqual(h.project(),before,'one undo restores the whole unaccepted source');
+ }finally{await h.close();}
+});
+
+test('single-joint size review and accepted edits retain hole size, respect locks, and remain undoable',async()=>{
+ const h=browserHarness();const reviewId=()=>h.root.innerHTML.match(/data-overlap-size="review" data-overlap-joint="([^"]+)"/)[1];
+ try{
+  await h.start('joint-size-review');await h.settle();const project=createStudioProject();project.canvas={width:100,height:240};project.parts=[makePart('Arm',[[0,0],[40,0],[40,240],[0,240]])];await h.openProject(project);const before=h.project();await h.click({action:'add-joint'});await h.point(20,120,before.parts[0].id);
+  assert.match(h.root.innerHTML,/Both rounded ends overlap/);await h.change({dataset:{overlapSize:'review',overlapJoint:reviewId()},value:'60'});assert.equal(h.error(),'');h.reviewInput(35);await h.click({action:'joint-swap'});assert.equal(h.reviewAngle(),'35°');assert.match(h.root.innerHTML,/data-overlap-size="review"[^>]*value="60"/);assert.deepEqual(h.project(),before);
+  await h.click({action:'accept'});const accepted=h.project(),joint=accepted.joints[0];assert.ok(Math.abs(joint.padRadius*2/unitsPerMm(accepted)-60)<1e-7);assert.equal(joint.angle,0);assert.equal(accepted.holeMm,3);assert.match(h.root.innerHTML,/data-overlap-joint=/,'accepted selected joints show their actual overlap');
+  await h.change({dataset:{overlapSize:'part',overlapJoint:joint.id},value:'70'});const enlarged=h.project();assert.ok(Math.abs(enlarged.joints[0].padRadius*2/unitsPerMm(enlarged)-70)<1e-7);assert.equal(enlarged.holeMm,3);await h.click({action:'undo'});assert.deepEqual(h.project(),accepted);
+  await h.click({action:'vertices'});h.key('ArrowRight',{dataset:{vertexIndex:'0'},tagName:'g'});assert.match(h.root.innerHTML,/Outline changed\. Check the joint size and movement before printing/);await h.click({action:'undo'});assert.deepEqual(h.project(),accepted);
+  const locked=structuredClone(accepted);locked.parts.find(p=>p.id===joint.parentId).locked=true;await h.openProject(locked);await h.click({action:'select',id:joint.childId});const protectedProject=h.project();assert.match(h.root.innerHTML,/data-overlap-size="part"[^>]*disabled/);await h.change({dataset:{overlapSize:'part',overlapJoint:joint.id},value:'80'});assert.ok(h.error());assert.deepEqual(h.project(),protectedProject);assert.equal(h.requests.length,0);
+ }finally{await h.close();}
 });
 
 test('front and back choices remain consistent through a multi-joint chain after later marker edits', async () => {

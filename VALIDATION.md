@@ -1,4 +1,14 @@
-# Validation · 17 November 2026
+# Validation — 19 November 2026
+
+## v0.7.7 full-width rounded overlaps
+
+**Automated:** all **264 tests pass**, including **47 workflow tests**. Syntax, production build, generated Worker syntax and the 22-asset smoke check pass. Nine new geometry tests, three renderer tests and two workflow tests cover complete round ends, independent pin holes, shared pivots, affine resizing, legacy-project preservation, optional diameter controls, locks, undo and atomic rejection of invalid size changes.
+
+New split joints use the actual section width for two completely overlapping circular ends. The renderer/export regressions use 24, 80 and 140-unit sections, straight and angled cuts, and bends from -60 to 60 degrees. They check the actual exported material contours and matching holes, not only the editing overlay. Stage, print and cut outputs use the same material geometry. Original image pixels are clipped to their own piece; the added overlap uses its editable backing color.
+
+**Reviewable artifacts:** [before/after engineering comparison](validation/v077-rounded-joints.svg), [printable paper prototype](validation/v077-rounded-print.html), [cut SVG](validation/v077-rounded-cut.svg), [editable test project](validation/v077-rounded-project.json), and [complete test log](validation/v077-test-run.txt). Recreate these with `node scripts/round-joint-fixture.mjs`. The comparison is a deterministic engineering test shape rendered by the application code, not traditional artwork or a browser screenshot.
+
+**Verification limits:** live browser automation was unavailable in this environment; no new live browser, phone or student usability trial is claimed. The prior v0.7.6 live journey is recorded separately below. Physical print calibration, material strength, rod control, projected overlap darkness and practitioner assessment remain outstanding. Direct outline-vertex edits display a review notice but do not recalculate stored section-width metadata. Separate-piece joining uses a geometric width estimate. Existing saved compact joints remain unchanged until explicitly edited. See [JOINT-DESIGN.md](JOINT-DESIGN.md) for the interim construction choices and next review.
 
 ## v0.7.6 background selection and middle-school recovery
 

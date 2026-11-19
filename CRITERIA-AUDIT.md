@@ -43,6 +43,8 @@ Current implementation: **v0.7.6**. The acceptance criteria come from the suppli
 
 16. **v0.7.6 background-recovery audit:** brought background selection onto the main task, added connected-area tapping with review/undo, a checkerboard and visible cut outline, a suspicious-rectangle pause and a direct repair path from failed joint plans. This addresses expert-inspection failures; it does not establish independent middle-school usability.
 
+17. **v0.7.7 rounded overlap:** new splits size both complete rounded ends to their section width. Physical diameter remains editable independently of holes; width/length changes update section coverage. Exported material and pin holes match preview geometry. Source pixels stay inside their original piece; added material uses editable backing color. These are interim classroom constructions pending practitioner/material review.
+
 ## Release judgment
 
 The current workflow prepares movement suggestions automatically, reducing the need to locate every joint from scratch. It retains review of character cleanup, explicit dot editing and one acceptance for the joint plan. Both pieces still receive real overlap material and matching pin holes. The final integrated checks and live observations are recorded in [VALIDATION.md](VALIDATION.md); historical counts and screenshots apply only to their named releases.

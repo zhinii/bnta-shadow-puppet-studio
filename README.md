@@ -1,6 +1,6 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.6**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.7**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
 [Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality list](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md) · [Middle-school usability audit](MIDDLE-SCHOOL-UX-AUDIT.md)
 
@@ -47,6 +47,10 @@ Each ready dot creates a shared pivot and rounded overlap material on **both** r
 Manual construction remains available under **More editing tools → Place one joint myself**: tap a narrow section and review a close-up of the joint. The solid blue outline marks the back tab, and the dashed orange outline marks the front tab; **Adjust joint** offers **Swap front / back** and **Choose another spot**. For already separate pieces, **Join two existing pieces** takes one tap on each piece and proposes matching anchors for review. Exact two-point cuts and two-anchor placement remain advanced alternatives.
 
 Both overlap tabs are united with their own piece's outer cut boundary, so cutting does not detach the tabs. The print guide labels the back and front pieces at each connection. Keep both tabs, punch the matching holes, and pass one paper fastener through the layers loosely enough for movement. Existing artwork stays intact; these added material tabs do not reconstruct hidden image content.
+
+## Rounded overlap joints
+
+New splits use complete rounded ends on both pieces, sized to the local section width. The hole remains independent. Open **Joint size** to review or adjust the physical overlap diameter; existing downloaded projects retain their saved sizes. Width/length edits keep the paired round ends large enough for the stored section. Added overlap uses the editable **Piece / overlap color**, while image pixels stay inside their own piece. Test each bend and the backlit appearance on a paper prototype. These are interim classroom defaults awaiting practitioner and material review; see [joint design and next review](JOINT-DESIGN.md).
 
 ## Optional editing tools
 

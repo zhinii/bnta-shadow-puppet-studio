@@ -62,7 +62,15 @@ function normalizeJoint(raw) {
   const min=number(raw.min,-120,-180,180),max=number(raw.max,120,-180,180);
   if(min>max)fail('A joint minimum cannot exceed its maximum.','INVALID_CONNECTION');
   const angle=type==='fixed'?0:number(raw.angle,0,min,max);
-  return {id:id(raw.id),parentId:id(raw.parentId,false),childId:id(raw.childId,false),parentAnchor:point(raw.parentAnchor),childAnchor:point(raw.childAnchor),type,angle,min:type==='fixed'?0:min,max:type==='fixed'?0:max,padRadius:number(raw.padRadius,12,0,300)};
+  // Optional full-width chord vectors belong to the two pieces, not the screen.
+  // Legacy projects have no vectors and keep their original overlap unchanged.
+  let overlapSpans;
+  if(raw.overlapSpans!==undefined){
+    if(!record(raw.overlapSpans))fail('Rounded joints need two valid width vectors.','INVALID_CONNECTION');
+    overlapSpans={parent:point(raw.overlapSpans.parent),child:point(raw.overlapSpans.child)};
+    if(Object.values(overlapSpans).some(span=>Math.hypot(...span)<=EPS))fail('Rounded joint widths must be positive.','INVALID_CONNECTION');
+  }
+  return {id:id(raw.id),parentId:id(raw.parentId,false),childId:id(raw.childId,false),parentAnchor:point(raw.parentAnchor),childAnchor:point(raw.childAnchor),type,angle,min:type==='fixed'?0:min,max:type==='fixed'?0:max,padRadius:number(raw.padRadius,12,0,300),...(overlapSpans?{overlapSpans}:{})};
 }
 function normalizeAsset(raw) {
   if(!record(raw)||typeof raw.dataUrl!=='string'||raw.dataUrl.length>20*1024*1024||!rasterPattern.test(raw.dataUrl))fail('Artwork must be an embedded PNG, JPEG or WebP image of at most 15 MB.','INVALID_ASSET');
@@ -166,6 +174,11 @@ export function jointGeometry(project,joint) {
   return {holeRadius:joint.type==='fixed'?0:project.holeMm*unitsPerMm(project)/2,padRadius:joint.padRadius,sides:[{partId:joint.parentId,anchor:[...joint.parentAnchor]},{partId:joint.childId,anchor:[...joint.childAnchor]}]};
 }
 
+/** Circumscribed 96-edge circle: its shortest radius still covers the full chord. */
+export function roundedOverlapRadius(spans) {
+  return spans?Math.max(Math.hypot(...spans.parent),Math.hypot(...spans.child))/(2*Math.cos(Math.PI/96)):0;
+}
+
 export function polygonArea(points) { let twice=0;for(let i=0;i<points.length;i++){const p=points[i],q=points[(i+1)%points.length];twice+=p[0]*q[1]-q[0]*p[1];}return twice/2; }
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 export function distanceToSegment(p,a,b) {const dx=b[0]-a[0],dy=b[1]-a[1],length=dx*dx+dy*dy,t=length?Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/length)):0;return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);}
@@ -205,6 +218,7 @@ export function validateStudio(project) {
   }
   for(const joint of p.joints){
     const holeRadius=joint.type==='fixed'?0:p.holeMm*mm/2,minWeb=Math.max(1,p.materialMm)*mm;
+    if(joint.overlapSpans&&joint.padRadius+EPS<roundedOverlapRadius(joint.overlapSpans))issue('error','INCOMPLETE_ROUND_OVERLAP','The rounded joint must cover the complete width of both pieces.',joint.childId);
     for(const [partId,anchor]of [[joint.parentId,joint.parentAnchor],[joint.childId,joint.childAnchor]]){
       const part=partMap.get(partId),inside=pointInPolygon(anchor,part.polygon),boundary=distanceToBoundary(anchor,part.polygon),pad=joint.padRadius;
       if(!inside&&boundary>=pad-EPS)issue('error','DETACHED_JOINT_PAD',part.name+': the connection tab does not overlap its cut shape.',partId);
@@ -223,6 +237,13 @@ export function validateStudio(project) {
       if(separation<diameter-EPS)issue('error','HOLES_OVERLAP',part.name+': two distinct pin holes overlap. Separate them or use one shared pin center.',part.id);
       else if(separation-diameter<minWeb)issue('warning','NARROW_HOLE_WEB',part.name+': leave at least '+Math.max(1,p.materialMm)+' mm material between separate pin holes.',part.id);
     }
+    const ends=p.joints.filter(j=>j.type!=='fixed'&&(j.parentId===part.id||j.childId===part.id));let overlappingEnds=false;
+    for(let i=0;i<ends.length;i++)for(let k=i+1;k<ends.length;k++){
+      if(!ends[i].overlapSpans&&!ends[k].overlapSpans)continue;
+      const a=ends[i].parentId===part.id?ends[i].parentAnchor:ends[i].childAnchor,b=ends[k].parentId===part.id?ends[k].parentAnchor:ends[k].childAnchor,separation=distance(a,b);
+      if(separation>EPS&&separation<ends[i].padRadius+ends[k].padRadius-EPS)overlappingEnds=true;
+    }
+    if(overlappingEnds)issue('warning','ROUND_ENDS_OVERLAP',part.name+': nearby rounded joint regions overlap. Test that both joints turn freely and check the backlit shadow.',part.id);
   }
   for(const rod of p.rods)if(!pointInPolygon(rod.point,partMap.get(rod.partId).polygon))issue('error','ROD_OUTSIDE_PART',partMap.get(rod.partId).name+': the rod attachment is outside the cut shape.',rod.partId);
   if(p.parts.length>1&&p.rods.length===0)issue('warning','NO_CONTROL_ROD','Add a control rod attachment or plan how the puppet will be held.');
@@ -301,6 +322,8 @@ export function assertLockedPartsUnchanged(before,after){
  for(const old of before.parts.filter(p=>p.locked)){
   const next=after.parts.find(p=>p.id===old.id);
   if(!next||!same(old.polygon,next.polygon)||!same(old.artworkMatrix||paramIdentity,next.artworkMatrix||paramIdentity)||old.assetId!==next.assetId||old.fill!==next.fill||old.z!==next.z||old.locked!==next.locked||!oldTransforms[old.id].every((n,i)=>paramClose(n,newTransforms[old.id][i])))throw paramFailure('This change would alter or move the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
+  const pads=project=>project.joints.filter(j=>j.parentId===old.id||j.childId===old.id).map(j=>({id:j.id,anchor:j.parentId===old.id?j.parentAnchor:j.childAnchor,radius:j.padRadius}));
+  if(!same(pads(before),pads(after)))throw paramFailure('This change would resize a joint on the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
  }
  return after;
 }
@@ -342,7 +365,16 @@ export function resizePart(project,id,dimensions={}){
  const matrix=multiplyMatrices(multiplyMatrices(multiplyMatrices(multiplyMatrices(paramTranslate(origin),frame),ratios),inverseFrame),paramTranslate(origin.map(v=>-v)));
  part.polygon=part.polygon.map(point=>transformPoint(matrix,point));
  part.artworkMatrix=multiplyMatrices(matrix,part.artworkMatrix);
- for(const joint of p.joints){if(joint.parentId===id)joint.parentAnchor=transformPoint(matrix,joint.parentAnchor);if(joint.childId===id)joint.childAnchor=transformPoint(matrix,joint.childAnchor);}
+ for(const joint of p.joints){
+  const extra=joint.overlapSpans?Math.max(0,joint.padRadius-roundedOverlapRadius(joint.overlapSpans)):0;
+  const vector=span=>[matrix[0]*span[0]+matrix[2]*span[1],matrix[1]*span[0]+matrix[3]*span[1]];
+  if(joint.parentId===id){joint.parentAnchor=transformPoint(matrix,joint.parentAnchor);if(joint.overlapSpans)joint.overlapSpans.parent=vector(joint.overlapSpans.parent);}
+  if(joint.childId===id){joint.childAnchor=transformPoint(matrix,joint.childAnchor);if(joint.overlapSpans)joint.overlapSpans.child=vector(joint.overlapSpans.child);}
+  if(joint.overlapSpans&&(joint.parentId===id||joint.childId===id)){
+   joint.padRadius=Math.max(roundedOverlapRadius(joint.overlapSpans)+extra,(before.holeMm/2+Math.max(2,before.materialMm*2))*unitsPerMm(before));
+   if(joint.padRadius>300)throw paramFailure('This joint would be too large. Reduce the piece width.','JOINT_SIZE_LIMIT');
+  }
+ }
  for(const rod of p.rods)if(rod.partId===id)rod.point=transformPoint(matrix,rod.point);
  part.parameters={...part.parameters,width,length,origin:transformPoint(matrix,part.parameters.origin)};
  // Preserve all other material dimensions. Explicit whole-puppet height edits

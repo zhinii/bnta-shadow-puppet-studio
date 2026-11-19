@@ -1,4 +1,4 @@
-import {selfIntersects, polygonArea, boundsOf} from './studio-model.mjs';
+import {selfIntersects, polygonArea, boundsOf} from './studio-model.mjs?v=0.7.7';
 
 // Local pixel tools. These identify connected pixels, not anatomical parts.
 // Every returned boundary is in the original image's pixel coordinate system.
