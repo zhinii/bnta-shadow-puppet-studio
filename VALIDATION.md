@@ -1,5 +1,11 @@
 # Validation — 19 November 2026
 
+## v0.7.10 creation choices
+
+Style/setting tests verify all four artwork styles and three era choices reach both legacy and native image prompts, as well as editable text draft context. They preserve the student's exact description and prompt budget and do not mutate accepted artwork. Workflow tests check clearer labels, choice-specific explanations, and removal of all four starting-shape buttons. Existing test rigs now load through project import instead of the removed UI action.
+
+These are deterministic request and interaction checks. No new live image comparison or browser/mobile layout observation was performed for this copy and control-removal update; model obedience to each visual style remains subject to image review.
+
 ## v0.7.9 student-controlled joint size
 
 All **303 automated tests pass**. Geometry and workflow regressions cover shrinking both tabs while retaining pin holes, shared pivots, physical scale and connection topology; stable zoom during slider input and release; current-pose contact warnings; one undo per completed drag; plan rebuilds, cancellation, locks and portable project round trips. English and Chinese controls are checked outside collapsed sections. Syntax, production build, generated Worker syntax and 23-asset smoke checks pass.

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createStudioProject, makePart, partTransforms, transformPoint, unitsPerMm} from '../public/studio-model.mjs';
 import {serializeStudioProject, parseStudioProject} from '../public/studio-storage.mjs';
+import {createStarter} from '../public/studio-starters.mjs';
 import {deflateSync} from 'node:zlib';
 
 function fixturePng(raster) {
@@ -181,6 +182,13 @@ function browserHarness() {
   };
 }
 const PNG='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+// Prepared test geometry enters through the same portable-project opening flow
+// used by saved student work. Templates are no longer student-facing buttons.
+async function openRigFixture(h,kind='figure'){
+ const current=h.project(),project=createStarter(kind,{language:current.language});
+ project.title=current.title;project.brief={...current.brief};
+ await h.openProject(project);await h.click({action:'select',id:project.parts[0].id});
+}
 function legacyImageStatus(url){return String(url).endsWith('/api/status')?{ok:true,status:200,json:async()=>({service:'Shadow Puppet Studio',configured:true})}:{ok:false,status:404,json:async()=>({error:'not_found'})};}
 
 test('cold startup waits for known image capabilities without sending a surprise text draft', async () => {
@@ -208,7 +216,7 @@ test('superseded capability checks cannot change the current session or endpoint
   const response=imageGeneration=>({ok:true,status:200,json:async()=>({version:2,text:true,imageGeneration,vision:false,status:'Connected.'})});
   try {
     await h.start('stale-capability-checks');assert.equal(pending.length,1);
-    await h.click({action:'starter',kind:'figure'});assert.ok(h.project().parts.length,'local starters remain usable during the connection check');
+    await openRigFixture(h);assert.ok(h.project().parts.length,'saved projects remain usable during the connection check');
     await h.click({action:'new-project'});assert.equal(pending.length,2,'New restarts an unfinished capability check');
     h.input('create-prompt','New session cosmic bird');pending[1].resolve(response(false));await h.settle();
     pending[0].resolve(response(true));await h.settle();
@@ -239,10 +247,10 @@ test('three-stage student workflow keeps AI edits reviewable and undoable', asyn
     assert.match(h.root.innerHTML,/Image editing<\/span><strong>Not available/);
     await h.click({action:'settings'});
 
-    await h.click({action:'starter',kind:'tentacles'});
+    await openRigFixture(h,'tentacles');
     await h.settle();
     const before=structuredClone(h.project());
-    assert.ok(before.parts.length>6,'starter supports many custom appendages');
+    assert.ok(before.parts.length>6,'the imported fixture supports many custom appendages');
     const first=before.parts[0];
     await h.click({action:'step',step:'refine'});
     const prompt='Make this specific piece deep blue. Keep all six tentacles, its white coat, and the current connections. 保留轮廓。';
@@ -377,7 +385,7 @@ test('an unsubmitted custom prompt stays in the session and a new Create proposa
     assert.equal(h.project().brief.keywords,prompt);
     assert.equal(h.requests.length,0,'typing does not send a generation request');
     assert.doesNotMatch(h.status.textContent,/Saved on this device/);
-    await h.click({action:'starter',kind:'figure'});
+    await openRigFixture(h);
     await h.settle();
     const before=structuredClone(h.project());
     h.setResponse(()=>({reply:'Review this completely new draft before replacing the construction.',proposal:{parts:[{id:'new-star-chart',name:'Star chart',polygon:[[100,100],[200,100],[250,200],[200,300],[100,300],[50,200]],fill:'#244466'}],joints:[]}}));
@@ -405,7 +413,7 @@ test('fixed connections can move again and AI receives the selected part without
   try {
     await h.start('connection-selection');
     await h.settle();
-    await h.click({action:'starter',kind:'figure'});
+    await openRigFixture(h);
     await h.settle();
     let project=h.project();
     const joint=project.joints.find(j=>j.type==='pivot')||project.joints[0];
@@ -552,7 +560,7 @@ test('local resize protects locked descendants and New discards a pending image 
   h.setRaster(rasterFixture({rectangles:[{x:20,y:10,w:50,h:80,color:[170,45,25,255]}]}));
   try {
     await h.start('locked-parameter-and-stale');await h.settle();
-    await h.click({action:'starter',kind:'figure'});await h.settle();
+    await openRigFixture(h);await h.settle();
     const project=h.project(),joint=project.joints.find(j=>j.parentId===project.parts[0].id)||project.joints[0];
     await h.click({action:'select',id:joint.childId});await h.click({action:'lock'});await h.settle();
     const before=structuredClone(h.project());await h.click({action:'select',id:joint.parentId});
@@ -625,11 +633,17 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
   h.setResponse(()=>({dataUrl:generated,model:'configured-image-model',kind:'reference'}));
   try {
     await h.start('generation-only-relay');await h.settle();
+    assert.doesNotMatch(h.root.innerHTML,/data-action="starter"|Jointed figure|Wide sleeves|Winged creature|Tentacled character/);
+    assert.match(h.root.innerHTML,/Optional look and setting/);assert.match(h.root.innerHTML,/Time or setting/);assert.match(h.root.innerHTML,/Artwork style/);
+    assert.equal((h.root.innerHTML.match(/value="" selected>Use my description/g)||[]).length,3);
+    assert.match(h.root.innerHTML,/Changing them does not change existing artwork/);
     const project=createStudioProject();project.canvas={width:100,height:100};project.assets=[{id:'kept-original',name:'Original piece',mime:'image/png',dataUrl:original,width:100,height:100}];project.conceptAssetId='kept-original';
     project.parts=[makePart('Protected original piece',[[5,10],[13,10],[13,90],[5,90]],'kept-original')];project.parts[0].locked=true;
     await h.openProject(project);await h.click({action:'step',step:'create'});
     assert.deepEqual(primaryActions(h.root.innerHTML),['next-stage'],'an existing character has one primary continuation while Change my idea stays collapsed');assert.match(h.root.innerHTML,/<details class="create-again"/);assert.match(h.root.innerHTML,/data-action="generate-image"/);assert.match(h.root.innerHTML,/data-action="create-plan"/);
     await h.change({dataset:{field:'brief.kind'},value:'human'});await h.change({dataset:{field:'brief.era'},value:'modern'});await h.change({dataset:{field:'brief.style'},value:'paper-cut'});
+    assert.match(h.root.innerHTML,/Present-day clothing and objects/);assert.match(h.root.innerHTML,/Flat coloured shapes with paper-cut details/);
+    assert.deepEqual(h.project().parts,project.parts,'optional generation choices leave accepted artwork alone');assert.equal(h.requests.length,0);
     const prompt='A doctor 医生 with a long white coat, two arms and a blue book; keep every finger inside the frame.';h.input('create-prompt',prompt);await h.settle();
     const before=structuredClone(h.project());
     await h.click({action:'view-shadow'});await h.change({dataset:{view:'concept'},checked:false});
@@ -774,7 +788,7 @@ test('a new generated character prepares before reusing an old rig, keeps chosen
   const h=browserHarness(),raster=decoratedHorseFixture(),original=h.setRaster(raster);
   h.setGetResponse(legacyImageStatus);h.setResponse(()=>({dataUrl:original,model:'configured-image-model',kind:'reference'}));
   try {
-    await h.start('subject-selection-and-locks');await h.settle();await h.click({action:'starter',kind:'figure'});
+    await h.start('subject-selection-and-locks');await h.settle();await openRigFixture(h);
     const oldRig=structuredClone(h.project());assert.ok(oldRig.joints.length);assert.ok(oldRig.parts.every(part=>!part.locked));
     await h.click({action:'step',step:'create'});h.input('create-prompt','A brown horse with a blue saddle and a separate ball.');
     await h.click({action:'generate-image'});await h.click({action:'accept'});await h.settle();
@@ -839,7 +853,7 @@ test('a drawing-plan response containing advice without editable shapes remains 
 test('keyboard part and joint buttons and clicking a joint select the correct inspector without changing geometry', async () => {
   const h=browserHarness();
   try {
-    await h.start('keyboard-and-mouse-selection');await h.settle();await h.click({action:'starter',kind:'figure'});await h.settle();
+    await h.start('keyboard-and-mouse-selection');await h.settle();await openRigFixture(h);await h.settle();
     const before=structuredClone(h.project()),joint=before.joints[0];
     assert.equal(h.key('Enter',{partId:joint.parentId}),true,'Enter activates the advertised SVG part button');
     assert.ok(h.root.innerHTML.includes(`class="part-item selected" data-action="select" data-id="${joint.parentId}"`));assert.equal(h.focusedSelectors.at(-1),`[data-part-id="${joint.parentId}"]`,'keyboard selection restores focus after rendering');
@@ -859,7 +873,7 @@ test('projects remain session-only across reload, back-forward restoration and N
     await h.start('fresh-session');await h.settle();
     assert.equal(h.project().title,'');assert.equal(h.project().brief.keywords,'');assert.equal(h.project().parts.length,0,'startup ignores legacy browser projects');
     assert.equal(h.legacyRecords.size,0,'startup clears the previous browser-stored project');
-    await h.click({action:'starter',kind:'figure'});h.input('create-prompt','My session-only blue storyteller');await h.settle();
+    await openRigFixture(h);h.input('create-prompt','My session-only blue storyteller');await h.settle();
     const current=h.project();assert.ok(current.parts.length);assert.equal(current.brief.keywords,'My session-only blue storyteller');
     await h.click({action:'save-project'});assert.equal(h.downloads.length,1);const downloaded=parseStudioProject(await h.downloads[0].blob.text());
     assert.deepEqual(downloaded.parts,current.parts);assert.equal(downloaded.brief.keywords,current.brief.keywords);
@@ -896,7 +910,7 @@ test('reset cancels an old generation without overwriting a new session or its n
 test('a pending review isolates angle and shape controls until the student accepts the proposal', async () => {
   const h=browserHarness();
   try {
-    await h.start('review-control-isolation');await h.settle();await h.click({action:'starter',kind:'figure'});
+    await h.start('review-control-isolation');await h.settle();await openRigFixture(h);
     const childId=h.project().joints[0].childId;await h.click({action:'select',id:childId});
     h.setResponse(()=>({reply:'Review the selected piece at 110% width.',proposal:{parts:[{id:childId,parameters:{width:1.1}}]}}));
     h.input('revision-prompt','Make this piece 10% wider.');h.submit('refine-form');await h.settle();const before=h.project();assert.match(h.root.innerHTML,/id="review-heading"/);assert.equal(h.canvasMarkup(),'');

@@ -1,18 +1,18 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.9**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.10**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
 [Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality list](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md) · [Middle-school usability audit](MIDDLE-SCHOOL-UX-AUDIT.md)
 
 ## Design your own character
 
-1. **Create:** describe your own historical, modern, fictional or real-world character and choose **Create character**. Optional style fields and construction templates stay under **Choose a style or starting shape**. You can also upload PNG/JPEG/WebP artwork.
+1. **Create:** describe your own historical, modern, fictional or real-world character and choose **Create character**. **Optional look and setting** contains **Time or setting** (past, present or imaginary) and **Artwork style** (decorative shadow puppet, paper-cut, bold illustration or silhouette). Leave them on **Use my description** to give these instructions in your own words. They guide the next generation; selecting them does not restyle existing artwork. You can also upload PNG/JPEG/WebP artwork.
 2. **Refine:** check the **Remove the background** preview. If background remains, choose **Tap background to remove** and tap the space around the character. Squares show empty space; the green line shows the cut edge. **Continue to movement** then prepares a plan of numbered movement dots. In **Make it move**, adjust or remove dots, try each joint, then choose **Use these joints** once for the whole plan.
 3. **Make:** set the **print height**, check the geometry, and choose **Print puppet**. Material settings and SVG exports are under **Materials & file options**.
 
 The canvas presents one next action at a time. The default review shows the result; **Compare with original** switches to the original, and **Show result** returns to the proposal. Accept or keep the original before continuing. There is no required four-step Refine submenu or default three-way comparison.
 
-The first screen contains no authored character or story. The former decoration module is absent. Optional construction templates provide different structures: an articulated figure, broad sleeves and a long skirt, wings and a tail, or six tentacles. They are editable geometry, not AI-generated images.
+The first screen contains no authored character or story. The former decoration module is absent. The four starting-shape buttons have been removed from the student interface. Create from a description or upload an image; manual drawing remains available in Refine.
 
 Artwork, cut contours and connections are separate. Imported or generated artwork retains texture and colors inside editable cut contours. Characters are not restricted to ten human body parts: a character can contain up to 80 pieces with arbitrary connection trees.
 
@@ -77,11 +77,11 @@ The original image cannot supply artwork hidden behind a sleeve or arm. Extend o
 
 ## AI capabilities and current deployment
 
-**Image generation is connected to the new editor.** In Create, enter a custom prompt, optionally choose a style or starting shape, and select **Create character**. Review the image in the main workspace. In an empty project, accepting it automatically opens the local character cleanup review; accepting cleanup then prepares the joint plan. Existing pieces keep their original artwork until you deliberately replace or rebuild them.
+**Image generation is connected to the new editor.** In Create, enter a custom prompt, optionally choose the artwork style and time or setting, and select **Create character**. Review the image in the main workspace. In an empty project, accepting it automatically opens the local character cleanup review; accepting cleanup then prepares the joint plan. Existing pieces keep their original artwork until you deliberately replace or rebuild them.
 
 The browser uses Kimi's protected `/api/puppet/image` route. Its portable image response is decoded, resized to at most 1600 pixels on the longest side and held as a normal project asset in memory. It is included when you explicitly download the project. The adapter makes one generation request and does not silently repeat paid calls after a failure. Earlier verified provider responses identified `wan2.7-image-pro`.
 
-**Prompt limits depend on the route.** The existing Kimi image route accepts at most **800 characters in the complete prompt**, including the student's exact description and selected character, era, style and action settings. The optional v2 service and text-design requests retain a **4,000-character input limit**. Create shows a live character count and the available input budget after selected settings are included. During the initial connection check, it displays “Checking allowance…” and waits before enabling AI creation, so an early click cannot unexpectedly start a text draft. Uploads and construction starters remain available.
+**Prompt limits depend on the route.** The existing Kimi image route accepts at most **800 characters in the complete prompt**, including the student's exact description and selected character, era, style and action settings. The optional v2 service and text-design requests retain a **4,000-character input limit**. Create shows a live character count and the available input budget after selected settings are included. During the initial connection check, it displays “Checking allowance…” and waits before enabling AI creation, so an early click cannot unexpectedly start a text draft. Image upload remains available.
 
 The v0.5.1 adapter preserves the student's wording and all selected settings. It adds compact optional image guidance only when space remains. It does not shorten the student's text or silently discard chosen presets to make the request fit. If the required content is too long, the request is stopped before sending and the student can shorten it or change selections. Request errors and progress appear beside the Create controls, where the prompt can be corrected.
 

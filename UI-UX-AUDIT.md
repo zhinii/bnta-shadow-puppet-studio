@@ -1,6 +1,10 @@
 # UI/UX re-audit — simplicity first
 
-## Current v0.7.9 visible joint size - 19 November 2026
+## Current v0.7.10 understandable creation options - 19 November 2026
+
+Removed the four construction starter buttons. Renamed World to Time or setting and Style to Artwork style. Each choice has a short explanation; the default Use my description adds no extra setting. The panel explains that choices guide the next generated image and do not change accepted artwork. English and Chinese copy were updated. Tests verify every option reaches both image routes and text drafting, that student wording stays intact, and that changing choices leaves existing parts unchanged. This verifies wiring and behaviour, not model obedience or a live visual comparison.
+
+## Previous v0.7.9 visible joint size - 19 November 2026
 
 Students could not discover the numeric size field inside collapsed controls, and the full-width minimum prevented shrinking many default circles. Joint size now appears beside movement in single-joint review, the automatic plan and the selected-piece inspector. A Smaller/Larger slider and millimetre input resize both tabs; the pin stays fixed. Dragging updates artwork immediately without replacing the active slider. Close-up framing stays fixed on input and release. Changes remain reviewable or undoable and are retained in downloaded projects.
 
