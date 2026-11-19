@@ -1,5 +1,5 @@
-import {getJointArtworkPlan,jointArtworkMapping} from './studio-joint-artwork.mjs?v=0.7.8';
-import {partTransforms, transformPoint, neutralProjectBounds, unitsPerMm, validateStudio, inverseMatrix} from './studio-model.mjs?v=0.7.8';
+import {getJointArtworkPlan,jointArtworkMapping} from './studio-joint-artwork.mjs?v=0.7.9';
+import {partTransforms, transformPoint, neutralProjectBounds, unitsPerMm, validateStudio, inverseMatrix} from './studio-model.mjs?v=0.7.9';
 
 // Artwork, cut geometry and joints are independent. All geometry is in artwork
 // units until the last print transform, where one SVG unit is one millimetre.

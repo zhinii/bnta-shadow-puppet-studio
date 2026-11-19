@@ -39,6 +39,20 @@ function primaryActions(markup) {
   }
   return actions;
 }
+function visibleJointSlider(markup,scope) {
+  const details=[];
+  for(const tag of markup.match(/<\/?[a-z][^>]*>/gi)||[]){
+    if(/^<details\b/i.test(tag))details.push(/\sopen(?:\s|=|>)/.test(tag));
+    else if(/^<\/details/i.test(tag))details.pop();
+    else if(/^<input\b/i.test(tag)&&tag.includes('data-overlap-slider="'+scope+'"')){
+      assert.ok(details.every(Boolean),'joint size is visible without opening advanced controls');
+      assert.match(tag,/type="range"/);
+      assert.match(tag,/aria-label="[^"]+"/,'the slider has an accessible name');
+      return tag;
+    }
+  }
+  assert.fail('Missing '+scope+' joint-size slider');
+}
 function jointPlanCandidates(body) {
   const prefix='Candidate table columns: [id,localPoint,cutAngle,position,smallerRegionAreaFraction,smallerRegionBounds]. ';
   if(typeof body.prompt==='string'&&body.prompt.includes(prefix)){
@@ -62,6 +76,7 @@ function browserHarness() {
   const previous = new Map(['document','window','localStorage','indexedDB','fetch','setTimeout','clearTimeout','createImageBitmap'].map(k=>[k,globalThis[k]]));
   const originalCreateURL = URL.createObjectURL, originalRevokeURL = URL.revokeObjectURL;
   const nativeTimeout = globalThis.setTimeout;
+  const overlapHints=Object.fromEntries(['review','plan','part'].map(scope=>[scope,{textContent:'',hidden:true}]));
   const timers = new Set();
   const target = ({dataset={},canvas=false,planCanvas=false,planMarker=null,partId=null,jointId=null,...rest}={}) => ({dataset,...rest,closest(selector) {
     if(selector==='#puppet-canvas')return canvas ? this : null;
@@ -89,6 +104,7 @@ function browserHarness() {
     if(['#plan-canvas','#plan-canvas svg'].includes(selector)&&!root.innerHTML.includes('id="plan-canvas"'))return null;
     if(selector==='#review-heading'||selector==='#cleanup-heading')return {focus(){focusedSelectors.push(selector);}};
     if(selector==='#relay-url')return root.innerHTML.includes('id="relay-url"')?relayInput:null;
+    if(selector.startsWith('#overlap-hint-'))return overlapHints[selector.slice('#overlap-hint-'.length)]||null;
     if(selector==='#ai-status-button')return {focus(){focusedSelectors.push(selector);}};
     if(selector==='.canvas-panel')return {scrollIntoView(options){scrollRequests.push(options);}};
     if(/^\[data-vertex-index=/.test(selector))return {focus(){focusedSelectors.push(selector);},setAttribute(){},getBoundingClientRect:rect};
@@ -133,6 +149,7 @@ function browserHarness() {
     resizeCanvas(width,height){viewport={width,height};windowListeners.get('resize')?.();},
     focusPlanMarker(id){globalThis.document.activeElement=target({planMarker:id});},
     reviewAngle:()=>reviewAngle.textContent,
+    overlapHint:scope=>overlapHints[scope],
     viewBox:()=>canvas.innerHTML.match(/viewBox="([^"]+)"/)?.[1].split(' ').map(Number),
     pageShow:async persisted=>{windowListeners.get('pageshow')?.({persisted});await settle();},
     error:()=>root.innerHTML.match(/class="error-banner" role="alert">([^<]*)/)?.[1]||'',
@@ -150,6 +167,7 @@ function browserHarness() {
     jointInput:(key,value)=>rootListeners.get('input')({target:target({dataset:{jointField:key},value})}),
     reviewInput:value=>rootListeners.get('input')({target:target({dataset:{reviewAngle:''},type:'range',value:String(value)})}),
     planInput:value=>rootListeners.get('input')({target:target({dataset:{planAngle:''},type:'range',value:String(value)})}),
+    overlapInput:(scope,id,value)=>rootListeners.get('input')({target:target({dataset:{overlapSlider:scope,overlapJoint:id},type:'range',value:String(value)})}),
     change:el=>rootListeners.get('change')({target:target(el)}),
     submit:id=>rootListeners.get('submit')({target:{id},preventDefault(){}}),
     point:(x,y,partId=null)=>rootListeners.get('click')({target:target({canvas:true,partId}),clientX:x,clientY:y}),
@@ -930,17 +948,17 @@ test('a prepared joint plan rebuilds edits from the original and commits all joi
   } finally {await h.close();}
 });
 
-test('joint diameter remains a reviewable choice through plan swaps and valid moves, and blocks a narrower size at a wider section',async()=>{
+test('chosen joint diameter remains reviewable through plan swaps and wider-section moves while rejecting an undersized pin tab',async()=>{
  const h=browserHarness();h.setPlanResponse(()=>({selectedIds:[]}));
  const sizeInput=()=>{const tag=h.root.innerHTML.match(/<input[^>]*data-overlap-size="plan"[^>]*>/)?.[0];assert.ok(tag,'the selected planned joint exposes a size control');return {id:tag.match(/data-overlap-joint="([^"]+)"/)[1],value:Number(tag.match(/value="([^"]+)"/)[1])};};
  try{
   await h.start('joint-size-plan');await h.settle();const project=createStudioProject();project.canvas={width:100,height:300};project.parts=[makePart('Stepped limb',[[0,0],[20,0],[20,100],[60,100],[60,300],[0,300]])];await h.openProject(project);const before=h.project();
   await h.click({action:'prepare-joints'});await h.click({action:'plan-add'});await h.planPoint(10,60);assert.equal(h.error(),'');const marker=h.planMarkers()[0];
-  assert.match(h.root.innerHTML,/<details[^>]*joint-size[^>]*><summary>Joint size<\/summary>/);assert.match(h.root.innerHTML,/Pin hole：3 mm/);assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);
+  visibleJointSlider(h.root.innerHTML,'plan');assert.deepEqual(primaryActions(h.root.innerHTML),['accept']);
   await h.change({dataset:{overlapSize:'plan',overlapJoint:sizeInput().id},value:'25'});assert.equal(h.error(),'');assert.equal(sizeInput().value,25);assert.deepEqual(h.project(),before);
   h.planInput(30);await h.click({action:'plan-swap'});assert.equal(sizeInput().value,25,'front/back rebuild retains the chosen physical diameter');
   await h.click({action:'plan-move'});await h.planPoint(10,80);assert.equal(h.error(),'');assert.equal(sizeInput().value,25);const location=h.planLocation(marker);
-  await h.click({action:'plan-move'});await h.planPoint(30,180);assert.match(h.error(),/Adjust Joint size before moving/);assert.deepEqual(h.planLocation(marker),location,'an invalid smaller overlap cannot partially install the wider-section cut');assert.equal(sizeInput().value,25);
+  await h.click({action:'plan-move'});await h.planPoint(30,180);assert.equal(h.error(),'');assert.notDeepEqual(h.planLocation(marker),location,'a custom compact overlap can move to a wider section');assert.equal(sizeInput().value,25);
   await h.click({action:'plan-cancel'});await h.click({action:'dismiss-error'});await h.change({dataset:{overlapSize:'plan',overlapJoint:sizeInput().id},value:'1'});assert.ok(h.error());assert.equal(sizeInput().value,25);assert.deepEqual(h.project(),before);
   await h.click({action:'dismiss-error'});await h.click({action:'accept'});const accepted=h.project(),joint=accepted.joints[0];assert.equal(accepted.joints.length,1);assert.ok(Math.abs(joint.padRadius*2/unitsPerMm(accepted)-25)<1e-7);assert.equal(accepted.holeMm,3);assert.equal(joint.angle,0);assert.ok(accepted.parts.find(p=>p.id===joint.childId).z<accepted.parts.find(p=>p.id===joint.parentId).z);assert.equal(h.requests.length,1);
   await h.click({action:'undo'});assert.deepEqual(h.project(),before,'one undo restores the whole unaccepted source');
@@ -1515,5 +1533,94 @@ test('refine advice-only response retries once and shows a short failure with di
   assert.equal(h.requests.length,2);assert.deepEqual(h.project(),before);assert.doesNotMatch(h.root.innerHTML,/data-action="accept"/);
   assert.match(h.error(),/No change to preview/);assert.ok(h.error().length<180);assert.doesNotMatch(h.error(),/lengthy/);assert.match(h.root.innerHTML,/A lengthy explanation/,'details remain in the conversation');
   await h.click({action:'flip-horizontal'});assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="review-heading"/);assert.equal(h.requests.length,2);
+ }finally{await h.close();}
+});
+
+test('joint-size slider visibly shrinks the overlap before acceptance and keeps the trial movement',async()=>{
+ const h=browserHarness();
+ try{
+  await h.start('live-joint-size-review');await h.settle();
+  const project=createStudioProject();project.canvas={width:100,height:240};project.parts=[makePart('Leg',[[0,0],[40,0],[40,240],[0,240]])];
+  await h.openProject(project);const before=h.project();await h.click({action:'add-joint'});await h.point(20,120,before.parts[0].id);
+  const slider=visibleJointSlider(h.root.innerHTML,'review'),jointId=slider.match(/data-overlap-joint="([^"]+)"/)[1],initial=Number(slider.match(/value="([^"]+)"/)[1]);
+  assert.ok(initial>20,'fixture starts with an overlap wider than the custom choice');
+  h.reviewInput(32);const preview=h.reviewMarkup(),box=preview.match(/viewBox="([^"]+)"/)[1];
+  h.overlapInput('review',jointId,20);
+  assert.equal(h.error(),'');assert.notEqual(h.reviewMarkup(),preview,'dragging updates the displayed overlap immediately');
+  assert.equal(h.reviewMarkup().match(/viewBox="([^"]+)"/)[1],box,'zoom remains fixed so the size change is visible');
+  assert.equal(h.reviewAngle(),'32°');assert.deepEqual(h.project(),before,'preview input does not edit the accepted project');
+  await h.change({dataset:{overlapSlider:'review',overlapJoint:jointId},type:'range',value:'20'});
+  assert.equal(h.error(),'');assert.deepEqual(h.project(),before);
+  assert.equal(h.reviewMarkup().match(/viewBox="([^"]+)"/)[1],box,'releasing the slider does not jump to a different zoom');
+  await h.click({action:'accept'});const accepted=h.project(),joint=accepted.joints[0];
+  assert.ok(Math.abs(joint.padRadius*2/unitsPerMm(accepted)-20)<1e-7);
+  assert.equal(joint.angle,0,'trial angle is not committed');assert.equal(accepted.holeMm,before.holeMm);
+  assert.deepEqual(joint.parentAnchor,joint.childAnchor,'the shared pin remains aligned');
+  visibleJointSlider(h.root.innerHTML,'part');
+  await h.click({action:'undo'});assert.deepEqual(h.project(),before,'one undo removes the complete accepted construction');
+  assert.equal(h.requests.length,0);
+ }finally{await h.close();}
+});
+
+test('existing-joint slider commits once, preserves portable size and can be undone or protected by a lock',async()=>{
+ const h=browserHarness();
+ try{
+  await h.start('live-existing-joint-size');await h.settle();
+  const project=createStudioProject();project.canvas={width:100,height:240};project.parts=[makePart('Arm',[[0,0],[40,0],[40,240],[0,240]])];
+  await h.openProject(project);await h.click({action:'add-joint'});await h.point(20,120,h.project().parts[0].id);await h.click({action:'accept'});
+  const accepted=h.project(),joint=accepted.joints[0],canvas=h.canvasMarkup();
+  visibleJointSlider(h.root.innerHTML,'part');
+  for(const diameter of [30,25,20])h.overlapInput('part',joint.id,diameter);
+  assert.equal(h.error(),'');assert.notEqual(h.canvasMarkup(),canvas);assert.deepEqual(h.project(),accepted,'successive input events only preview');
+  await h.change({dataset:{overlapSlider:'part',overlapJoint:joint.id},type:'range',value:'20'});
+  const resized=h.project();assert.ok(Math.abs(resized.joints[0].padRadius*2/unitsPerMm(resized)-20)<1e-7);
+  assert.equal(resized.holeMm,accepted.holeMm);assert.deepEqual(resized.joints[0].parentAnchor,joint.parentAnchor);assert.deepEqual(resized.joints[0].childAnchor,joint.childAnchor);
+  await h.click({action:'undo'});assert.deepEqual(h.project(),accepted,'a complete drag is a single undo item');
+  await h.click({action:'redo'});assert.deepEqual(h.project(),resized);
+  await h.click({action:'save-project'});const portable=parseStudioProject(await h.downloads.at(-1).blob.text());await h.openProject(portable);
+  assert.deepEqual(h.project().joints,resized.joints);await h.click({action:'select',id:joint.childId});
+  assert.match(visibleJointSlider(h.root.innerHTML,'part'),/value="20"/);
+  const locked=structuredClone(h.project());locked.parts.find(p=>p.id===joint.parentId).locked=true;await h.openProject(locked);await h.click({action:'select',id:joint.childId});
+  const protectedProject=h.project();assert.match(visibleJointSlider(h.root.innerHTML,'part'),/\sdisabled/);
+  h.overlapInput('part',joint.id,15);await h.change({dataset:{overlapSlider:'part',overlapJoint:joint.id},type:'range',value:'15'});
+  assert.deepEqual(h.project(),protectedProject);assert.ok(h.error());
+ }finally{await h.close();}
+});
+
+test('planned joint-size input survives rebuilds and rejecting the proposal leaves the puppet intact',async()=>{
+ const h=browserHarness();h.setPlanResponse(()=>({selectedIds:[]}));
+ try{
+  await h.start('live-plan-size');await h.settle();
+  const project=createStudioProject();project.language='zh';project.canvas={width:100,height:240};project.parts=[makePart('腿部',[[0,0],[40,0],[40,240],[0,240]])];
+  await h.openProject(project);const before=h.project();await h.click({action:'prepare-joints'});await h.click({action:'plan-add'});await h.planPoint(20,120);
+  const slider=visibleJointSlider(h.root.innerHTML,'plan'),jointId=slider.match(/data-overlap-joint="([^"]+)"/)[1];
+  assert.match(slider,/aria-label="[^"]*[\u3400-\u9fff][^"]*"/,'Chinese controls have a Chinese accessible name');
+  h.planInput(-25);const previous=h.planMarkup();h.overlapInput('plan',jointId,20);
+  assert.equal(h.error(),'');assert.notEqual(h.planMarkup(),previous);assert.deepEqual(h.project(),before);
+  await h.change({dataset:{overlapSlider:'plan',overlapJoint:jointId},type:'range',value:'20'});
+  await h.click({action:'plan-swap'});assert.match(visibleJointSlider(h.root.innerHTML,'plan'),/value="20"/);
+  await h.click({action:'plan-move'});await h.planPoint(20,150);assert.equal(h.error(),'');assert.match(visibleJointSlider(h.root.innerHTML,'plan'),/value="20"/);
+  await h.click({action:'reject'});assert.deepEqual(h.project(),before);assert.doesNotMatch(h.root.innerHTML,/data-overlap-slider="plan"/);
+ }finally{await h.close();}
+});
+
+test('resizing warns about a nearby separate piece and shrinking clears that contact without connecting it',async()=>{
+ const h=browserHarness();
+ try{
+  await h.start('joint-size-contact-hint');await h.settle();
+  const project=createStudioProject();project.canvas={width:100,height:240};
+  project.parts=[makePart('Arm',[[0,0],[40,0],[40,240],[0,240]]),makePart('Separate prop',[[43,112],[53,112],[53,128],[43,128]])];
+  await h.openProject(project);const before=h.project(),propId=before.parts[1].id;
+  await h.click({action:'add-joint'});await h.point(20,120,before.parts[0].id);
+  const slider=visibleJointSlider(h.root.innerHTML,'review'),jointId=slider.match(/data-overlap-joint="([^"]+)"/)[1];
+  h.overlapInput('review',jointId,64);
+  assert.match(h.overlapHint('review').textContent,/touches another piece/);assert.equal(h.overlapHint('review').hidden,false);
+  h.overlapInput('review',jointId,20);
+  assert.doesNotMatch(h.overlapHint('review').textContent,/touches another piece/);
+  assert.deepEqual(h.project(),before);
+  await h.change({dataset:{overlapSlider:'review',overlapJoint:jointId},type:'range',value:'20'});await h.click({action:'accept'});
+  const accepted=h.project();assert.equal(accepted.joints.length,1);
+  assert.ok(accepted.joints.every(j=>j.parentId!==propId&&j.childId!==propId));
+  assert.deepEqual(accepted.parts.find(p=>p.id===propId),before.parts[1]);
  }finally{await h.close();}
 });

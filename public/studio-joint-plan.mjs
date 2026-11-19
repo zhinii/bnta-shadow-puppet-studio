@@ -1,5 +1,5 @@
-import {normalizeStudioProject,partTransforms,transformPoint,inverseMatrix,unitsPerMm,boundsOf,polygonArea,pointInPolygon,validateStudio} from './studio-model.mjs?v=0.7.8';
-import {suggestJointAt,JOINT_SECTION_MAX_MM} from './studio-construction.mjs?v=0.7.8';
+import {normalizeStudioProject,partTransforms,transformPoint,inverseMatrix,unitsPerMm,boundsOf,polygonArea,pointInPolygon,validateStudio} from './studio-model.mjs?v=0.7.9';
+import {suggestJointAt,JOINT_SECTION_MAX_MM} from './studio-construction.mjs?v=0.7.9';
 
 const EPS=1e-7,MAX_MARKERS=12,MAX_PARTS_TO_SCAN=12,MAX_TRIALS=24;
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);

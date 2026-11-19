@@ -1,5 +1,11 @@
 # Validation — 19 November 2026
 
+## v0.7.9 student-controlled joint size
+
+All **303 automated tests pass**. Geometry and workflow regressions cover shrinking both tabs while retaining pin holes, shared pivots, physical scale and connection topology; stable zoom during slider input and release; current-pose contact warnings; one undo per completed drag; plan rebuilds, cancellation, locks and portable project round trips. English and Chinese controls are checked outside collapsed sections. Syntax, production build, generated Worker syntax and 23-asset smoke checks pass.
+
+The local page served successfully. Browser UI automation could not connect (Transport closed), so no new phone, tablet or student observation is claimed. Physical articulation and backlighting remain untested. Contact warnings inspect other separate pieces and their tabs, not semantic regions inside a single contour. Smaller manually chosen circles retain the original split shoulders and require movement review. Garment-layer reconstruction remains outside this update.
+
 ## v0.7.8 editable previews and printed joint overlaps
 
 **Release checks:** the complete regression suite, module syntax, production build, generated Worker syntax and 23-asset smoke checks are required by [repository CI](https://github.com/zhinii/bnta-shadow-puppet-studio/actions/workflows/checks.yml). The final checked revision includes fixed, borrowed and clipped source artwork regressions for locked joints.

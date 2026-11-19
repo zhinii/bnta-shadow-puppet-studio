@@ -1,6 +1,12 @@
 # UI/UX re-audit — simplicity first
 
-## Current v0.7.8 change preview and printed joints — 19 November 2026
+## Current v0.7.9 visible joint size - 19 November 2026
+
+Students could not discover the numeric size field inside collapsed controls, and the full-width minimum prevented shrinking many default circles. Joint size now appears beside movement in single-joint review, the automatic plan and the selected-piece inspector. A Smaller/Larger slider and millimetre input resize both tabs; the pin stays fixed. Dragging updates artwork immediately without replacing the active slider. Close-up framing stays fixed on input and release. Changes remain reviewable or undoable and are retained in downloaded projects.
+
+Contact with another separate piece is flagged in the trial pose. Compact circles keep original cut shoulders, with a short movement-check hint; the application does not silently trim artwork or infer garment ownership. Automated interaction and accessibility-markup checks pass. Browser connection failed, so mobile rendering and classroom usability remain unverified.
+
+## Previous v0.7.8 change preview and printed joints - 19 November 2026
 
 The reported Preview change failure had two concrete causes: structured edits were embedded in prose, and suggested negative dimensions/axis fields were unsupported. Validated Parts arrays are now read, unsuitable replies receive one correction request, and unchanged/advice-only results show a short failure instead of a large green prose banner. Direct Flip left–right and Flip up–down buttons open the same review/apply/undo flow without a relay call. Both source artwork and its cut outline move; the incoming pin remains fixed. Review focuses the preview and hides the unedited reference overlay.
 

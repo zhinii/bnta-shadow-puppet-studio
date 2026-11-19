@@ -1,4 +1,4 @@
-import {normalizeStudioProject,studioId,partTransforms,transformPoint,inverseMatrix,unitsPerMm,neutralProjectBounds,polygonArea,pointInPolygon,distanceToBoundary,selfIntersects,validateStudio,roundedOverlapRadius} from './studio-model.mjs?v=0.7.8';
+import {normalizeStudioProject,studioId,partTransforms,transformPoint,inverseMatrix,unitsPerMm,neutralProjectBounds,polygonArea,pointInPolygon,distanceToBoundary,selfIntersects,validateStudio,roundedOverlapRadius} from './studio-model.mjs?v=0.7.9';
 
 const EPS=1e-7;
 // Finite paper-prototype heuristics, not material-strength limits. Broader
@@ -88,22 +88,47 @@ export function getJointOverlapLimits(project,jointId){
  const p=normalizeStudioProject(project),joint=p.joints.find(j=>j.id===jointId);
  if(!joint)fail('Select an existing joint.','JOINT_NOT_FOUND');
  const mm=unitsPerMm(p),web=Math.max(2,p.materialMm*2)*mm;
- let minimum=Math.max(roundedOverlapRadius(joint.overlapSpans),joint.type==='fixed'?web:p.holeMm*mm/2+web);
+ let minimum=joint.type==='fixed'?web:p.holeMm*mm/2+web;
  for(const [partId,anchor] of [[joint.parentId,joint.parentAnchor],[joint.childId,joint.childAnchor]]){
   const part=p.parts.find(piece=>piece.id===partId);
   if(!pointInPolygon(anchor,part.polygon))minimum=Math.max(minimum,distanceToBoundary(anchor,part.polygon)+web);
  }
- return {diameterMm:2*joint.padRadius/mm,minDiameterMm:2*minimum/mm,maxDiameterMm:600/mm,fullWidth:!!joint.overlapSpans};
+ const diameterMm=2*joint.padRadius/mm,minDiameterMm=2*minimum/mm,maxDiameterMm=600/mm;
+ const suggestedDiameterMm=Math.min(maxDiameterMm,2*Math.max(minimum,roundedOverlapRadius(joint.overlapSpans))/mm);
+ return {diameterMm,minDiameterMm,maxDiameterMm,suggestedDiameterMm,sliderMaxDiameterMm:Math.min(maxDiameterMm,Math.max(diameterMm,suggestedDiameterMm*2,minDiameterMm+10)),fullWidth:!!joint.overlapSpans,compact:!!joint.overlapSpans&&joint.padRadius+EPS<roundedOverlapRadius(joint.overlapSpans)};
+}
+
+/** Inspect the visible pose, including round tabs on pieces outside this pair.
+ * Contact is a review hint, never permission to create another connection.
+ */
+export function inspectJointOverlap(project,jointId){
+ const p=normalizeStudioProject(project),joint=p.joints.find(j=>j.id===jointId);
+ if(!joint)fail('Select an existing joint.','JOINT_NOT_FOUND');
+ const transforms=partTransforms(p),center=transformPoint(transforms[joint.parentId],joint.parentAnchor),radius=joint.padRadius;
+ const overlaps=[];
+ for(const part of p.parts){
+  if(part.id===joint.parentId||part.id===joint.childId)continue;
+  const polygon=part.polygon.map(point=>transformPoint(transforms[part.id],point));
+  let touches=pointInPolygon(center,polygon)||distanceToBoundary(center,polygon)<radius-EPS;
+  if(!touches)for(const other of p.joints){
+   const anchor=other.parentId===part.id?other.parentAnchor:other.childId===part.id?other.childAnchor:null;
+   if(anchor&&distance(center,transformPoint(transforms[part.id],anchor))<radius+other.padRadius-EPS){touches=true;break;}
+  }
+  if(touches)overlaps.push(part);
+ }
+ return {overlappingPartIds:overlaps.map(part=>part.id),overlappingPartNames:overlaps.map(part=>part.name)};
 }
 
 /** Change both round ends together, retaining hole size, rest pose and material scale. */
 export function setJointOverlapDiameter(project,jointId,diameterMm){
  const before=normalizeStudioProject(project),p=copy(before),joint=p.joints.find(j=>j.id===jointId);
  if(!joint)fail('Select an existing joint.','JOINT_NOT_FOUND');
+ if(typeof diameterMm==='number'&&Number.isFinite(diameterMm)&&Math.abs(diameterMm-2*joint.padRadius/unitsPerMm(before))<EPS)return before;
  if(p.parts.some(part=>part.locked&&(part.id===joint.parentId||part.id===joint.childId)))fail('Unlock both connected pieces before changing the joint size.','LOCKED_PART');
  const limits=getJointOverlapLimits(before,jointId);
- if(typeof diameterMm!=='number'||!Number.isFinite(diameterMm)||diameterMm<limits.minDiameterMm-EPS||diameterMm>limits.maxDiameterMm+EPS)fail(`Choose a joint width from ${Math.ceil(limits.minDiameterMm*10)/10} to ${Math.floor(limits.maxDiameterMm*10)/10} mm. Both rounded ends must cover the piece and support the hole.`,'JOINT_SIZE_RANGE');
+ if(typeof diameterMm!=='number'||!Number.isFinite(diameterMm)||diameterMm<limits.minDiameterMm-EPS||diameterMm>limits.maxDiameterMm+EPS)fail(`Choose a joint diameter from ${Math.ceil(limits.minDiameterMm*10)/10} to ${Math.floor(limits.maxDiameterMm*10)/10} mm. Leave material around the pin hole and keep both tabs attached.`,'JOINT_SIZE_RANGE');
  joint.padRadius=Math.min(300,diameterMm*unitsPerMm(before)/2);
+ joint.overlapSizing='custom';
  restorePhysicalScale(p,unitsPerMm(before));
  const normalized=normalizeStudioProject(p);ensureLockedUnchanged(before,normalized);ensureGeometry(normalized);
  return normalized;

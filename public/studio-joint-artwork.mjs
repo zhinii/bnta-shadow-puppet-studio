@@ -1,4 +1,4 @@
-import {inverseMatrix,multiplyMatrices,transformPoint} from './studio-model.mjs?v=0.7.8';
+import {inverseMatrix,multiplyMatrices,transformPoint} from './studio-model.mjs?v=0.7.9';
 
 // Source-coordinate recipes stay stable through pose, mirror and proportional
 // edits. They copy the existing print; they do not reconstruct hidden artwork.

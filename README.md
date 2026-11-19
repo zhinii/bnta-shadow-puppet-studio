@@ -1,6 +1,6 @@
 # 影作 · BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.8**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.9**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
 
 [Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality list](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md) · [Middle-school usability audit](MIDDLE-SCHOOL-UX-AUDIT.md)
 
@@ -56,7 +56,7 @@ Before refreshing an open session for this update, use **Project → Download pr
 
 ## Rounded overlap joints
 
-New splits use complete rounded ends on both pieces, sized to the local section width. The hole remains independent. Open **Joint size** to review or adjust the physical overlap diameter; existing downloaded projects retain their saved sizes. Width/length edits keep the paired round ends large enough for the stored section. Image-backed rounded ends copy a shared region of the existing printed design onto both layers. Exact artwork from the connected pieces is retained; reflected and repeated nearby print fills added areas. This copies existing pixels rather than inventing hidden details. Plain shapes retain their editable color. Test each bend and the backlit appearance on a paper prototype. These are interim classroom defaults awaiting practitioner and material review; see [joint design and next review](JOINT-DESIGN.md).
+New splits use complete rounded ends on both pieces, sized to the local section width. The hole remains independent. The visible **Joint size** slider beside the movement control resizes both circles together. Drag toward **Smaller** or **Larger**, or enter a diameter in millimetres. The preview keeps its close-up scale while resizing. The pin hole and pivot stay fixed. A chosen smaller circle can leave shoulders at the original split: test its full motion before cutting. A warning identifies contact with other separate pieces in the current pose; it does not identify unrelated regions within a single outline. Existing downloaded projects retain their saved sizes; manually chosen sizes survive piece resizing and project export. Image-backed rounded ends copy a shared region of the existing printed design onto both layers. Exact artwork from the connected pieces is retained; reflected and repeated nearby print fills added areas. This copies existing pixels rather than inventing hidden details. Plain shapes retain their editable color. Test each bend and the backlit appearance on a paper prototype. These are interim classroom defaults awaiting practitioner and material review; see [joint design and next review](JOINT-DESIGN.md).
 
 ## Optional editing tools
 

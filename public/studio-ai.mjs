@@ -1,4 +1,4 @@
-import {applyStudioProposal,normalizeStudioProject} from './studio-model.mjs?v=0.7.8';
+import {applyStudioProposal,normalizeStudioProject} from './studio-model.mjs?v=0.7.9';
 import {readArtworkFile,validateArtworkBytes} from './studio-storage.mjs';
 // Browser transport contains no provider credential. Pixel services are optional
 // capabilities of a protected server; the existing relay can provide drawing plans.

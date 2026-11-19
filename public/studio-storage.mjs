@@ -1,4 +1,4 @@
-import {normalizeStudioProject} from './studio-model.mjs?v=0.7.8';
+import {normalizeStudioProject} from './studio-model.mjs?v=0.7.9';
 
 const DATABASE = 'bnta-shadow-studio-v2';
 const STORE = 'projects';

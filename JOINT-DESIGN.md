@@ -14,7 +14,7 @@ Original piece artwork remains clipped to its own contour. Each image-backed joi
 
 ## Student workflow
 
-Keep Create → Refine → Make. Select a dot, try its movement and inspect both overlap layers. Joint size remains optional and collapsed. The control adjusts the round ends together, independently of the pin hole. Accept the reviewed plan, then make a paper prototype before using the intended material.
+Keep Create → Refine → Make. Select a dot, try its movement and inspect both overlap layers. The visible Joint size slider beside movement adjusts both round ends together, independently of the pin hole. Students can reduce the default full-width circle down to the material-clearance limit. This retains the original split shoulders and shows a movement-check hint. A current-pose contact warning identifies other separate pieces and their tabs; it does not recognize unrelated regions within one contour. Manually chosen diameters survive part resizing and saved project reopening. Accept the reviewed plan, then make a paper prototype before using the intended material.
 
 The print guide asks students to test each intended bend and inspect gaps, catching, hole looseness, dark overlaps and readable detail against a backlit screen. These are physical checks to perform, not automated certifications.
 
