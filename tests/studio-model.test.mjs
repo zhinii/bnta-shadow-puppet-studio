@@ -90,6 +90,19 @@ test('new custom parts can be added and connected in one accepted proposal',()=>
   assert.equal(next.parts.length,4);assert.equal(next.joints.length,3);assert.equal(next.parts.at(-1).assetId,'art');assert.deepEqual(validateStudio(next),[]);
 });
 
+test('attached-part pose proposals cannot report an invisible rotation or move',()=>{
+  const p=threePartPuppet(),snapshot=structuredClone(p);
+  for(const patch of [{rotation:150},{x:25},{y:-40}])assert.throws(()=>applyStudioProposal(p,{parts:[{id:'tentacle',...patch}]}),error=>error.code==='ATTACHED_PART_POSE'&&/joint angle/.test(error.message));
+  assert.deepEqual(p,snapshot,'invalid pose requests leave the source project intact');
+  const echoed=applyStudioProposal(p,{parts:[{id:'tentacle',x:0,y:0,rotation:0,fill:'#225588'}]});
+  assert.equal(echoed.parts[1].fill,'#225588');assert.deepEqual(partTransforms(echoed),partTransforms(p));
+  const posed=applyStudioProposal(p,{joints:[{id:'hip',angle:90}]});
+  assert.notDeepEqual(partTransforms(posed).tentacle,partTransforms(p).tentacle);
+  const free=applyStudioProposal(p,{parts:[{id:'coat',rotation:150}]});assert.equal(free.parts[0].rotation,150);
+  const detached=applyStudioProposal(p,{parts:[{id:'tentacle',rotation:150}],removeJointIds:['hip']});
+  assert.equal(detached.parts[1].rotation,150);assert.ok(!detached.joints.some(j=>j.childId==='tentacle'));
+});
+
 test('crossed boundaries and malformed proposals are never accepted',()=>{
   const p=threePartPuppet(),crossed=[[0,0],[100,100],[0,100],[100,0],[150,50]];
   assert.equal(selfIntersects(crossed),true);

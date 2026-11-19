@@ -51,7 +51,7 @@ function normalizePart(raw) {
     if(!Array.isArray(raw.artworkMatrix)||raw.artworkMatrix.length!==6||Array.from(raw.artworkMatrix).some(n=>typeof n!=='number'||!Number.isFinite(n)))fail('Artwork transform needs six finite numbers.','INVALID_PARAMETERS');
     artworkMatrix=raw.artworkMatrix.map((n,i)=>number(n,0,i<4?-1000:-MAX_COORD,i<4?1000:MAX_COORD));
     const determinant=artworkMatrix[0]*artworkMatrix[3]-artworkMatrix[1]*artworkMatrix[2];
-    if(!Number.isFinite(determinant)||determinant<1e-8)fail('Artwork transform must preserve a positive, non-zero area.','INVALID_PARAMETERS');
+    if(!Number.isFinite(determinant)||Math.abs(determinant)<1e-8)fail('Artwork transform must preserve a non-zero area.','INVALID_PARAMETERS');
   }
   return {id:id(raw.id),name:cleanText(raw.name,100)||'Untitled part',polygon:points,assetId:raw.assetId==null?null:id(raw.assetId,false),fill:color(raw.fill),x:number(raw.x,0),y:number(raw.y,0),rotation:number(raw.rotation,0,-360,360),locked:raw.locked===true,z:number(raw.z,0,-1000,1000),artworkMatrix,parameters:{width:number(parameters?.width,1,.25,4),length:number(parameters?.length,1,.25,4),axisAngle:number(parameters?.axisAngle,0,-180,180),origin:parameters?.origin===undefined?[box.x+box.width/2,box.y+box.height/2]:point(parameters.origin)}};
 }
@@ -254,7 +254,7 @@ export function validateStudio(project) {
 export function applyStudioProposal(project,proposal) {
   if(!record(proposal))fail('AI did not return a usable change proposal.','INVALID_PROPOSAL');
   const p=normalizeStudioProject(project),before=new Map(p.parts.map(part=>[part.id,part]));
-  const dimensionRequests=[];
+  const dimensionRequests=[],transformRequests=[];
   const locked=new Set(p.parts.filter(part=>part.locked).map(part=>part.id));
   const ancestors=new Set(locked),parentOf=new Map(p.joints.map(j=>[j.childId,j.parentId]));
   for(const partId of locked){let parent=parentOf.get(partId);while(parent){ancestors.add(parent);parent=parentOf.get(parent);}}
@@ -266,6 +266,12 @@ export function applyStudioProposal(project,proposal) {
     const partId=patch.id===undefined?studioId():id(patch.id,false);
     if(locked.has(partId))continue;
     const old=before.get(partId);
+    if(own(patch,'transform')){
+      if(!old)fail('A mirror change needs an existing part.','INVALID_PARAMETERS');
+      if(!record(patch.transform)||Object.keys(patch.transform).length!==1||!['horizontal','vertical'].includes(patch.transform.mirror))fail('A transform must request a horizontal or vertical mirror.','INVALID_PARAMETERS');
+      if(own(patch,'polygon')||own(patch,'parameters'))fail('Propose a mirror, dimensions or a replacement outline separately.','INVALID_PARAMETERS');
+      transformRequests.push({id:partId,mirror:patch.transform.mirror});
+    }
     if(!old&&record(patch.parameters)&&((patch.parameters.width!==undefined&&patch.parameters.width!==1)||(patch.parameters.length!==undefined&&patch.parameters.length!==1)))fail('A new part starts at 100% dimensions. Define its outline before resizing it.','INVALID_PARAMETERS');
     if(old&&own(patch,'parameters')){
       if(!record(patch.parameters))fail('Invalid proposed dimensions.','INVALID_PARAMETERS');
@@ -299,7 +305,15 @@ export function applyStudioProposal(project,proposal) {
     if(index>=0)p.rods[index]=rod;else p.rods.push(rod);
   }
   let next=normalizeStudioProject(p);
+  // A connected piece is positioned by its anchors and joint angle. Accepting
+  // changes to these dormant free-piece fields would produce no visible edit.
+  const attached=new Set(next.joints.map(joint=>joint.childId));
+  for(const part of next.parts){
+    const old=before.get(part.id);
+    if(old&&attached.has(part.id)&&['x','y','rotation'].some(key=>part[key]!==old[key]))fail('This piece is attached to a joint. Change its joint angle to rotate it, or mirror the piece; x, y and rotation do not move an attached piece.','ATTACHED_PART_POSE');
+  }
   for(const request of dimensionRequests)if(next.parts.some(part=>part.id===request.id))next=resizePart(next,request.id,request.parameters);
+  for(const request of transformRequests)if(next.parts.some(part=>part.id===request.id))next=mirrorPart(next,request.id,request.mirror);
   const errors=validateStudio(next).filter(issue=>issue.level==='error');
   if(errors.length)fail(errors.map(issue=>issue.message).join(' '),'INVALID_GEOMETRY');
   return next;
@@ -379,6 +393,39 @@ export function resizePart(project,id,dimensions={}){
  part.parameters={...part.parameters,width,length,origin:transformPoint(matrix,part.parameters.origin)};
  // Preserve all other material dimensions. Explicit whole-puppet height edits
  // still rescale everything through the existing heightMm control.
+ const result=preservePhysicalScale(before,p);assertLockedPartsUnchanged(before,result);
+ const priorErrors=new Set(validateStudio(before).filter(x=>x.level==='error').map(x=>x.code+':'+x.partId));
+ const newErrors=validateStudio(result).filter(x=>x.level==='error'&&!priorErrors.has(x.code+':'+x.partId));
+ if(newErrors.length)throw paramFailure(newErrors.map(x=>x.message).join(' '),'INVALID_GEOMETRY');
+ return result;
+}
+
+/** Reflect this piece in the displayed stage axes about its incoming pivot (or
+ * centre when free). Attached children keep their own shape and artwork; they
+ * follow the reflected outgoing anchors. A mirror is not a negative dimension.
+ */
+export function mirrorPart(project,id,axis='horizontal'){
+ const before=normalizeStudioProject(project),p=paramCopy(before),part=paramFindPart(p,id);
+ if(part.locked)throw paramFailure('Unlock this part before mirroring it.','LOCKED_PART');
+ if(!['horizontal','vertical'].includes(axis))throw paramFailure('Choose a horizontal or vertical mirror.');
+ const incoming=p.joints.find(j=>j.childId===id),box=boundsOf(part.polygon),origin=incoming?.childAnchor||[box.x+box.width/2,box.y+box.height/2];
+ const world=partTransforms(before)[id],pivot=transformPoint(world,origin),reflection=axis==='horizontal'?[-1,0,0,1,0,0]:[1,0,0,-1,0,0];
+ const stage=multiplyMatrices(multiplyMatrices(paramTranslate(pivot),reflection),paramTranslate(pivot.map(v=>-v)));
+ const matrix=multiplyMatrices(multiplyMatrices(inverseMatrix(world),stage),world);
+ const vector=span=>[matrix[0]*span[0]+matrix[2]*span[1],matrix[1]*span[0]+matrix[3]*span[1]];
+ part.polygon=part.polygon.map(point=>transformPoint(matrix,point));
+ part.artworkMatrix=multiplyMatrices(matrix,part.artworkMatrix);
+ for(const joint of p.joints){
+  if(joint.parentId===id){joint.parentAnchor=transformPoint(matrix,joint.parentAnchor);if(joint.overlapSpans)joint.overlapSpans.parent=vector(joint.overlapSpans.parent);}
+  if(joint.childId===id){
+   // Keep the existing anchor exactly: floating-point reflection must not nudge
+   // the shared pin or the locked parent side of this joint.
+   joint.childAnchor=[...origin];if(joint.overlapSpans)joint.overlapSpans.child=vector(joint.overlapSpans.child);
+  }
+ }
+ for(const rod of p.rods)if(rod.partId===id)rod.point=transformPoint(matrix,rod.point);
+ const angle=part.parameters.axisAngle*Math.PI/180,frame=vector([Math.cos(angle),Math.sin(angle)]);
+ part.parameters={...part.parameters,axisAngle:Math.atan2(frame[1],frame[0])*180/Math.PI,origin:transformPoint(matrix,part.parameters.origin)};
  const result=preservePhysicalScale(before,p);assertLockedPartsUnchanged(before,result);
  const priorErrors=new Set(validateStudio(before).filter(x=>x.level==='error').map(x=>x.code+':'+x.partId));
  const newErrors=validateStudio(result).filter(x=>x.level==='error'&&!priorErrors.has(x.code+':'+x.partId));

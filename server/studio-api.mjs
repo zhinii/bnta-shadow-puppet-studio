@@ -50,7 +50,7 @@ export function validateStudioRequest(body) {
   return result;
 }
 export function studioChatPayload(input,configuration) {
-  const question={task:input.task,request:input.prompt,language:input.language,studio:input.project,selectedPartId:input.selectedPartId||null,selectionRule:input.selectedPartId?'Propose changes only to the selected part, preserving its source asset and all other pieces.':null,...(input.repair?{repair:input.repair,repairRule:'Correct the reported invalid geometry. Return the complete corrected proposal, retaining the original student intent.'}:{})};
+  const question={task:input.task,request:input.prompt,language:input.language,studio:input.project,selectedPartId:input.selectedPartId||null,selectionRule:input.selectedPartId?'Propose changes only to the selected part, preserving its source asset and all other pieces.':null,...(input.repair?{repair:input.repair,repairRule:'Correct the reported response or geometry problem. Return the complete supported edit inside proposal, retaining the original student intent. Use transform.mirror for mirroring, never negative dimensions. A change is not applied until accepted.'}:{})};
   const text=JSON.stringify(question);
   const content=input.imageDataUrl?[{type:'image_url',image_url:{url:input.imageDataUrl}},{type:'text',text}]:text;
   return {model:input.imageDataUrl?configuration.visionModel:configuration.model,messages:[{role:'system',content:STUDIO_SYSTEM},...input.history,{role:'user',content}],response_format:{type:'json_object'},temperature:.35,max_tokens:6000,stream:false,enable_thinking:false};

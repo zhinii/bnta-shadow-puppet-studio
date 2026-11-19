@@ -1,4 +1,4 @@
-import {applyStudioProposal} from './studio-model.mjs?v=0.7.7';
+import {applyStudioProposal,normalizeStudioProject} from './studio-model.mjs?v=0.7.8';
 import {readArtworkFile,validateArtworkBytes} from './studio-storage.mjs';
 // Browser transport contains no provider credential. Pixel services are optional
 // capabilities of a protected server; the existing relay can provide drawing plans.
@@ -27,6 +27,7 @@ export function makeImageGenerationPrompt(project,prompt) {
 export const STUDIO_SYSTEM = `You collaborate with students on custom shadow-puppet design. Return one JSON object: {"reply":"short explanation in requested language","proposal":{"parts":[],"joints":[],"brief":{}},"warnings":[]}. Do not wrap JSON in Markdown. Student intent and retained work are authoritative. Never invent a character name, story, identity, historical fact or symbolism. Modern, historical, fictional, real-world, animal and fantastical subjects are valid. No fixed human skeleton: preserve requested anatomy, appendage counts, costume silhouette and custom shapes. Ask for clarification rather than silently substituting a generic human. The result is a design draft, never a claim of tested physical construction.
 Parts are separate cuttable simple polygons in the supplied canvas coordinate system, with {id,name,polygon:[[x,y],...],fill:"#RRGGBB",assetId:null|string,z:number}. Use 6-24 vertices per shape, no self-intersections, duplicate points or zero-area parts. At most 24 parts per reply. Existing part edits are patches by id: omit unchanged fields and preserve everything the student did not request changing. Do not delete implicitly. Respect locked parts and their joints; do not move or recolor locked artwork. Use removePartIds only when explicitly requested. When source artwork is present, use its assetId and exact pixel coordinates to propose outlines; never invent a different picture. Trace visible boundaries, and identify hidden areas needing reconstruction as warnings. Approximate AI traces require student review.
 For width or length changes to an existing part, return {id,parameters:{width:number,length:number}} with only the changed dimension. These are absolute multipliers from 0.25 to 4 relative to that part's baseline since its last axis rebase; a request for 20% longer means current parameters.length multiplied by 1.2. The stored axisAngle defines width/length directions. The application transforms artwork, boundaries and attached anchors together, keeps child pieces unscaled, and checks locked descendants. Never replace numeric contours to simulate a simple resize. Do not combine parameters with polygon edits in one patch. artworkMatrix, parameters.origin and parameters.axisAngle are read-only context: never return them. Dimension changes cannot invent hidden image details or recolor raster pixels; explain when a requested visual change needs image editing instead.
+For a mirror/flip of an existing piece, return {id,transform:{mirror:"horizontal"}} for left-right or "vertical" for up-down. These directions refer to the displayed puppet. The studio reflects its outline and artwork together about its joint, or its centre when unattached, and preserves the joint angle. Do not use negative width/length, axisAngle, rotation, or a replacement polygon to imitate a mirror. Do not combine transform with parameters or polygon in one patch. Mirroring is not rotation: follow the requested direction, or ask if it is ambiguous. Return editable changes inside proposal, not promises or JSON fragments embedded in prose. If no supported edit is possible, say so without claiming to have changed the design.
 Joints have {id,parentId,childId,parentAnchor:[x,y],childAnchor:[x,y],type:"pivot"|"fixed"|"hinge",angle:0,min:-90,max:90,padRadius:12}. Anchors must be inside their respective polygons and leave a useful material rim. A part has at most one parent; no cycles. Pivot joints use overlap tabs and holes; fixed connections do not move; hinge lines need a material trial. Do not invent precise fabrication tolerances. For create, provide complete draft parts; for refine, provide only changed parts/joints; for segment, propose separate visible parts from the image; for analyze, return reply and warnings only, honestly distinguishing observed evidence from assumptions. Include required manual fixes. Do not output HTML, SVG, code, links, credentials or robot actions. Changes are proposals until the student accepts.`;
 
 const own = (v, k) => Object.prototype.hasOwnProperty.call(v, k);
@@ -61,7 +62,7 @@ export function makeDrawingPlanRequest(project,args) {
   const request=makeStudioRequest(project,args);
   if (request.imageDataUrl || ['analyze','segment','generate-image','edit-image'].includes(request.task)) throw Error('The current relay supports text drawing plans. Image analysis and generation need the image-capable studio relay. You can still import and trace your artwork.');
   const repairHint=request.repair?` Repair the previous plan in scene.repair; validation found: ${request.repair.error.slice(0,120)}. Return the complete corrected plan.`:'';
-  const question=`For this design discussion, give a measured drawing plan for: ${request.prompt.slice(0,request.repair?180:300)}. Full request: scene.studentRequest.${repairHint} In reply include a JSON-encoded string containing summary and parts [{id,name,polygon,fill}]. Polygons are paper outline measurements, not SVG or code. Use numeric x/y pairs in the ${request.project.canvas.width} by ${request.project.canvas.height} canvas. Include requested anatomy and appendage counts, at most 18 parts, with 6-20 vertices per simple polygon, nonzero area, no crossings, hex colors. Each part is a physical cut piece; suggest painting tiny trim. For existing-part width/length edits, return {id,parameters:{width:1.2}} or length instead of polygon: absolute multipliers 0.25..4; 20% longer means current length*1.2. Do not combine parameters and polygon. Never change artworkMatrix, origin or axisAngle. Use current ids from scene.studio, return only changes, retain locks and assetId. If scene.selectedPart is set, revise ONLY it. Never replace tentacles with legs or a skirt with trousers.`;
+  const question=`Make an editable plan for: ${request.prompt.slice(0,180)}. Read the FULL request/history/geometry in scene.studentRequest and scene.studio.${repairHint} Put ONE JSON-encoded object in reply: {"summary":"Review this change","parts":[...]}. No prose outside that object, no "Summary:"/"Parts:" labels. For creation, parts have {id,name,polygon,fill}: numeric x/y pairs in the ${request.project.canvas.width} by ${request.project.canvas.height} canvas, at most 18 simple polygons with 6-20 vertices, nonzero area, no crossings, hex colors. Preserve requested anatomy. For existing pieces use current ids, return ONLY requested edits, retain locks and assetId. If scene.selectedPart is set, revise ONLY it. Resize with {id,parameters:{width:1.2}} or length: absolute multipliers 0.25..4; 20% longer means current length*1.2. Mirror with {id,transform:{mirror:"horizontal"}} (left-right) or "vertical" (up-down). Mirror preserves the joint angle; never use negative dimensions or rotation instead. Do not combine transform, parameters and polygon. Never return artworkMatrix, origin or axisAngle. Do not invent painting suggestions or say a change is applied. Unsupported edits need an honest explanation, not an invented plan.`;
   const content=JSON.stringify({question,language:request.language,task:'discuss',scene:{application:'shadow-puppet-studio',objects:[],studentRequest:request.prompt,operation:request.task,selectedPart:request.selectedPartId||null,selectionRule:request.selectedPartId?'Return changes ONLY to part '+request.selectedPartId+'. Keep its assetId and all other pieces unchanged.':null,studio:request.project,history:request.history,...(request.repair?{repair:request.repair}:{})}});
   if(content.length>34500)throw Error('This project is too detailed for the current text relay. Use a smaller project or the updated studio relay.');
   return {application:'shadow-puppet-studio',model:'qwen3.8-flash',messages:[{role:'system',content:'You give concise shadow-puppet design advice.'},{role:'user',content}],temperature:.4,max_tokens:3500,response_format:{type:'json_object'},stream:false,enable_thinking:false};
@@ -76,12 +77,31 @@ function readJsonText(text) {
   throw Error('The assistant returned invalid design data.');
 }
 function planInsideReply(reply) {
-  try {const parsed=readJsonText(reply);if(plainObject(parsed)&&Array.isArray(parsed.parts))return parsed;}catch{}
+  const plan=value=>plainObject(value)&&(Array.isArray(value.parts)||plainObject(value.proposal))?value:null;
+  try {const parsed=plan(readJsonText(reply));if(parsed)return parsed;}catch{}
   // Some compliant advice surrounds the measurement data with explanation.
   // Parse only complete JSON objects; never run or infer executable content.
   const start=reply.indexOf('{'),end=reply.lastIndexOf('}');
-  if(start<0||end<=start)return null;
-  try {const parsed=readJsonText(reply.slice(start,end+1));return plainObject(parsed)&&Array.isArray(parsed.parts)?parsed:null;}catch{return null;}
+  if(start>=0&&end>start)try {const parsed=plan(readJsonText(reply.slice(start,end+1)));if(parsed)return parsed;}catch{}
+  // The legacy discussion relay sometimes emits exactly "Parts: [JSON]".
+  // Accept one explicitly labelled, complete JSON array; never infer an edit
+  // from prose, execute code, or choose between several competing arrays.
+  const labels=[...reply.matchAll(/(?:^|[\s.!?;])Parts\s*:\s*(?=\[)/gi)];
+  if(labels.length!==1)return null;
+  const begin=labels[0].index+labels[0][0].length;
+  let depth=0,quoted=false,escaped=false,finish=-1;
+  for(let i=begin;i<reply.length;i++){
+    const c=reply[i];
+    if(quoted){if(escaped)escaped=false;else if(c==='\\')escaped=true;else if(c==='"')quoted=false;continue;}
+    if(c==='"'){quoted=true;continue;}
+    if(c==='[')depth++;else if(c===']'&&--depth===0){finish=i+1;break;}
+  }
+  if(finish<0)return null;
+  try {
+    const parts=JSON.parse(reply.slice(begin,finish));
+    const summary=reply.match(/(?:^|[\s.!?;])Summary\s*:\s*([^\n]*?)(?=\s+Parts\s*:|\r?\n|$)/i)?.[1];
+    return Array.isArray(parts)?{parts,summary:summary||'Review this change before applying it.'}:null;
+  }catch{return null;}
 }
 function cleanProposal(value) {
   if(!plainObject(value)) return null;
@@ -92,13 +112,18 @@ function cleanProposal(value) {
       if(!plainObject(p)||typeof p.id!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(p.id))throw Error('The assistant returned an invalid part identifier. Retry the request.');
       if(ids.has(p.id))throw Error('The assistant returned duplicate part identifiers. Retry the request.');ids.add(p.id);
       const item={id:p.id};
+      if(own(p,'transform')){
+        if(!plainObject(p.transform)||Object.keys(p.transform).length!==1||!['horizontal','vertical'].includes(p.transform.mirror))throw Error('Use transform:{mirror:"horizontal"} for left-right or {mirror:"vertical"} for up-down.');
+        if(own(p,'polygon')||own(p,'parameters'))throw Error('Return a mirror transform separately from dimension parameters or a new outline.');
+        item.transform={mirror:p.transform.mirror};
+      }
       if(own(p,'artworkMatrix'))throw Error('Artwork alignment is calculated by the studio. Return only width or length parameters for a resize.');
       if(own(p,'parameters')){
         if(!plainObject(p.parameters)||!Object.keys(p.parameters).length||Object.keys(p.parameters).some(key=>!['width','length'].includes(key)))throw Error('Return only width and length parameters; the artwork origin and axis are protected.');
         if(own(p,'polygon'))throw Error('Use either dimension parameters or a new outline, not both in the same edit.');
         item.parameters={};
         for(const key of ['width','length'])if(own(p.parameters,key)){
-          const n=p.parameters[key];if(typeof n!=='number'||!Number.isFinite(n)||n<.25||n>4)throw Error('Part dimensions must be numeric multipliers from 0.25 to 4.');
+          const n=p.parameters[key];if(typeof n!=='number'||!Number.isFinite(n)||n<.25||n>4)throw Error('Part dimensions must be numeric multipliers from 0.25 to 4. For mirroring, use transform:{mirror:"horizontal"} or {mirror:"vertical"}; never negative dimensions.');
           item.parameters[key]=n;
         }
       }
@@ -116,7 +141,7 @@ export function parseStudioResponse(data,{legacy=false}={}) {
   let value=data;
   if(data?.choices){const choice=data.choices[0];if(choice?.finish_reason==='length')throw Error('The drawing plan was cut off. Ask for fewer parts or a smaller change.');if(typeof choice?.message?.content!=='string'||choice.message.content.length>120000)throw Error('Unexpected assistant response.');value=readJsonText(choice.message.content);}
   if(!plainObject(value))throw Error('Unexpected assistant response.');
-  if(typeof value.reply==='string'){const plan=planInsideReply(value.reply);if(plan)value={...plan,reply:plan.summary||plan.reply||'Review this drawing plan before accepting it.'};}
+  if(typeof value.reply==='string'&&!value.proposal&&!value.parts&&!value.joints){const plan=planInsideReply(value.reply);if(plan)value={...value,...plan,reply:plan.summary||plan.reply||'Review this drawing plan before accepting it.'};}
   const proposal=cleanProposal(value.proposal||((value.parts||value.joints||value.removePartIds)?value:null));
   const reply=boundedString(value.reply||value.summary,5000);
   if(!reply)throw Error('The assistant did not explain its proposal.');
@@ -130,6 +155,11 @@ const statusUrl=endpoint=>endpoint.replace(/\/$/,'')+'/status';
 const timeoutSignal=(signal,ms)=>signal?AbortSignal.any([signal,AbortSignal.timeout(ms)]):AbortSignal.timeout(ms);
 async function responseJson(response){try{return await response.json();}catch{return null;}}
 const aborted=signal=>{if(signal?.aborted)throw signal.reason||new DOMException('Request cancelled.','AbortError');};
+// Only a format guard: this never guesses or executes a flip direction.
+function explicitMirrorRequest(prompt){
+  if(/\b(?:do\s+not|don't|dont|never)\s+(?:mirror|flip)\b|(?:不要|不用|无需|不必|别)(?:再|进行|做)?(?:镜像|翻转|翻面)/i.test(prompt))return false;
+  return /\b(?:mirror|flip)\b(?:\s+(?:it|this|that|the|my|selected|horizontally|vertically|horizontal|vertical|left|right|up|down)\b|[.!?]?$)|镜像|翻转|翻面|左右翻|上下翻/i.test(prompt);
+}
 function kimiImageContext(project) {
   const choices=[['Character type',project.brief?.kind],['World / era',project.brief?.era],['Visual style',project.brief?.style],['Movement / action',project.brief?.action]]
     .filter(([,value])=>typeof value==='string'&&value.trim()).map(([label,value])=>`${label}: ${value}`);
@@ -238,9 +268,11 @@ export async function requestStudioAI(project,args={},options={}) {
   if(body.task==='generate-image'&&caps.imageEndpoint)return requestKimiImage(project,args,{...caps,endpoint:target},{fetcher,signal,artworkReader});
   let repair;
   for(let attempt=0;attempt<2;attempt++){
+    aborted(signal);
     const attemptArgs={...args,...(repair?{repair}:{})};
     const response=await fetcher(target,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(legacy?makeDrawingPlanRequest(project,attemptArgs):makeStudioRequest(project,attemptArgs)),signal:timeoutSignal(signal,isImage?240000:60000)});
     const data=await responseJson(response);
+    aborted(signal);
     if(!response.ok){const hints={400:'The relay could not read this request.',401:'The protected AI connection needs authorization.',403:'This studio is not allowed by the protected relay.',404:'The updated studio relay route has not been installed.',413:'This image or project is too large for the AI service.',422:'The assistant returned a shape that needs correction. Try a smaller change.',429:'The AI connection is busy. Wait a moment and retry.',503:'This AI capability is not configured on the protected server.'};throw Error(data?.message||hints[response.status]||`AI request failed (${response.status}). Your design is unchanged.`);}
     let result;
     try{result=parseStudioResponse(data,{legacy});}catch(error){if(attempt===0&&!isImage){repair={error:error.message,proposal:null};continue;}throw error;}
@@ -248,15 +280,26 @@ export async function requestStudioAI(project,args={},options={}) {
     if(body.task==='refine'&&body.selectedPartId&&result.proposal){
       const original=project.parts.find(p=>p.id===body.selectedPartId),patches=(result.proposal.parts||[]).filter(p=>p.id===body.selectedPartId);
       if(!patches.length){result.proposal=null;result.warnings.push('No change to the selected piece was returned. Select the piece by name in your request.');}
-      else {result.proposal={parts:patches.map(p=>({...p,assetId:original.assetId}))};result.warnings.push('Only the selected piece is included; its source artwork, all other parts and connections are preserved.');}
+      else {result.proposal={parts:patches.map(p=>({...p,assetId:original.assetId}))};result.warnings.push('Only the selected piece is edited. Other pieces keep their shapes and artwork; attached pieces follow their joints.');}
     }
     if(result.proposal){
       const validationBase=body.task==='create'?{...project,parts:[],joints:[],rods:[]}:project;
-      try{applyStudioProposal(validationBase,result.proposal);}
+      try{
+        const baseline=normalizeStudioProject(validationBase);
+        for(const patch of result.proposal.parts||[]){
+          const old=baseline.parts.find(part=>part.id===patch.id);
+          if(old&&own(patch,'polygon')&&explicitMirrorRequest(body.prompt))throw Error('A mirrored outline alone leaves the source artwork unchanged. Return transform:{mirror:"horizontal"} or {mirror:"vertical"} for the requested flip, not polygon coordinates. Ask for the direction if unclear.');
+          if(old&&baseline.joints.some(joint=>joint.childId===old.id)&&['x','y','rotation'].some(key=>own(patch,key)&&patch[key]!==old[key]))throw Error('This piece is attached to a joint: x, y and rotation do not control its displayed pose. Use the movement control for a joint angle, or transform:{mirror:"horizontal"} / {mirror:"vertical"} for a flip.');
+        }
+        const preview=applyStudioProposal(validationBase,result.proposal);
+        if(body.task==='refine'&&JSON.stringify([preview.parts,preview.joints,preview.rods,preview.brief])===JSON.stringify([baseline.parts,baseline.joints,baseline.rods,baseline.brief])){
+          result.proposal=null;result.warnings.push('The returned edit did not change the design. No preview was created.');
+        }
+      }
       catch(error){if(attempt===0&&!isImage){repair={error:error.message,proposal:result.proposal};continue;}throw Error('The proposed outline still needs correction: '+error.message+' Your existing design is unchanged. Try a simpler outline or trace this piece manually.');}
     }
-    else if(attempt===0&&body.task==='create'&&!isImage){repair={error:'No editable numeric polygon measurements were returned. Provide the requested outline data if this service supports it; otherwise state that limitation clearly.',proposal:null};continue;}
-    if(repair)result.warnings.push('The initial response did not provide valid editable outlines. One AI repair attempt was made; review this response before accepting.');
+    if(!result.proposal&&attempt===0&&['create','refine'].includes(body.task)&&!isImage){repair={error:body.task==='refine'?'No editable change to the requested piece was returned. Return the supported edit as JSON parts using its existing id. For a mirror, use transform:{mirror:"horizontal"} or {mirror:"vertical"}, not negative width or axisAngle. Do not claim a change is applied. If the request is ambiguous or unsupported, explain why.':'No editable numeric polygon measurements were returned. Provide the requested outline data if this service supports it; otherwise state that limitation clearly.',proposal:null};continue;}
+    if(repair)result.warnings.push('The initial response did not provide a usable edit. One AI repair attempt was made; review this response before accepting.');
     return result;
   }
 }

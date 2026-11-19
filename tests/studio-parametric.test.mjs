@@ -112,7 +112,7 @@ test('image mappings and parameter baselines survive a portable project round tr
 
 test('invalid dimensions and collapsed or executable artwork transforms are rejected',()=>{
  const p=fixture();for(const width of [0,-1,.24,4.01,Infinity,NaN,'1.2'])assert.throws(()=>resizePart(p,'sleeve',{width}));
- for(const matrix of [[0,0,0,0,0,0],[-1,0,0,1,0,0],[1,0,0,1,0,'onload'],[1,0,0,1,0],[1,null,0,1,0,0],[1,,0,1,0,0]]){
+ for(const matrix of [[0,0,0,0,0,0],[-1e-10,0,0,1,0,0],[1,0,0,1,0,'onload'],[1,0,0,1,0],[1,null,0,1,0,0],[1,,0,1,0,0]]){
   const bad=structuredClone(p);bad.parts[0].artworkMatrix=matrix;assert.throws(()=>normalizeStudioProject(bad));
  }
  assert.throws(()=>resizePart(p,'missing',{width:1.2}),error=>error.code==='PART_NOT_FOUND');

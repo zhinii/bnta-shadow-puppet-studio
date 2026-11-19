@@ -1462,3 +1462,57 @@ test('background removal handles an empty-space tap and ignores a late result af
     await h.point(10,10);await h.click({action:'new-project'});await h.settle();assert.equal(h.project().parts.length,0);assert.equal(h.project().assets.length,0);assert.doesNotMatch(h.root.innerHTML,/cleanup-review|mode-background-pick|Undo last removal/);assert.equal(h.error(),'');
   }finally{await h.close();}
 });
+
+function mirrorWorkflowFixture(){
+  const p=createStudioProject();p.assets=[{id:'paint',name:'Test artwork',width:100,height:100,dataUrl:PNG}];p.conceptAssetId='paint';p.canvas={width:100,height:100};
+  p.parts=[{...makePart('Arm',[[5,40],[45,40],[45,60],[5,60]],'paint'),id:'arm',z:0},{...makePart('Hand and ball',[[40,45],[52,28],[78,20],[90,35],[83,48],[60,55],[40,55]],'paint'),id:'hand',z:1}];
+  p.joints=[{id:'wrist',parentId:'arm',childId:'hand',parentAnchor:[42,50],childAnchor:[42,50],type:'pivot',angle:0,min:-90,max:90,padRadius:8}];return p;
+}
+
+test('direct flips preview actual artwork and keep the wrist fixed through apply reject and undo',async()=>{
+ const h=browserHarness();
+ try{
+  await h.start('direct-artwork-flip');await h.settle();await h.openProject(mirrorWorkflowFixture());await h.click({action:'select',id:'hand'});
+  const before=structuredClone(h.project()),requests=h.requests.length;
+  assert.match(h.root.innerHTML,/Flip left–right/);assert.match(h.root.innerHTML,/Flip up–down/);
+  await h.click({action:'flip-horizontal'});assert.equal(h.requests.length,requests,'direct flip needs no relay');assert.deepEqual(h.project(),before);
+  assert.match(h.root.innerHTML,/id="review-heading"/);assert.match(h.root.innerHTML,/Apply this change/);assert.ok(h.focusedSelectors.includes('#review-heading'));
+  assert.match(h.root.innerHTML,/matrix\(-1 0 0 1 84 0\)/,'the proposal includes reflected raster artwork');
+  await h.click({action:'review-view',view:'before'});assert.match(h.root.innerHTML,/data-review-view="before"/);
+  await h.click({action:'reject'});assert.deepEqual(h.project(),before);
+  await h.click({action:'flip-horizontal'});await h.click({action:'accept'});
+  const after=h.project();assert.deepEqual(after.parts.find(p=>p.id==='arm'),before.parts.find(p=>p.id==='arm'));
+  assert.notDeepEqual(after.parts.find(p=>p.id==='hand').polygon,before.parts.find(p=>p.id==='hand').polygon);
+  assert.ok(after.parts.find(p=>p.id==='hand').artworkMatrix[0]<0);assert.deepEqual(after.joints[0].parentAnchor,before.joints[0].parentAnchor);assert.deepEqual(after.joints[0].childAnchor,before.joints[0].childAnchor);
+  assert.equal(unitsPerMm(after),unitsPerMm(before));
+  await h.click({action:'undo'});assert.deepEqual(h.project(),before);
+  await h.click({action:'flip-vertical'});await h.click({action:'accept'});assert.ok(h.project().parts.find(p=>p.id==='hand').artworkMatrix[3]<0);
+  await h.click({action:'undo'});await h.click({action:'lock'});const locked=structuredClone(h.project());
+  assert.match(h.root.innerHTML,/<button[^>]*data-action="flip-horizontal"[^>]*disabled/);
+  await h.click({action:'flip-horizontal'});assert.deepEqual(h.project(),locked);assert.match(h.error(),/lock/i);
+ }finally{await h.close();}
+});
+
+test('legacy prose Parts edit repairs negative width into a visible selected-piece mirror preview',async()=>{
+ const h=browserHarness();h.setGetResponse(legacyImageStatus);let calls=0;
+ h.setResponse(()=>({reply:++calls===1?'Summary: Mirror the selected hand. Parts: [{"id":"hand","parameters":{"width":-1}}]':'Summary: Flip the selected hand left to right. Parts: [{"id":"hand","transform":{"mirror":"horizontal"}}]'}));
+ try{
+  await h.start('legacy-mirror-preview');await h.settle();await h.openProject(mirrorWorkflowFixture());await h.click({action:'select',id:'hand'});
+  const before=structuredClone(h.project());h.input('revision-prompt','Mirror the hand holding the ball. Keep its angle.');await h.submit('refine-form');await h.settle();
+  assert.equal(calls,2,'invalid negative width receives one bounded correction');assert.deepEqual(h.project(),before);assert.equal(h.error(),'');
+  assert.match(h.root.innerHTML,/id="review-heading"/);assert.match(h.root.innerHTML,/matrix\(-1 0 0 1 84 0\)/);assert.doesNotMatch(h.root.innerHTML,/Advice only/);
+  const retry=JSON.parse(h.requests.at(-1).body.messages.findLast(m=>m.role==='user').content);assert.ok(retry.scene.repair);assert.equal(retry.scene.selectedPart,'hand');
+  await h.click({action:'accept'});assert.ok(h.project().parts.find(p=>p.id==='hand').artworkMatrix[0]<0);assert.deepEqual(h.project().parts.find(p=>p.id==='arm'),before.parts.find(p=>p.id==='arm'));
+ }finally{await h.close();}
+});
+
+test('refine advice-only response retries once and shows a short failure with direct flip recovery',async()=>{
+ const h=browserHarness();h.setGetResponse(legacyImageStatus);const advice='I would mirror this piece. '+('A lengthy explanation. '.repeat(70));h.setResponse(()=>({reply:advice}));
+ try{
+  await h.start('advice-only-refine');await h.settle();await h.openProject(mirrorWorkflowFixture());await h.click({action:'select',id:'hand'});const before=structuredClone(h.project());
+  h.input('revision-prompt','Mirror this hand');await h.submit('refine-form');await h.settle();
+  assert.equal(h.requests.length,2);assert.deepEqual(h.project(),before);assert.doesNotMatch(h.root.innerHTML,/data-action="accept"/);
+  assert.match(h.error(),/No change to preview/);assert.ok(h.error().length<180);assert.doesNotMatch(h.error(),/lengthy/);assert.match(h.root.innerHTML,/A lengthy explanation/,'details remain in the conversation');
+  await h.click({action:'flip-horizontal'});assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="review-heading"/);assert.equal(h.requests.length,2);
+ }finally{await h.close();}
+});
