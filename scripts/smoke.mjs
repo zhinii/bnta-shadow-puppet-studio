@@ -22,6 +22,6 @@ assert.match(portable,/function clearStoredStudioSession/,'Versioned storage imp
 assert.match(portable,/https:\/\/zhinii\.github\.io\/bnta-shadow-puppet-studio\/public\/legacy\.html\?v=0\.7\.9/);
 assert.doesNotMatch(portable,/new URL\('\.\/legacy\.html/,'Portable classic-editor navigation must not depend on import.meta.url.');
 assert.match(pages,/href="\.\/public\/studio\.css\?v=0\.7\.9"/);
-assert.match(pages,/src="\.\/public\/studio-app\.mjs\?v=0\.7\.10"/);
+assert.match(pages,/src="\.\/public\/studio-app\.mjs\?v=0\.7\.11"/);
 assert.match(legacy,/src="\.\/app\.mjs\?v=0\.7\.9"/);
 console.log('Built Worker smoke test passed: 23 assets, versioned entry/dependencies, standalone portable HTML, both API status routes, CORS and missing route.');

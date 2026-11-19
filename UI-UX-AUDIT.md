@@ -1,6 +1,10 @@
 # UI/UX re-audit — simplicity first
 
-## Current v0.7.10 understandable creation options - 19 November 2026
+## Current v0.7.11 description-only Create - 19 November 2026
+
+Removed the complete Optional look and setting section, including character type, time/setting, artwork style and the alternate draft-shapes action. Create now leads with description, Create character and Upload an image. The primary text-draft fallback remains when only text AI is available. Removed selections in older downloaded files remain portable data but are omitted from AI image, revision and joint-planning contexts; the student description remains authoritative. Tests verify no hidden options affect prompts or reduce the 800-character image allowance. No new live browser observation is claimed.
+
+## Previous v0.7.10 understandable creation options - 19 November 2026
 
 Removed the four construction starter buttons. Renamed World to Time or setting and Style to Artwork style. Each choice has a short explanation; the default Use my description adds no extra setting. The panel explains that choices guide the next generated image and do not change accepted artwork. English and Chinese copy were updated. Tests verify every option reaches both image routes and text drafting, that student wording stays intact, and that changing choices leaves existing parts unchanged. This verifies wiring and behaviour, not model obedience or a live visual comparison.
 

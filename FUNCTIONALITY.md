@@ -1,10 +1,10 @@
 # Shadow Puppet Studio · functionality and acceptance review
 
-Current version: **v0.7.10**. The student workflow is **Create → Refine → Make**. AI prepares proposals; students retain control over the character, movement and final result.
+Current version: **v0.7.11**. The student workflow is **Create → Refine → Make**. AI prepares proposals; students retain control over the character, movement and final result.
 
 | Process | Available functionality | Practical boundary |
 | --- | --- | --- |
-| Create | Custom prompts, live character count and confirmed allowance, optional character type, time or setting, and artwork style, image generation through the protected relay | Creation waits for the capability check; generation can misinterpret details, so review the image |
+| Create | Description-only creation, live character count and confirmed allowance, image generation through the protected relay | Creation waits for the capability check; generation can misinterpret details, so review the image |
 | Create | Upload PNG/JPEG/WebP and focused tap-to-draw shapes | Uploads are processed locally; starting-shape buttons have been removed |
 | Refine | Automatic cleanup, visible tap-to-remove background, checkerboard/cut-edge preview, Undo last removal, retain missing props, choose the character | Suspected opaque rectangles pause for review; complex backgrounds and connected decorations may need correction |
 | Refine | AI selects among validated movement candidates; editable numbered dots; empty plans offer a first movement point or an explicit still-puppet choice | Current relay uses the brief and outline measurements, not visual anatomy recognition |

@@ -19,9 +19,9 @@ Do not draw simulated mechanical pinhole dots, joint circles, hinge marks, diagr
 
 export function makeImageGenerationPrompt(project,prompt) {
   if(typeof prompt!=='string'||!prompt.trim()||prompt.length>MAX_STUDIO_PROMPT)throw Error(`Enter a request of 1-${MAX_STUDIO_PROMPT} characters.`);
-  const choices=[['Character type',project.brief?.kind],['World / era',project.brief?.era],['Visual style',project.brief?.style],['Movement / action',project.brief?.action]]
-    .filter(([,value])=>typeof value==='string'&&value.trim()).map(([label,value])=>`${label}: ${value.slice(0,1000)}`);
-  return `${IMAGE_PRODUCTION_RULES}\n\n${choices.length?`Selected design settings:\n${choices.join('\n')}\n\n`:''}Student prompt (verbatim):\n${prompt}`;
+  // Legacy saved dropdown choices remain in the project file, but are no
+  // longer controls and must not silently steer a new generation.
+  return `${IMAGE_PRODUCTION_RULES}\n\nStudent prompt (verbatim):\n${prompt}`;
 }
 
 export const STUDIO_SYSTEM = `You collaborate with students on custom shadow-puppet design. Return one JSON object: {"reply":"short explanation in requested language","proposal":{"parts":[],"joints":[],"brief":{}},"warnings":[]}. Do not wrap JSON in Markdown. Student intent and retained work are authoritative. Never invent a character name, story, identity, historical fact or symbolism. Modern, historical, fictional, real-world, animal and fantastical subjects are valid. No fixed human skeleton: preserve requested anatomy, appendage counts, costume silhouette and custom shapes. Ask for clarification rather than silently substituting a generic human. The result is a design draft, never a claim of tested physical construction.
@@ -43,7 +43,7 @@ export function validProtectedEndpoint(value) {
 }
 export function studioContext(project) {
   // Asset bytes are sent only as explicit vision input, never in text history.
-  return {title:boundedString(project.title,160),brief:project.brief,conceptAssetId:project.conceptAssetId,
+  return {title:boundedString(project.title,160),brief:{keywords:boundedString(project.brief?.keywords,4000)},conceptAssetId:project.conceptAssetId,
     canvas:project.assets?.find(a=>a.id===project.conceptAssetId) ? (({width,height,id})=>({width,height,assetId:id}))(project.assets.find(a=>a.id===project.conceptAssetId)) : {...(project.canvas||{width:800,height:1000})},
     assets:(project.assets||[]).map(({id,width,height,name})=>({id,width,height,name})),
     parts:(project.parts||[]).map(({id,name,polygon,assetId,fill,x,y,rotation,locked,z,artworkMatrix,parameters})=>({id,name,polygon,assetId,fill,x,y,rotation,locked,z,...(artworkMatrix?{artworkMatrix:[...artworkMatrix]}:{}),...(parameters?{parameters:{...parameters,...(parameters.origin?{origin:[...parameters.origin]}:{})}}:{})})),
@@ -160,23 +160,18 @@ function explicitMirrorRequest(prompt){
   if(/\b(?:do\s+not|don't|dont|never)\s+(?:mirror|flip)\b|(?:不要|不用|无需|不必|别)(?:再|进行|做)?(?:镜像|翻转|翻面)/i.test(prompt))return false;
   return /\b(?:mirror|flip)\b(?:\s+(?:it|this|that|the|my|selected|horizontally|vertically|horizontal|vertical|left|right|up|down)\b|[.!?]?$)|镜像|翻转|翻面|左右翻|上下翻/i.test(prompt);
 }
-function kimiImageContext(project) {
-  const choices=[['Character type',project.brief?.kind],['World / era',project.brief?.era],['Visual style',project.brief?.style],['Movement / action',project.brief?.action]]
-    .filter(([,value])=>typeof value==='string'&&value.trim()).map(([label,value])=>`${label}: ${value}`);
-  return choices.length?`Selected design settings:\n${choices.join('\n')}\n\nStudent prompt (verbatim):\n`:'';
-}
 export function getKimiImagePromptLimit(project) {
-  return Math.max(0,KIMI_IMAGE_PROMPT_LIMIT-kimiImageContext(project).length);
+  return KIMI_IMAGE_PROMPT_LIMIT;
 }
 export function makeKimiImageRequest(project,{prompt=''}={}) {
   makeStudioRequest(project,{task:'generate-image',prompt});
-  const context=kimiImageContext(project),required=context+prompt;
+  const required=prompt;
   if(required.length>KIMI_IMAGE_PROMPT_LIMIT){
-    const max=getKimiImagePromptLimit(project),over=required.length-KIMI_IMAGE_PROMPT_LIMIT;
-    throw Error(project.language==='zh'?`此图像连接的提示词和所选设置合计最多 ${KIMI_IMAGE_PROMPT_LIMIT} 字符；当前为 ${required.length}。请至少减少 ${over} 字符，或简化所选设置。当前设置下，描述最多可用 ${max} 字符。原文未被截断。`:`This image connection allows ${KIMI_IMAGE_PROMPT_LIMIT} characters including selected settings; this request uses ${required.length}. Shorten it by at least ${over} characters or simplify the selected settings. Your description can use ${max} characters with the current settings. Nothing was truncated.`);
+    const over=required.length-KIMI_IMAGE_PROMPT_LIMIT;
+    throw Error(project.language==='zh'?'本图片连接最多支持 '+KIMI_IMAGE_PROMPT_LIMIT+' 个字符；本次使用 '+required.length+' 个。请至少缩短 '+over+' 个字符。未截断任何内容。':'This image connection allows '+KIMI_IMAGE_PROMPT_LIMIT+' characters; this request uses '+required.length+'. Shorten it by at least '+over+' characters. Nothing was truncated.');
   }
-  // Guidance is optional; student wording and every selected preset take priority.
-  const guidance=KIMI_IMAGE_DEFAULTS+'\n\n'+(context?'':'Student prompt (verbatim):\n');
+  // Guidance is optional; the student's complete wording takes priority.
+  const guidance=KIMI_IMAGE_DEFAULTS+'\n\nStudent prompt (verbatim):\n';
   const complete=guidance.length+required.length<=KIMI_IMAGE_PROMPT_LIMIT?guidance+required:required;
   return {application:'shadow-puppet-studio',kind:'reference',prompt:complete};
 }
@@ -210,13 +205,13 @@ async function readImageJson(response) {
 }
 function kimiImageError(data,status,language) {
   const zh=language==='zh',messages={
-    prompt:['The image service rejected the prompt. Shorten the description or selected settings and try again.','图像服务拒绝了提示词。请缩短描述或简化所选设置后重试。'],
+    prompt:['The image service rejected the prompt. Shorten the description and try again.','图片服务拒绝了此描述。请缩短描述后重试。'],
     provider:['The image provider rejected this request. Your artwork is unchanged.','图像提供方拒绝了此请求。现有作品未改变。'],
     rate_limit:['The image service is busy or its account limit has been reached. Wait a moment before trying again.','图像服务繁忙或已达到账户限额。请稍后重试。'],
     image_model_unavailable:['Image generation is not enabled for this connected model or plan. Text assistance is still available.','当前连接的模型或套餐未启用图像生成。文字助手仍可使用。'],
     server_configuration:['Image generation is not configured on the protected server.','受保护服务器尚未配置图像生成。'],
     image_too_large:['The generated image was too large to keep. Request a smaller image.','生成图像过大，无法保存。请请求较小的图像。'],
-    size:['The image request is too large. Shorten the description or selected settings.','图像请求过大。请缩短描述或简化所选设置。']
+    size:['The image request is too large. Shorten the description.','图片请求过大。请缩短描述。']
   };
   const detail=boundedString(data?.message,1000)||boundedString(data?.error?.message,1000),code=typeof data?.error==='string'?data.error:typeof data?.code==='string'?data.code:detail;
   if(own(messages,code))return messages[code][zh?1:0];

@@ -21,7 +21,7 @@ test('horse selection request focuses explicit movements and supplies bounded me
  const project=JSON.parse(await readFile(new URL('./fixtures/generated-horse-outline.puppet.json',import.meta.url),'utf8')),before=structuredClone(project),candidates=suggestJointMarkers(project,{maxMarkers:12});let calls=0;
  const result=await requestJointPlan(project,candidates,{capabilities:legacy,fetcher:async(_url,options)=>{
   calls++;const content=JSON.parse(options.body).messages.at(-1).content,body=JSON.parse(content),context=body.scene.studio;
-  assert.equal(body.scene.studentRequest,project.brief.keywords);assert.equal(context.brief.action,project.brief.action);
+  assert.equal(body.scene.studentRequest,project.brief.keywords);assert.deepEqual(context.brief,{keywords:project.brief.keywords});
   assert.ok(content.length<=34500);assert.ok(body.question.length<=1600);
   assert.match(body.question,/ONLY the minimum joints needed/);assert.match(body.question,/"one" means one/);assert.match(body.question,/ambiguous or missing, omit it/);assert.doesNotMatch(body.question,/Start with 2-6/);assert.match(body.question,/For a still puppet, return/);assert.match(body.question,/never prose alone/);
   assert.equal(context.candidateGeometry.length,candidates.length);assert.ok(context.candidateGeometry.length<=12);

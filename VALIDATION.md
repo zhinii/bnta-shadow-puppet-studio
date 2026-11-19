@@ -1,5 +1,9 @@
 # Validation — 19 November 2026
 
+## v0.7.11 remove optional creation settings
+
+Regressions check the entire optional section and alternate draft button are absent; image and text creation still use their primary actions. Older character, era, style and action settings are excluded from all AI contexts while stored project data and exact student descriptions remain intact. Prompt allowance stays at 800 on the legacy image route. Workflow coverage retains generation, review, cleanup, movement and export. Fresh browser/mobile layout and live model output were not rechecked for this removal.
+
 ## v0.7.10 creation choices
 
 Style/setting tests verify all four artwork styles and three era choices reach both legacy and native image prompts, as well as editable text draft context. They preserve the student's exact description and prompt budget and do not mutate accepted artwork. Workflow tests check clearer labels, choice-specific explanations, and removal of all four starting-shape buttons. Existing test rigs now load through project import instead of the removed UI action.

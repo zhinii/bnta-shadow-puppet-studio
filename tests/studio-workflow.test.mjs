@@ -200,8 +200,8 @@ test('cold startup waits for known image capabilities without sending a surprise
     assert.equal(typeof releaseStatus,'function');assert.equal(h.promptBudget.textContent,'37 characters · Checking allowance…');
     assert.doesNotMatch(h.root.innerHTML,/37 \/ (4000|800)|Create editable draft/);
     assert.match(h.root.innerHTML,/<button[^>]*data-action="generate-image"[^>]*disabled[^>]*>Connecting…<\/button>/);
-    assert.match(h.root.innerHTML,/<button[^>]*data-action="create-plan"[^>]*disabled/);
-    for(const action of ['generate-image','create-plan'])await h.click({action});await h.submit('create-form');
+    assert.doesNotMatch(h.root.innerHTML,/data-action="create-plan"|create-choices|data-field="brief\./);
+    await h.click({action:'generate-image'});await h.submit('create-form');
     assert.equal(h.requests.length,0,'clicks or form submission during connection cannot silently choose the text route');
     assert.equal(h.project().brief.keywords,prompt);assert.equal(h.error(),'');
     releaseStatus({ok:false,status:404,json:async()=>({error:'not_found'})});await h.settle();
@@ -626,7 +626,7 @@ test('changing selection or importing artwork clears unfinished cuts and restore
   } finally {await h.close();}
 });
 
-test('generation-only relay accepts custom prompts and presets, reviews new pixels, and continues into local hinged parts', async () => {
+test('generation-only relay uses the description without hidden presets, reviews new pixels, and continues into local hinged parts', async () => {
   const h=browserHarness();h.setGetResponse(legacyImageStatus);
   const original=h.setRaster(rasterFixture({rectangles:[{x:5,y:10,w:8,h:80,color:[180,40,20,255]}]}));
   const generated=h.setRaster(rasterFixture({rectangles:[{x:20,y:10,w:50,h:80,color:[30,70,180,255]}]}));
@@ -634,16 +634,13 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
   try {
     await h.start('generation-only-relay');await h.settle();
     assert.doesNotMatch(h.root.innerHTML,/data-action="starter"|Jointed figure|Wide sleeves|Winged creature|Tentacled character/);
-    assert.match(h.root.innerHTML,/Optional look and setting/);assert.match(h.root.innerHTML,/Time or setting/);assert.match(h.root.innerHTML,/Artwork style/);
-    assert.equal((h.root.innerHTML.match(/value="" selected>Use my description/g)||[]).length,3);
-    assert.match(h.root.innerHTML,/Changing them does not change existing artwork/);
+    assert.doesNotMatch(h.root.innerHTML,/Optional look and setting|Time or setting|Artwork style|create-choices|data-field="brief\./);
     const project=createStudioProject();project.canvas={width:100,height:100};project.assets=[{id:'kept-original',name:'Original piece',mime:'image/png',dataUrl:original,width:100,height:100}];project.conceptAssetId='kept-original';
     project.parts=[makePart('Protected original piece',[[5,10],[13,10],[13,90],[5,90]],'kept-original')];project.parts[0].locked=true;
+    project.brief={...project.brief,kind:'human',era:'modern',style:'paper-cut'};
     await h.openProject(project);await h.click({action:'step',step:'create'});
-    assert.deepEqual(primaryActions(h.root.innerHTML),['next-stage'],'an existing character has one primary continuation while Change my idea stays collapsed');assert.match(h.root.innerHTML,/<details class="create-again"/);assert.match(h.root.innerHTML,/data-action="generate-image"/);assert.match(h.root.innerHTML,/data-action="create-plan"/);
-    await h.change({dataset:{field:'brief.kind'},value:'human'});await h.change({dataset:{field:'brief.era'},value:'modern'});await h.change({dataset:{field:'brief.style'},value:'paper-cut'});
-    assert.match(h.root.innerHTML,/Present-day clothing and objects/);assert.match(h.root.innerHTML,/Flat coloured shapes with paper-cut details/);
-    assert.deepEqual(h.project().parts,project.parts,'optional generation choices leave accepted artwork alone');assert.equal(h.requests.length,0);
+    assert.deepEqual(primaryActions(h.root.innerHTML),['next-stage'],'an existing character has one primary continuation while Change my idea stays collapsed');assert.match(h.root.innerHTML,/<details class="create-again"/);assert.match(h.root.innerHTML,/data-action="generate-image"/);assert.doesNotMatch(h.root.innerHTML,/data-action="create-plan"|create-choices|data-field="brief\./);
+    assert.deepEqual(h.project().parts,project.parts,'opening old settings leaves accepted artwork alone');assert.equal(h.requests.length,0);
     const prompt='A doctor 医生 with a long white coat, two arms and a blue book; keep every finger inside the frame.';h.input('create-prompt',prompt);await h.settle();
     const before=structuredClone(h.project());
     await h.click({action:'view-shadow'});await h.change({dataset:{view:'concept'},checked:false});
@@ -651,7 +648,7 @@ test('generation-only relay accepts custom prompts and presets, reviews new pixe
     assert.equal(h.error(),'');assert.equal(h.requests.length,1);assert.equal(h.requests[0].url,'https://6ilmssim2bz2s.kimi.site/api/puppet/image');
     assert.deepEqual(Object.keys(h.requests[0].body).sort(),['application','kind','prompt'],'generation sends the composition prompt without source pixels or editor state');
     assert.equal(h.requests[0].body.application,'shadow-puppet-studio');assert.equal(h.requests[0].body.kind,'reference');
-    assert.ok(h.requests[0].body.prompt.endsWith(`Selected design settings:\nCharacter type: human\nWorld / era: modern\nVisual style: paper-cut\n\nStudent prompt (verbatim):\n${prompt}`),'custom prompt and preset context remain intact after the composition guidance');
+    assert.ok(h.requests[0].body.prompt.endsWith(`Student prompt (verbatim):\n${prompt}`));assert.doesNotMatch(h.requests[0].body.prompt,/Selected design settings|Character type:|World \/ era:|Visual style:/,'old invisible settings cannot influence generation');
     assert.match(h.requests[0].body.prompt,/explicit student requests override/);assert.match(h.requests[0].body.prompt,/No extra text/);assert.ok(h.requests[0].body.prompt.length<=800,'classic image relay receives its bounded compact prompt');
     assert.ok(h.root.innerHTML.includes(generated),'generated pixels remain visible during review even in Shadow mode');assert.ok(h.root.innerHTML.includes(original),'review keeps the original visible for comparison');
     assert.equal(h.canvasMarkup(),'','review takes the main canvas position');assert.equal(h.focusedSelectors.at(-1),'#review-heading');assert.ok(h.scrollRequests.length,'new proposals request scrolling into view');
@@ -717,11 +714,11 @@ test('classic image generation accepts a short panda prompt, honors the 800-char
     assert.equal((h.root.innerHTML.match(/class="busy-banner"/g)||[]).length,1,'Create has no duplicate feedback on the distant canvas');
     complete();await pending;await h.settle();assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="review-heading"/);assert.ok(h.root.innerHTML.includes(generated));
     await h.click({action:'reject'});assert.equal(h.project().brief.keywords,panda);assert.equal(h.project().assets.length,0);
-    await h.change({dataset:{field:'brief.kind'},value:'animal'});await h.change({dataset:{field:'brief.era'},value:'imagined'});await h.change({dataset:{field:'brief.style'},value:'paper-cut'});
-    const limit=inputLimit();assert.ok(limit>100&&limit<800,'collapsed presets reserve their required space in the relay limit');assert.equal(h.promptBudget.textContent,panda.length+' / '+limit+' characters','changing a preset updates the displayed prompt budget');
+    const legacy=h.project();legacy.brief={...legacy.brief,kind:'animal',era:'imagined',style:'paper-cut'};await h.openProject(legacy);await h.click({action:'step',step:'create'});
+    const limit=inputLimit();assert.equal(limit,800,'saved hidden settings do not reserve prompt space');assert.equal(h.promptBudget.textContent,panda.length+' / '+limit+' characters');
     const boundary='panda '+ 'x'.repeat(limit-6);h.input('create-prompt',boundary);h.setPostResponse(relay);
     await h.click({action:'generate-image'});await h.settle();assert.equal(h.error(),'');assert.equal(h.requests.at(-1).body.prompt.length,800,'the advertised input boundary is accepted exactly');
-    assert.ok(h.requests.at(-1).body.prompt.endsWith(boundary),'no student text is truncated at the boundary');assert.match(h.requests.at(-1).body.prompt,/Character type: animal/);assert.match(h.root.innerHTML,/id="review-heading"/);
+    assert.ok(h.requests.at(-1).body.prompt.endsWith(boundary),'no student text is truncated at the boundary');assert.doesNotMatch(h.requests.at(-1).body.prompt,/Character type:/);assert.match(h.root.innerHTML,/id="review-heading"/);
     await h.click({action:'reject'});const count=h.requests.length,oversized=boundary+'!';h.input('create-prompt',oversized);
     assert.ok(h.promptBudget.textContent.startsWith(oversized.length+' / '+limit+' characters'),'an over-limit imported value still displays its actual count');assert.match(h.promptBudget.textContent,/Remove 1 characters/);assert.equal(h.promptBudget.hidden,false);
     await h.click({action:'generate-image'});await h.settle();assert.equal(h.requests.length,count,'an oversized imported or programmatic value is rejected before the network');assert.match(h.error(),/800/);assert.equal(h.project().brief.keywords,oversized);assert.ok(createForm().includes(oversized));assert.match(createForm(),/class="error-banner"/);
@@ -837,13 +834,13 @@ test('a delayed generated image cannot replace work changed while generation is 
 });
 
 test('a drawing-plan response containing advice without editable shapes remains visible', async () => {
-  const h=browserHarness();h.setGetResponse(legacyImageStatus);
+  const h=browserHarness();
   const advice='Try tracing the two sleeves from a side-view reference; no editable outline measurements were returned.';
   h.setResponse(()=>({reply:advice}));
   try {
     await h.start('advice-only-create');await h.settle();
     h.input('create-prompt','Draft an articulated historical scholar with wide sleeves.');await h.settle();
-    const before=structuredClone(h.project());await h.click({action:'create-plan'});await h.settle();
+    const before=structuredClone(h.project());await h.submit('create-form');await h.settle();
     assert.equal(h.requests.length,2,'the text transport attempts one repair before presenting the advice');
     assert.deepEqual(h.project(),before);assert.doesNotMatch(h.root.innerHTML,/data-action="accept"/);
     assert.ok(h.root.innerHTML.includes(advice),'an advice-only reply is shown on the current screen instead of disappearing');
@@ -1260,7 +1257,7 @@ test('a generated character retains its exact custom request through cleanup and
   try {
     await h.start('generated-image-auto-construction');await h.settle();
     const prompt='A long narrow puppet arm with two bending points: one elbow and one wrist. Keep the shoulder fixed. 保留手腕活动。';
-    await h.change({dataset:{field:'brief.kind'},value:'human'});h.input('create-prompt',prompt);
+    await h.change({dataset:{field:'title'},value:'Movement study'});h.input('create-prompt',prompt);
     await h.click({action:'undo'});const before=h.project();
     assert.equal(before.brief.keywords,'','undo restores the accepted brief before the setting change');
     assert.ok(h.root.innerHTML.includes(prompt),'the visible creation request survives the design undo');

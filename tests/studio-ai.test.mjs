@@ -104,13 +104,13 @@ test('an explicit editing capability is independent of image generation',async()
   assert.equal(calls,2);assert.equal(result.asset.id,'edited-art');
 });
 
-test('Kimi generation keeps the exact student prompt and selected presets without sending the project or reference image',()=>{
+test('Kimi generation keeps the exact student prompt and ignores removed saved settings without sending the project or reference image',()=>{
   const p=createStudioProject();p.brief={kind:'creature',era:'imagined',style:'paper-cut',action:'wave',keywords:'Do not duplicate this stale text'};
   const snapshot=structuredClone(p);
   const prompt='  Six tentacles; keep my blue-and-gold pattern.\nSeparate every appendage.  ';
   const body=makeKimiImageRequest(p,{prompt,imageDataUrl:png,history:[{role:'user',content:'private earlier request'}]});
   assert.deepEqual(Object.keys(body).sort(),['application','kind','prompt']);assert.equal(body.kind,'reference');assert.equal(body.application,'shadow-puppet-studio');
-  assert.ok(body.prompt.endsWith(prompt));assert.match(body.prompt,/Character type: creature/);assert.match(body.prompt,/World \/ era: imagined/);assert.match(body.prompt,/Visual style: paper-cut/);assert.match(body.prompt,/Movement \/ action: wave/);
+  assert.ok(body.prompt.endsWith(prompt));assert.doesNotMatch(body.prompt,/Character type:|World \/ era:|Visual style:|Movement \/ action:|Selected design settings:/);
   assert.ok(!JSON.stringify(body).includes('base64'));assert.ok(!JSON.stringify(body).includes('private'));assert.ok(!body.prompt.includes('stale'));
   assert.match(body.prompt,/^Production defaults \(explicit student requests override\):/);assert.equal(body.prompt.split('Student prompt (verbatim):\n')[1],prompt);assert.deepEqual(p,snapshot);
   const noSettings=makeKimiImageRequest(createStudioProject(),{prompt}).prompt;assert.ok(noSettings.endsWith('Student prompt (verbatim):\n'+prompt));assert.ok(noSettings.length<=800);
@@ -125,7 +125,7 @@ test('both generation providers share production defaults while preserving Chine
   const providerPrompt=payload.input.messages[0].content.find(item=>item.text).text;
   assert.equal(providerPrompt,makeImageGenerationPrompt(p,prompt));assert.equal(providerPrompt.split('Student prompt (verbatim):\n')[1],prompt);
   assert.equal(kimi.prompt.split('Student prompt (verbatim):\n')[1],prompt);assert.ok(kimi.prompt.length<=800);assert.match(kimi.prompt,/explicit student requests override/);assert.match(kimi.prompt,/costume lettering, tattoos and motifs/);
-  assert.match(providerPrompt,/Character type: 动物/);assert.match(providerPrompt,/World \/ era: 历史/);assert.match(providerPrompt,/Visual style: 传统皮影/);assert.match(providerPrompt,/Movement \/ action: 奔跑/);
+  assert.doesNotMatch(providerPrompt,/Character type:|World \/ era:|Visual style:|Movement \/ action:|Selected design settings:/);
   assert.match(IMAGE_PRODUCTION_RULES,/Explicit student requests take precedence/);
   assert.match(IMAGE_PRODUCTION_RULES,/flat plain white background/);assert.match(IMAGE_PRODUCTION_RULES,/only explicitly requested props/);
   assert.match(IMAGE_PRODUCTION_RULES,/text, calligraphy, signatures, watermarks, borders, floating stars, ground decoration/);
@@ -154,20 +154,19 @@ test('legacy image budget preserves 800 characters exactly and rejects 801 befor
   let calls=0;await assert.rejects(requestStudioAI(p,{task:'generate-image',prompt:prompt+'x'},{capabilities:caps,fetcher:async()=>{calls++;throw Error('Must not post');}}),error=>{assert.match(error.message,/800 characters/);assert.match(error.message,/uses 801/);assert.match(error.message,/at least 1 characters/);assert.match(error.message,/Nothing was truncated/);return true;});assert.equal(calls,0);
 });
 
-test('legacy budget reserves every selected preset and localizes oversized requests without truncation',async()=>{
-  const p=createStudioProject();p.language='zh';p.brief={kind:'动物',era:'现代',style:'传统皮影',action:'招手'};
-  const snapshot=structuredClone(p),limit=getKimiImagePromptLimit(p),prompt='熊'.repeat(limit),body=makeKimiImageRequest(p,{prompt});
-  assert.ok(limit>0&&limit<800);assert.equal(body.prompt.length,800);assert.ok(body.prompt.endsWith(prompt));assert.doesNotMatch(body.prompt,/Production defaults/);
-  for(const value of Object.values(p.brief))assert.ok(body.prompt.includes(value));assert.deepEqual(p,snapshot);
-  let posted=false;await assert.rejects(requestStudioAI(p,{task:'generate-image',prompt:prompt+'熊'},{capabilities:{imageGeneration:true,endpoint:PLAN_RELAY,imageEndpoint:IMAGE_RELAY},fetcher:async()=>{posted=true;}}),error=>{assert.match(error.message,/801/);assert.ok(error.message.includes('原文未被截断'));assert.ok(error.message.includes('所选设置'));return true;});assert.equal(posted,false);
-  p.brief.style='pattern'.repeat(160);assert.equal(getKimiImagePromptLimit(p),0);assert.throws(()=>makeKimiImageRequest(p,{prompt:'熊猫'}),/所选设置/);
+test('legacy budget ignores removed saved options and localizes oversized requests without truncation',async()=>{
+  const p=createStudioProject();p.language='zh';p.brief={kind:'legacy-kind',era:'legacy-era',style:'legacy-style'.repeat(80),action:'legacy-action',keywords:'Use the description only'};
+  const snapshot=structuredClone(p),limit=getKimiImagePromptLimit(p),prompt='字'.repeat(limit),body=makeKimiImageRequest(p,{prompt});
+  assert.equal(limit,800);assert.equal(body.prompt,prompt);assert.deepEqual(p,snapshot);
+  let posted=false;await assert.rejects(requestStudioAI(p,{task:'generate-image',prompt:prompt+'字'},{capabilities:{imageGeneration:true,endpoint:PLAN_RELAY,imageEndpoint:IMAGE_RELAY},fetcher:async()=>{posted=true;}}),error=>{assert.match(error.message,/801/);assert.ok(error.message.includes('至少缩短'));assert.ok(error.message.includes('未截断'));return true;});assert.equal(posted,false);
+  assert.ok(makeKimiImageRequest(p,{prompt:'熊猫'}).prompt.endsWith('熊猫'));assert.equal(getKimiImagePromptLimit(p),800);
 });
 
 test('panda generation succeeds against a relay double enforcing the entire 800-character payload budget',async()=>{
   for(const brief of [{},{kind:'animal',era:'modern',style:'traditional',action:'wave'}]){
     const p=createStudioProject();p.brief=brief;const prompt='A panda wearing a birthday party hat.';let calls=0;
     const result=await requestStudioAI(p,{task:'generate-image',prompt},{capabilities:{imageGeneration:true,mode:'drawing-plan',endpoint:PLAN_RELAY,imageEndpoint:IMAGE_RELAY},fetcher:async(url,options)=>{
-      calls++;const body=JSON.parse(options.body);assert.equal(url,IMAGE_RELAY);assert.ok(body.prompt.endsWith(prompt));for(const value of Object.values(brief))assert.ok(body.prompt.includes(value));
+      calls++;const body=JSON.parse(options.body);assert.equal(url,IMAGE_RELAY);assert.ok(body.prompt.endsWith(prompt));assert.doesNotMatch(body.prompt,/Character type:|World \/ era:|Visual style:|Movement \/ action:/);
       return body.prompt.length>800?Response.json({error:'prompt'},{status:400}):Response.json({dataUrl:png,model:'test-image-model'});
     },artworkReader:async()=>({id:'panda',name:'Panda',mime:'image/png',dataUrl:png,width:1,height:1})});
     assert.equal(calls,1);assert.equal(result.asset.id,'panda');assert.equal(result.proposal,null);
@@ -213,7 +212,7 @@ test('invalid image payloads and provider errors never trigger a second generati
 });
 
 test('legacy image errors explain known codes and unknown statuses in both languages without retries',async()=>{
-  const cases=[['prompt',400,/rejected the prompt/,'提示词'],['provider',502,/provider rejected/,'提供方'],['rate_limit',429,/busy|account limit/,'限额'],['image_model_unavailable',503,/not enabled/,'未启用'],['server_configuration',503,/not configured/,'尚未配置'],['image_too_large',502,/too large/,'过大'],['size',413,/too large/,'过大'],['unknown_internal_code',418,/Image generation failed \(418\)/,'图像生成失败']];
+  const cases=[['prompt',400,/rejected the prompt/,'描述'],['provider',502,/provider rejected/,'提供方'],['rate_limit',429,/busy|account limit/,'限额'],['image_model_unavailable',503,/not enabled/,'未启用'],['server_configuration',503,/not configured/,'尚未配置'],['image_too_large',502,/too large/,'过大'],['size',413,/too large/,'过大'],['unknown_internal_code',418,/Image generation failed \(418\)/,'图像生成失败']];
   for(const language of ['en','zh'])for(const [code,status,english,chinese]of cases){
     const p=createStudioProject();p.language=language;let calls=0;
     await assert.rejects(requestStudioAI(p,{task:'generate-image',prompt:'A panda wearing a birthday party hat.'},{capabilities:{imageGeneration:true,endpoint:PLAN_RELAY,imageEndpoint:IMAGE_RELAY},fetcher:async()=>{calls++;return Response.json({error:code},{status});}}),error=>{assert.notEqual(error.message,code);if(language==='zh')assert.ok(error.message.includes(chinese));else assert.match(error.message,english);return true;});
