@@ -49,7 +49,7 @@ function overlapSizeEdit(el){
 }
 function storeOverlapProposal(edit){
  if(edit.scope==='plan'){const plan=state.proposalAfter.planReview,result=plan.result.find(r=>r.jointId===edit.jointId);if(!result)return false;plan.markers=plan.markers.map(m=>m.id===result.id?{...m,overlapDiameterMm:edit.value}:m);}
- state.proposal=edit.next;return true;
+ state.proposal=edit.next;lastReview=state.proposal;return true;
 }
 function rememberOverlapView(scope,jointId){
  const review=scope==='review'?state.proposalAfter?.jointReview:scope==='plan'?state.proposalAfter?.planReview:null;
