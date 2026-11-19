@@ -2,11 +2,13 @@
 
 ## v0.7.8 editable previews and printed joint overlaps
 
-**Release verification:** PENDING_FINAL_VERIFICATION.
+**Release checks:** the complete regression suite, module syntax, production build, generated Worker syntax and 23-asset smoke checks are required by [repository CI](https://github.com/zhinii/bnta-shadow-puppet-studio/actions/workflows/checks.yml). The final checked revision includes fixed, borrowed and clipped source artwork regressions for locked joints.
 
 The reported Preview change failure is covered with the three actual response formats: unsupported axisAngle, negative width, and a polygon proposed as a mirror. Each receives at most one correction request for a supported mirror operation; advice-only and unchanged replies do not become previews. Direct flips preview the raster artwork and outline, keep the wrist pivot, preserve scale, and support compare, reject, apply and undo. Ignored attached-piece pose edits are rejected.
 
 **Live protected relay:** all three [synthetic checks](validation/v078-live-revisions.json) passed on the first request: left–right mirror (10.820 s), up–down mirror (2.005 s), and 20% wider (1.798 s). Only newly authored generic vector shapes were sent. These checks establish that the deployed legacy relay can supply supported edits for these prompts; they do not establish a general success rate or test the user's basketball artwork.
+
+[Printed joint example](validation/v078-printed-joints.svg) · [Paper prototype](validation/v078-printed-joints.html) · [Editable test project](validation/v078-printed-project.json). These are synthetic engineering specimens rendered by the application, not browser screenshots or traditional puppet designs.
 
 **Printed overlap:** image-backed ends share source artwork from their connected pieces. Exact print is preferred, with reflected/repeated nearby print in added areas. Source alpha and pin holes are retained. The artwork mapping follows flips and dimensions; cut geometry is unchanged. Tests cover both ends, shared source pixels, taper/angle, motion, import/export, plain-color fallback, locks and bounded image embedding.
 

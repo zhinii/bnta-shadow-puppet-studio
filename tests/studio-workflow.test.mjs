@@ -1490,6 +1490,7 @@ test('direct flips preview actual artwork and keep the wrist fixed through apply
   await h.click({action:'undo'});await h.click({action:'lock'});const locked=structuredClone(h.project());
   assert.match(h.root.innerHTML,/<button[^>]*data-action="flip-horizontal"[^>]*disabled/);
   await h.click({action:'flip-horizontal'});assert.deepEqual(h.project(),locked);assert.match(h.error(),/lock/i);
+  await h.click({action:'lock'});assert.equal(h.project().parts.find(p=>p.id==='hand').locked,false);await h.click({action:'flip-horizontal'});assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="review-heading"/);
  }finally{await h.close();}
 });
 

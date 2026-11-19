@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 2,
+  "id": "b80f7c05-c257-485f-aac0-59d126cb079c",
+  "title": "Printed overlap paper test",
+  "language": "en",
+  "brief": {
+    "kind": "",
+    "era": "",
+    "style": "",
+    "keywords": "",
+    "action": ""
+  },
+  "canvas": {
+    "width": 200,
+    "height": 240
+  },
+  "assets": [
+    {
+      "id": "pattern",
+      "name": "Synthetic gold print",
+      "mime": "image/png",
+      "dataUrl": "data:image/png;base64,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",
+      "width": 200,
+      "height": 240
+    }
+  ],
+  "conceptAssetId": null,
+  "parts": [
+    {
+      "id": "limb",
+      "name": "Upper piece",
+      "polygon": [
+        [
+          140,
+          120
+        ],
+        [
+          150,
+          225
+        ],
+        [
+          50,
+          225
+        ],
+        [
+          60,
+          120
+        ]
+      ],
+      "assetId": "pattern",
+      "fill": "#bd6a43",
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "locked": false,
+      "z": 0,
+      "artworkMatrix": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "parameters": {
+        "width": 1,
+        "length": 1,
+        "axisAngle": 0,
+        "origin": [
+          100,
+          172.5
+        ]
+      }
+    },
+    {
+      "id": "fc614f3c-b19a-4fb4-a2ba-4b2cfe09d198",
+      "name": "Lower piece",
+      "polygon": [
+        [
+          60,
+          120
+        ],
+        [
+          70,
+          15
+        ],
+        [
+          130,
+          15
+        ],
+        [
+          140,
+          120
+        ]
+      ],
+      "assetId": "pattern",
+      "fill": "#bd6a43",
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "locked": false,
+      "z": 1,
+      "artworkMatrix": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "parameters": {
+        "width": 1,
+        "length": 1,
+        "axisAngle": 0,
+        "origin": [
+          100,
+          67.5
+        ]
+      }
+    }
+  ],
+  "joints": [
+    {
+      "id": "d49f682d-68bd-4549-8edc-0f4494386992",
+      "parentId": "limb",
+      "childId": "fc614f3c-b19a-4fb4-a2ba-4b2cfe09d198",
+      "parentAnchor": [
+        100,
+        120
+      ],
+      "childAnchor": [
+        100,
+        120
+      ],
+      "type": "pivot",
+      "angle": 0,
+      "min": -60,
+      "max": 60,
+      "padRadius": 40.021427973750875,
+      "overlapSpans": {
+        "parent": [
+          80,
+          0
+        ],
+        "child": [
+          80,
+          0
+        ]
+      }
+    }
+  ],
+  "rods": [],
+  "heightMm": 140,
+  "holeMm": 3,
+  "materialMm": 1,
+  "revisions": []
+}

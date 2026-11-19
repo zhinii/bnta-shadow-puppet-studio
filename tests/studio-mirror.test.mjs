@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createStudioProject,makePart,addConnection,normalizeStudioProject,applyStudioProposal,partTransforms,transformPoint,jointGeometry,unitsPerMm,roundedOverlapRadius} from '../public/studio-model.mjs';
 import {mirrorPart,resizePart,getPartParameters,assertLockedPartsUnchanged} from '../public/studio-parametric.mjs';
 import {renderStudioSvg,exportSheetSvg,exportPrintHtml} from '../public/studio-render.mjs';
+import {getJointArtworkPlan} from '../public/studio-joint-artwork.mjs';
 
 const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
 const rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
@@ -132,4 +133,18 @@ test('locked artwork protects its source pixels and image dimensions while allow
  }
  const label=structuredClone(before);label.assets[0].name='Reference renamed';
  assert.doesNotThrow(()=>assertLockedPartsUnchanged(before,label));
+});
+
+test('locked print guards include fixed caps, borrowed artwork and clipped edge intersections',()=>{
+ for(const kind of ['fixed','borrowed','clipped']){
+  const before=printLockFixture();
+  if(kind==='fixed')before.joints[0].type='fixed';
+  if(kind==='borrowed')before.parts[1].assetId=null;
+  if(kind==='clipped')before.parts[0].polygon=[[-10,50],[80,20],[160,150],[20,170]];
+  const changed=structuredClone(before);changed.parts[0].polygon[0][0]+=kind==='clipped'?-40:5;
+  const previousPlan=getJointArtworkPlan(before,before.joints[0]),nextPlan=getJointArtworkPlan(changed,changed.joints[0]);
+  assert.ok(previousPlan&&nextPlan,kind+': both states have a real printed joint');
+  assert.notDeepEqual(previousPlan.sourcePolygons,nextPlan.sourcePolygons,kind+': sampled source region changes');
+  assert.throws(()=>assertLockedPartsUnchanged(before,changed),error=>error.code==='LOCKED_PART'&&/printed artwork/.test(error.message),kind);
+ }
 });

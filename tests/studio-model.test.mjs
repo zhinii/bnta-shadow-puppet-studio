@@ -142,11 +142,12 @@ test('short hex colors expand but invalid proposed appearance or connection type
   assert.equal(p.parts[0].fill,'#bd6a43');assert.equal(p.joints[0].type,'pivot');
 });
 
-test('a new image can be adopted before a geometry proposal while locked parts keep their previous artwork',()=>{
+test('new artwork adoption protects locked shared joints but permits unrelated pieces',()=>{
   const p=threePartPuppet();p.parts[0].locked=true;const asset={...p.assets[0],id:'revised-art',name:'Revised colors'};
   const base=structuredClone(p);base.assets.push(asset);base.conceptAssetId=asset.id;
-  const result=applyStudioProposal(base,{parts:p.parts.map(part=>({id:part.id,assetId:'revised-art'}))});
-  assert.equal(result.parts[0].assetId,'art');assert.equal(result.parts[1].assetId,'revised-art');assert.equal(result.assets.length,2);
+  assert.throws(()=>applyStudioProposal(base,{parts:p.parts.map(part=>({id:part.id,assetId:'revised-art'}))}),error=>error.code==='LOCKED_PART'&&/printed artwork/.test(error.message));
+  const result=applyStudioProposal(base,{parts:[{id:'tip',assetId:'revised-art'}]});
+  assert.equal(result.parts[0].assetId,'art');assert.equal(result.parts[1].assetId,'art');assert.equal(result.parts[2].assetId,'revised-art');assert.equal(result.assets.length,2);
   assert.equal(result.conceptAssetId,'revised-art');
 });
 

@@ -334,23 +334,32 @@ function paramValue(input,fallback){if(input===undefined)return fallback;if(type
 // regions rather than their local polygon/matrix fields: affine edits preserve
 // the sampled pixels even when the editable piece coordinates change.
 function paramPrintSource(project,joint){
- if(!joint||joint.type==='fixed'||joint.padRadius<=0)return null;
+ if(!joint||joint.padRadius<=0)return null;
  const parts=[project.parts.find(p=>p.id===joint.parentId),project.parts.find(p=>p.id===joint.childId)];
- const donorIndex=parts.findIndex(p=>p?.assetId&&project.assets.some(a=>a.id===p.assetId));
+ const donorIndex=parts.findIndex(p=>p?.assetId&&project.assets.some(a=>a.id===p.assetId&&/^data:image\/(png|jpeg|webp);base64,/.test(a.dataUrl||'')));
  if(donorIndex<0)return null;
  const donor=parts[donorIndex],asset=project.assets.find(a=>a.id===donor.assetId),side=donorIndex===0?'parent':'child',inverse=inverseMatrix(donor.artworkMatrix||paramIdentity);
  const anchor=transformPoint(inverse,joint[side+'Anchor']);
  const sourcePolygon=part=>{
   const inv=inverseMatrix(part.artworkMatrix||paramIdentity);
-  return part.polygon.map(p=>transformPoint(inv,p)).map(p=>[Math.max(0,Math.min(asset.width,p[0])),Math.max(0,Math.min(asset.height,p[1]))]);
+  let result=part.polygon.map(p=>transformPoint(inv,p));
+  // Match the print renderer's polygon/image intersection, including crossings.
+  // Clamping vertices loses information when an edge starts outside the image.
+  for(const [axis,value,sign]of [[0,0,1],[0,asset.width,-1],[1,0,1],[1,asset.height,-1]]){
+   const input=result;result=[];if(!input.length)break;
+   const keep=p=>sign*(p[axis]-value)>=0;
+   for(let i=0;i<input.length;i++){const a=input[i],b=input[(i+1)%input.length],ka=keep(a),kb=keep(b);if(ka)result.push(a);if(ka!==kb){const t=(value-a[axis])/(b[axis]-a[axis]);result.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])]);}}
+  }
+  return result;
  };
  const polygons=[sourcePolygon(donor)],other=parts[1-donorIndex],otherSide=donorIndex===0?'child':'parent';
  if(other?.assetId===asset.id){
   const otherAnchor=transformPoint(inverseMatrix(other.artworkMatrix||paramIdentity),joint[otherSide+'Anchor']);
   if(Math.hypot(anchor[0]-otherAnchor[0],anchor[1]-otherAnchor[1])<1e-5)polygons.push(sourcePolygon(other));
  }
+ const validPolygons=polygons.filter(poly=>poly.length>=3&&Math.abs(polygonArea(poly)*2)>1e-9);if(!validPolygons.length)return null;
  const localSpan=joint.overlapSpans?.[side],span=localSpan?[inverse[0]*localSpan[0]+inverse[2]*localSpan[1],inverse[1]*localSpan[0]+inverse[3]*localSpan[1]]:null;
- return {assetId:asset.id,dataUrl:asset.dataUrl,width:asset.width,height:asset.height,anchor,span,polygons,radius:span?Math.hypot(...span)/2:joint.padRadius};
+ return {assetId:asset.id,dataUrl:asset.dataUrl,width:asset.width,height:asset.height,anchor,span,polygons:validPolygons,radius:Math.max(.01,span?Math.hypot(...span)/2:joint.padRadius)};
 }
 function paramSameSource(a,b){
  if(typeof a==='number'&&typeof b==='number')return paramClose(a,b);
@@ -373,10 +382,11 @@ export function assertLockedPartsUnchanged(before,after){
    const oldAsset=before.assets.find(a=>a.id===old.assetId),newAsset=after.assets.find(a=>a.id===old.assetId);
    const pixels=asset=>asset?{dataUrl:asset.dataUrl,width:asset.width,height:asset.height}:null;
    if(!same(pixels(oldAsset),pixels(newAsset)))throw paramFailure('This change would alter artwork on the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
-   for(const joint of before.joints.filter(j=>j.parentId===old.id||j.childId===old.id)){
-    const nextJoint=after.joints.find(j=>j.id===joint.id);
-    if(!paramSameSource(paramPrintSource(before,joint),paramPrintSource(after,nextJoint)))throw paramFailure('This would change printed artwork on a locked joint. Unlock the connected piece first.','LOCKED_PART');
-   }
+  }
+  // A solid piece can still borrow its joint print from the connected donor.
+  for(const joint of before.joints.filter(j=>j.parentId===old.id||j.childId===old.id)){
+   const nextJoint=after.joints.find(j=>j.id===joint.id);
+   if(!paramSameSource(paramPrintSource(before,joint),paramPrintSource(after,nextJoint)))throw paramFailure('This would change printed artwork on a locked joint. Unlock the connected piece first.','LOCKED_PART');
   }
  }
  return after;
