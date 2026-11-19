@@ -94,3 +94,42 @@ test('reflected artwork survives portable import and appears in stage, print and
  for(const svg of [stage,print])assert.match(svg,/data-part-artwork="sleeve"[^>]+transform="matrix\(/);
  assert.match(cut,/data-cut="outline-and-holes"/);assert.doesNotMatch(stage,/NaN|Infinity/);assert.doesNotMatch(cut,/NaN|Infinity/);
 });
+
+function printLockFixture(){
+ let p=createStudioProject();p.assets=[{id:'art',name:'Printed pattern',dataUrl:png,width:800,height:1000}];
+ p.parts=[{...makePart('Pattern donor',rect(40,40,120,120),'art'),id:'donor'},{...makePart('Locked cuff',rect(90,80,40,60),'art'),id:'cuff',locked:true}];
+ return addConnection(p,{id:'pin',parentId:'donor',childId:'cuff',parentAnchor:[100,100],childAnchor:[100,100],padRadius:18,angle:0});
+}
+
+test('locked printed joints reject a neighbour source-region edit, including an AI outline patch',()=>{
+ const before=printLockFixture(),snapshot=structuredClone(before),changed=structuredClone(before);changed.parts[0].polygon[0][0]+=5;
+ const lockedPrint=error=>error.code==='LOCKED_PART'&&/printed artwork on a locked joint/.test(error.message);
+ assert.throws(()=>assertLockedPartsUnchanged(before,changed),lockedPrint);
+ assert.throws(()=>applyStudioProposal(before,{parts:[{id:'donor',polygon:changed.parts[0].polygon}]}),lockedPrint);
+ const movedImage=structuredClone(before);movedImage.parts[0].artworkMatrix[4]+=3;
+ assert.throws(()=>assertLockedPartsUnchanged(before,movedImage),lockedPrint);
+ const changedSpan=structuredClone(before);changedSpan.joints[0].overlapSpans={parent:[0,20],child:[20,0]};
+ assert.throws(()=>assertLockedPartsUnchanged(before,changedSpan),lockedPrint);
+ const metadata=structuredClone(before);metadata.parts[0].name='Renamed';metadata.parts[0].locked=true;
+ assert.doesNotThrow(()=>assertLockedPartsUnchanged(before,metadata));
+ assert.deepEqual(before,snapshot);
+});
+
+test('locked joint source comparison permits affine donor edits that keep the same printed pixels',()=>{
+ const before=printLockFixture(),mirrored=mirrorPart(before,'donor','horizontal'),resized=resizePart(before,'donor',{width:1.3,length:1.2});
+ for(const next of [mirrored,resized]){
+  assertLockedPartsUnchanged(before,next);
+  assert.deepEqual(next.parts[1],before.parts[1]);nearPoint(partTransforms(next).cuff,partTransforms(before).cuff);
+  nearPoint(next.joints[0].parentAnchor,before.joints[0].parentAnchor);
+ }
+});
+
+test('locked artwork protects its source pixels and image dimensions while allowing an asset label change',()=>{
+ const before=printLockFixture();
+ for(const edit of [asset=>asset.dataUrl=asset.dataUrl.replace('IHWP4','IHWP5'),asset=>asset.width+=1,asset=>asset.height+=1]){
+  const changed=structuredClone(before);edit(changed.assets[0]);
+  assert.throws(()=>assertLockedPartsUnchanged(before,changed),error=>error.code==='LOCKED_PART'&&/artwork/.test(error.message));
+ }
+ const label=structuredClone(before);label.assets[0].name='Reference renamed';
+ assert.doesNotThrow(()=>assertLockedPartsUnchanged(before,label));
+});

@@ -253,7 +253,7 @@ export function validateStudio(project) {
 /** Apply a proposed patch only after local validation. Locked art and connections survive. */
 export function applyStudioProposal(project,proposal) {
   if(!record(proposal))fail('AI did not return a usable change proposal.','INVALID_PROPOSAL');
-  const p=normalizeStudioProject(project),before=new Map(p.parts.map(part=>[part.id,part]));
+  const original=normalizeStudioProject(project),p={...original,brief:{...original.brief},parts:[...original.parts],joints:[...original.joints],rods:[...original.rods]},before=new Map(p.parts.map(part=>[part.id,part]));
   const dimensionRequests=[],transformRequests=[];
   const locked=new Set(p.parts.filter(part=>part.locked).map(part=>part.id));
   const ancestors=new Set(locked),parentOf=new Map(p.joints.map(j=>[j.childId,j.parentId]));
@@ -316,6 +316,7 @@ export function applyStudioProposal(project,proposal) {
   for(const request of transformRequests)if(next.parts.some(part=>part.id===request.id))next=mirrorPart(next,request.id,request.mirror);
   const errors=validateStudio(next).filter(issue=>issue.level==='error');
   if(errors.length)fail(errors.map(issue=>issue.message).join(' '),'INVALID_GEOMETRY');
+  assertLockedPartsUnchanged(original,next);
   return next;
 }
 
@@ -329,6 +330,36 @@ function paramFailure(message,code='INVALID_PARAMETERS'){return Object.assign(Er
 function paramFindPart(project,id){const part=project.parts.find(p=>p.id===id);if(!part)throw paramFailure('Select an existing part.','PART_NOT_FOUND');return part;}
 function paramValue(input,fallback){if(input===undefined)return fallback;if(typeof input!=='number'||!Number.isFinite(input)||input<.25||input>4)throw paramFailure('Part dimensions must be between 25% and 400%.');return input;}
 
+// Printed overlap patches are derived from source-image regions. Compare those
+// regions rather than their local polygon/matrix fields: affine edits preserve
+// the sampled pixels even when the editable piece coordinates change.
+function paramPrintSource(project,joint){
+ if(!joint||joint.type==='fixed'||joint.padRadius<=0)return null;
+ const parts=[project.parts.find(p=>p.id===joint.parentId),project.parts.find(p=>p.id===joint.childId)];
+ const donorIndex=parts.findIndex(p=>p?.assetId&&project.assets.some(a=>a.id===p.assetId));
+ if(donorIndex<0)return null;
+ const donor=parts[donorIndex],asset=project.assets.find(a=>a.id===donor.assetId),side=donorIndex===0?'parent':'child',inverse=inverseMatrix(donor.artworkMatrix||paramIdentity);
+ const anchor=transformPoint(inverse,joint[side+'Anchor']);
+ const sourcePolygon=part=>{
+  const inv=inverseMatrix(part.artworkMatrix||paramIdentity);
+  return part.polygon.map(p=>transformPoint(inv,p)).map(p=>[Math.max(0,Math.min(asset.width,p[0])),Math.max(0,Math.min(asset.height,p[1]))]);
+ };
+ const polygons=[sourcePolygon(donor)],other=parts[1-donorIndex],otherSide=donorIndex===0?'child':'parent';
+ if(other?.assetId===asset.id){
+  const otherAnchor=transformPoint(inverseMatrix(other.artworkMatrix||paramIdentity),joint[otherSide+'Anchor']);
+  if(Math.hypot(anchor[0]-otherAnchor[0],anchor[1]-otherAnchor[1])<1e-5)polygons.push(sourcePolygon(other));
+ }
+ const localSpan=joint.overlapSpans?.[side],span=localSpan?[inverse[0]*localSpan[0]+inverse[2]*localSpan[1],inverse[1]*localSpan[0]+inverse[3]*localSpan[1]]:null;
+ return {assetId:asset.id,dataUrl:asset.dataUrl,width:asset.width,height:asset.height,anchor,span,polygons,radius:span?Math.hypot(...span)/2:joint.padRadius};
+}
+function paramSameSource(a,b){
+ if(typeof a==='number'&&typeof b==='number')return paramClose(a,b);
+ if(a===b)return true;
+ if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b))return false;
+ const keys=Object.keys(a),otherKeys=Object.keys(b);
+ return keys.length===otherKeys.length&&keys.every(key=>own(b,key)&&paramSameSource(a[key],b[key]));
+}
+
 /** Guard geometry and source-pixel placement of every locked part, including descendants. */
 export function assertLockedPartsUnchanged(before,after){
  const oldTransforms=partTransforms(before),newTransforms=partTransforms(after);
@@ -336,8 +367,17 @@ export function assertLockedPartsUnchanged(before,after){
  for(const old of before.parts.filter(p=>p.locked)){
   const next=after.parts.find(p=>p.id===old.id);
   if(!next||!same(old.polygon,next.polygon)||!same(old.artworkMatrix||paramIdentity,next.artworkMatrix||paramIdentity)||old.assetId!==next.assetId||old.fill!==next.fill||old.z!==next.z||old.locked!==next.locked||!oldTransforms[old.id].every((n,i)=>paramClose(n,newTransforms[old.id][i])))throw paramFailure('This change would alter or move the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
-  const pads=project=>project.joints.filter(j=>j.parentId===old.id||j.childId===old.id).map(j=>({id:j.id,anchor:j.parentId===old.id?j.parentAnchor:j.childAnchor,radius:j.padRadius}));
+  const pads=project=>project.joints.filter(j=>j.parentId===old.id||j.childId===old.id).map(j=>({id:j.id,type:j.type,anchor:j.parentId===old.id?j.parentAnchor:j.childAnchor,radius:j.padRadius}));
   if(!same(pads(before),pads(after)))throw paramFailure('This change would resize a joint on the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
+  if(old.assetId){
+   const oldAsset=before.assets.find(a=>a.id===old.assetId),newAsset=after.assets.find(a=>a.id===old.assetId);
+   const pixels=asset=>asset?{dataUrl:asset.dataUrl,width:asset.width,height:asset.height}:null;
+   if(!same(pixels(oldAsset),pixels(newAsset)))throw paramFailure('This change would alter artwork on the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
+   for(const joint of before.joints.filter(j=>j.parentId===old.id||j.childId===old.id)){
+    const nextJoint=after.joints.find(j=>j.id===joint.id);
+    if(!paramSameSource(paramPrintSource(before,joint),paramPrintSource(after,nextJoint)))throw paramFailure('This would change printed artwork on a locked joint. Unlock the connected piece first.','LOCKED_PART');
+   }
+  }
  }
  return after;
 }
