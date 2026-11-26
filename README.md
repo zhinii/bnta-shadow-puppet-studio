@@ -1,6 +1,6 @@
 # BNTA Shadow Puppet Studio
 
-**Version 0.9.0** is a bilingual, file-based shadow-puppet workflow hosted on GitHub Pages.
+**Version 0.10.0** is a bilingual, file-based shadow-puppet workflow hosted on GitHub Pages.
 
 [Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/)
 
@@ -20,9 +20,11 @@ No class code, account, shared-classroom service, database or GPT-hosted site is
 ## Design and making
 
 - Original stories and custom character prompts, with English/Chinese controls.
-- Reviewable AI story, dialogue and stage suggestions.
+- Reviewable AI story, dialogue and selected-stage-object changes; visible edits carry forward into the next step.
+- View-before-restore history, draft recovery, script emphasis/colour and character counts.
 - Existing **Create → Refine → Make** puppet editor: generated/uploaded artwork, background cleanup, piece splitting, rounded overlapping joints, adjustable diameters, mirrored pieces and movement tests.
-- Per-piece pattern sampling to repair the print on an overlap. This repeats visible artwork; it does not reconstruct hidden garments automatically.
+- Local colour/pattern correction on a marked region of one piece, plus overlap pattern sampling. These reuse visible artwork; they do not reconstruct hidden garments automatically.
+- Repositionable pivots, temporary slider/drag trials, and five named motion tests recorded from actual joints. Restore returns to the saved pose; Keep this pose explicitly commits it.
 - Stage backgrounds, characters, images, shapes and text; scene rehearsal.
 - Physical scale, printable artwork/cut outlines, tiled A4 pages and assembly guidance.
 - Reflection fields for decisions, tests and references.
@@ -46,3 +48,5 @@ npm start
 The build creates static `dist/` files, the root GitHub Pages entry and the portable individual puppet editor `START-HERE.html`. GitHub Pages serves the root entry and `public/` assets. No Worker, D1, R2 or database migration is needed. The optional Node development server serves static files and the existing AI proxy routes; it stores no projects.
 
 [Functionality](FUNCTIONALITY.md) · [UI/UX review](UI-UX-AUDIT.md) · [Validation](VALIDATION.md)
+
+[Slides 3–12 usability audit and validation limits](docs/slides-3-12-usability-audit.md)

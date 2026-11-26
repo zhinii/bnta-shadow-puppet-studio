@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createStudioProject,makePart,addConnection,normalizeStudioProject,partTransforms,transformPoint,polygonArea,unitsPerMm,validateStudio,jointGeometry,pointInPolygon,selfIntersects} from '../public/studio-model.mjs';
-import {splitPart,suggestConnection,suggestJointAt} from '../public/studio-construction.mjs';
+import {splitPart,suggestConnection,suggestJointAt,repositionJointPivot,setJointOverlapDiameter,inspectJointOverlap} from '../public/studio-construction.mjs';
 
 const rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} != ${b}`);
@@ -19,6 +19,53 @@ function chain(){
  p=addConnection(p,{id:'wrist',parentId:'sleeve',childId:'hand',parentAnchor:[45,185],childAnchor:[45,185],angle:-12,min:-90,max:90,padRadius:10});
  p.rods=[{id:'hold',partId:'sleeve',point:[35,175]}];return p;
 }
+
+test('repositioning an accepted pin preserves the posed chain, artwork, rods, scale and locked descendants',()=>{
+ const p=chain();p.parts.find(part=>part.id==='hand').locked=true;
+ const before=normalizeStudioProject(p),original=JSON.stringify(p),transforms=partTransforms(before),worldPoint=transformPoint(transforms.torso,[45,22]);
+ const next=repositionJointPivot(p,'shoulder',worldPoint),after=partTransforms(next),joint=next.joints.find(j=>j.id==='shoulder');
+ for(const id of Object.keys(transforms))sameMatrix(transforms[id],after[id]);
+ sameMatrix(transformPoint(after.torso,joint.parentAnchor),worldPoint);sameMatrix(transformPoint(after.sleeve,joint.childAnchor),worldPoint);
+ assert.deepEqual(next.parts,before.parts);assert.deepEqual(next.assets,before.assets);assert.deepEqual(next.rods,before.rods);
+ assert.deepEqual(next.joints.find(j=>j.id==='wrist'),before.joints.find(j=>j.id==='wrist'));assert.equal(joint.angle,36);
+ near(unitsPerMm(next),unitsPerMm(before));assert.equal(JSON.stringify(p),original);
+ assert.equal(validateStudio(next).filter(issue=>issue.level==='error').length,0);
+ // The new centres stay coincident throughout the allowed movement, not just at the resting angle.
+ for(const angle of [-90,-35,0,50,90]){const posed=structuredClone(next);posed.joints.find(j=>j.id==='shoulder').angle=angle;const matrices=partTransforms(posed);sameMatrix(transformPoint(matrices.torso,joint.parentAnchor),transformPoint(matrices.sleeve,joint.childAnchor));}
+});
+
+test('moving a split joint clears stale span claims and never inflates circles across repeated moves',()=>{
+ const result=splitPart(sheet(),'sleeve',[-20,100],[120,100]),before=result.project,original=structuredClone(before),joint=before.joints[0],radius=joint.padRadius,scale=unitsPerMm(before);
+ assert.ok(joint.overlapSpans);let next=before;
+ for(const point of [[55,100],[60,105],[45,95],[50,100]]){
+  next=repositionJointPivot(next,joint.id,point);const moved=next.joints[0];
+  assert.equal(moved.padRadius,radius);assert.equal(moved.overlapSpans,undefined);assert.equal(moved.overlapSizing,'custom');near(unitsPerMm(next),scale);
+  assert.deepEqual(next.parts,before.parts);assert.deepEqual(next.assets,before.assets);assert.equal(validateStudio(next).filter(issue=>issue.level==='error').length,0);
+ }
+ assert.deepEqual(before,original);assert.deepEqual(normalizeStudioProject(JSON.parse(JSON.stringify(next))),next);
+});
+
+test('joint relocation keeps custom diameter and rejects detached or weakly attached pin positions',()=>{
+ const result=splitPart(sheet(),'sleeve',[-20,100],[120,100]),id=result.jointId,small=setJointOverlapDiameter(result.project,id,20),original=structuredClone(small);
+ const moved=repositionJointPivot(small,id,[52,104]);assert.equal(moved.joints[0].padRadius,small.joints[0].padRadius);near(unitsPerMm(moved),unitsPerMm(small));
+ assert.throws(()=>repositionJointPivot(small,id,[50,109]),{code:'WEAK_TAB_ATTACHMENT'});
+ assert.throws(()=>repositionJointPivot(small,id,[50,160]),{code:'PIVOT_OUTSIDE_PAIR'});
+ assert.throws(()=>repositionJointPivot(small,id,[1000,1000]),{code:'PIVOT_OUTSIDE_PAIR'});assert.deepEqual(small,original);
+});
+
+test('joint relocation guards locks, invalid points and intersecting holes without adding connections',()=>{
+ const result=splitPart(sheet(),'sleeve',[-20,100],[120,100]),id=result.jointId;
+ for(const index of [0,1]){const locked=structuredClone(result.project);locked.parts[index].locked=true;assert.throws(()=>repositionJointPivot(locked,id,[52,100]),{code:'LOCKED_PART'});}
+ assert.throws(()=>repositionJointPivot(result.project,'missing',[50,100]),{code:'JOINT_NOT_FOUND'});
+ for(const point of [null,[NaN,0],['50',100],[50,100,0]])assert.throws(()=>repositionJointPivot(result.project,id,point),{code:'INVALID_JOINT_POINT'});
+ const fixed=structuredClone(result.project);Object.assign(fixed.joints[0],{type:'fixed',angle:0,min:0,max:0});assert.throws(()=>repositionJointPivot(fixed,id,[52,100]),{code:'FIXED_CONNECTION'});
+ let crowded=createStudioProject();crowded.heightMm=100;crowded.parts=['a','b','c'].map(id=>({...makePart(id,rect(0,0,100,100)),id}));
+ crowded=addConnection(crowded,{id:'ab',parentId:'a',childId:'b',parentAnchor:[50,50],childAnchor:[50,50],angle:0,min:-90,max:90,padRadius:10});
+ crowded=addConnection(crowded,{id:'bc',parentId:'b',childId:'c',parentAnchor:[60,50],childAnchor:[60,50],angle:0,min:-90,max:90,padRadius:10});
+ assert.throws(()=>repositionJointPivot(crowded,'ab',[59.5,50]),{code:'UNSAFE_CONSTRUCTION'});
+ const withProp=structuredClone(result.project);withProp.parts.push({...makePart('Separate prop',rect(70,95,10,10)),id:'prop'});const next=repositionJointPivot(withProp,id,[53,100]);
+ assert.deepEqual(next.parts.find(part=>part.id==='prop'),normalizeStudioProject(withProp).parts.find(part=>part.id==='prop'));assert.equal(next.joints.length,1);assert.ok(inspectJointOverlap(next,id).overlappingPartIds.includes('prop'));
+});
 
 test('batch source eligibility checks the same original chord while standalone joint placement uses the current piece',()=>{
  const p=sheet(rect(0,0,80,300));p.heightMm=300;

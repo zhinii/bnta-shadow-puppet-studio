@@ -1,5 +1,7 @@
-import {normalizeStudioProject} from './studio-model.mjs';
-import {packClassroomBundle,unpackClassroomBundle} from './classroom-bundle.mjs';
+import {normalizeStudioProject} from './studio-model.mjs?v=0.10.0';
+import {packClassroomBundle,unpackClassroomBundle} from './classroom-bundle.mjs?v=0.10.0';
+import {normalizeScriptFormats,rebaseScriptFormats} from './classroom-script-format.mjs?v=0.10.0';
+import {mergeHistoryDraft} from './classroom-history.mjs?v=0.10.0';
 
 // Browser-only project validation. The original classroom-shaped schema remains
 // readable so earlier downloaded files retain their artwork and project history.
@@ -52,7 +54,7 @@ function normalizedStage(raw={},characters=[]) {
   }),'stage object')};
 }
 function characterSnapshot(raw) { return {name:required(raw.name,'Character name'),brief:text(raw.brief,4000),project:raw.project==null?null:normalizeStudioProject(raw.project),previewDataUrl:raster(raw.previewDataUrl)}; }
-function sceneSnapshot(raw,characters) { return {title:text(raw.title,160),setting:text(raw.setting,2000),script:text(raw.script,30000),stage:normalizedStage(raw.stage||{},characters)}; }
+function sceneSnapshot(raw,characters) { const script=text(raw.script,30000);return {title:text(raw.title,160),setting:text(raw.setting,2000),script,scriptFormats:normalizeScriptFormats(script,raw.scriptFormats),stage:normalizedStage(raw.stage||{},characters)}; }
 function normalizedReflection(raw) { return {memberId:id(raw.memberId),text:text(raw.text,6000),sources:text(raw.sources,6000),tests:text(raw.tests,6000),updatedAt:text(raw.updatedAt,40)}; }
 function normalizedRubric(raw) {
   const rows=list(raw,12,'rubric criteria').map(r=>({id:id(r.id),title:required(r.title,'Criterion',120),description:text(r.description,1000),maxScore:number(r.maxScore,4,1,100),descriptors:list(r.descriptors,101,'rubric descriptors').map(d=>text(d,600)).slice(0,Math.floor(r.maxScore||4)+1)}));
@@ -121,6 +123,10 @@ export function normalizeClassroom(raw) {
   return c;
 }
 function checkpoint(history,snapshot,actor,now) { history.push({id:newId(),at:now,actorId:actor.memberId||null,actorName:text(actor.name||'Teacher',120),snapshot:clone(snapshot)});while(history.length>HISTORY_LIMIT)history.shift(); }
+function checkpointBeforeRestore(history,current,draft,actor,now) {
+  checkpoint(history,current,actor,now);
+  if(JSON.stringify(current)!==JSON.stringify(draft))checkpoint(history,draft,actor,now);
+}
 function findById(rows,value,label) { const row=rows.find(x=>x.id===value);if(!row)fail(label+' was not found.','NOT_FOUND');return row; }
 function teacher(actor) { if(actor.role!=='teacher')fail('Only the teacher can do this.','FORBIDDEN'); }
 function editableCharacter(g,p,actor) {const c=findById(g.characters,p.characterId,'Character');if(actor.role!=='teacher'&&c.ownerId!==actor.memberId)fail('Choose your own character to edit.','FORBIDDEN');return c;}
@@ -150,11 +156,12 @@ export function applyClassroomAction(classroom,action,actor={}) {
       destination.revision+=1;if(destination.submission)destination.submission.status='outdated';destination.events.push({id:newId(),type,at:now,actorId:actor.memberId||null,actorName:text(actor.name||'Teacher',120),subjectId:member.id,detail:'Moved from '+g.name});destination.events=destination.events.slice(-EVENT_LIMIT);subjectId=member.id;workChanged=true;break;
     }
     case 'story.update':checkpoint(g.story.history,normalizedStory(g.story),actor,now);for(const field of ['title',...fields])if(own(p,field))g.story[field]=text(p[field],field==='plot'?12000:field==='characters'?4000:field==='title'?160:2000);workChanged=true;break;
+    case 'story.new':{const current=normalizedStory(g.story),draft=normalizedStory(mergeHistoryDraft('story',current,p.currentDraft));checkpointBeforeRestore(g.story.history,current,draft,actor,now);g.story={...normalizedStory(),history:g.story.history};workChanged=true;break;}
     case 'story.handoff':{
       if(!fields.includes(p.field))fail('Choose a story step.');if(p.memberId!=null)findById(g.members,p.memberId,'Student');if(!['waiting','active','done'].includes(p.status))fail('Choose a relay status.');
       checkpoint(g.story.history,normalizedStory(g.story),actor,now);const step=g.story.relay.find(r=>r.field===p.field);step.memberId=p.memberId||null;step.status=p.status;workChanged=true;break;
     }
-    case 'story.restore':{const old=findById(g.story.history,p.historyId,'Story version');const restore=clone(old.snapshot);checkpoint(g.story.history,normalizedStory(g.story),actor,now);g.story={...restore,history:g.story.history};workChanged=true;break;}
+    case 'story.restore':{const old=findById(g.story.history,p.historyId,'Story version'),restore=clone(old.snapshot),current=normalizedStory(g.story),draft=normalizedStory(mergeHistoryDraft('story',current,p.currentDraft));checkpointBeforeRestore(g.story.history,current,draft,actor,now);g.story={...restore,history:g.story.history};workChanged=true;break;}
     case 'character.add':{
       const ownerId=actor.role==='student'?actor.memberId:(p.ownerId||null);if(ownerId)findById(g.members,ownerId,'Student');g.characters.push({id:p.id||newId(),name:required(p.name,'Character name'),brief:text(p.brief,4000),ownerId,project:null,previewDataUrl:null,history:[]});workChanged=true;break;
     }
@@ -165,11 +172,11 @@ export function applyClassroomAction(classroom,action,actor={}) {
     case 'character.update':{
       const char=editableCharacter(g,p,actor);checkpoint(char.history,characterSnapshot(char),actor,now);if(own(p,'name'))char.name=required(p.name,'Character name');if(own(p,'brief'))char.brief=text(p.brief,4000);if(own(p,'project'))char.project=p.project==null?null:normalizeStudioProject(p.project);if(own(p,'previewDataUrl'))char.previewDataUrl=raster(p.previewDataUrl);subjectId=char.id;workChanged=true;break;
     }
-    case 'character.restore':{const char=editableCharacter(g,p,actor),old=findById(char.history,p.historyId,'Character version'),restore=clone(old.snapshot);checkpoint(char.history,characterSnapshot(char),actor,now);Object.assign(char,restore);subjectId=char.id;workChanged=true;break;}
+    case 'character.restore':{const char=editableCharacter(g,p,actor),old=findById(char.history,p.historyId,'Character version'),restore=clone(old.snapshot),current=characterSnapshot(char),draft=characterSnapshot(mergeHistoryDraft('character',current,p.currentDraft));checkpointBeforeRestore(char.history,current,draft,actor,now);Object.assign(char,restore);subjectId=char.id;workChanged=true;break;}
     case 'character.remove':{const char=editableCharacter(g,p,actor);g.characters=g.characters.filter(x=>x.id!==char.id);for(const scene of g.scenes){scene.stage.objects=scene.stage.objects.filter(o=>o.characterId!==char.id);for(const h of scene.history)h.snapshot.stage.objects=h.snapshot.stage.objects.filter(o=>o.characterId!==char.id);}subjectId=char.id;workChanged=true;break;}
-    case 'scene.add':g.scenes.push({id:p.id||newId(),title:text(p.title,160),setting:text(p.setting,2000),script:text(p.script,30000),stage:normalizedStage(),history:[]});workChanged=true;break;
-    case 'scene.update':{const scene=findById(g.scenes,p.sceneId,'Scene');checkpoint(scene.history,sceneSnapshot(scene,g.characters),actor,now);for(const field of ['title','setting','script'])if(own(p,field))scene[field]=text(p[field],field==='script'?30000:field==='setting'?2000:160);subjectId=scene.id;workChanged=true;break;}
-    case 'scene.restore':{const scene=findById(g.scenes,p.sceneId,'Scene'),old=findById(scene.history,p.historyId,'Scene version'),restore=clone(old.snapshot);checkpoint(scene.history,sceneSnapshot(scene,g.characters),actor,now);Object.assign(scene,restore);subjectId=scene.id;workChanged=true;break;}
+    case 'scene.add':g.scenes.push({id:p.id||newId(),...sceneSnapshot({...p,stage:{}},g.characters),history:[]});workChanged=true;break;
+    case 'scene.update':{const scene=findById(g.scenes,p.sceneId,'Scene'),before=scene.script;checkpoint(scene.history,sceneSnapshot(scene,g.characters),actor,now);for(const field of ['title','setting','script'])if(own(p,field))scene[field]=text(p[field],field==='script'?30000:field==='setting'?2000:160);scene.scriptFormats=own(p,'scriptFormats')?normalizeScriptFormats(scene.script,p.scriptFormats):rebaseScriptFormats(before,scene.script,scene.scriptFormats);subjectId=scene.id;workChanged=true;break;}
+    case 'scene.restore':{const scene=findById(g.scenes,p.sceneId,'Scene'),old=findById(scene.history,p.historyId,'Scene version'),restore=clone(old.snapshot),current=sceneSnapshot(scene,g.characters),draft=sceneSnapshot(mergeHistoryDraft('scene',current,p.currentDraft),g.characters);checkpointBeforeRestore(scene.history,current,draft,actor,now);Object.assign(scene,restore);subjectId=scene.id;workChanged=true;break;}
     case 'scene.remove':findById(g.scenes,p.sceneId,'Scene');g.scenes=g.scenes.filter(s=>s.id!==p.sceneId);subjectId=p.sceneId;workChanged=true;break;
     case 'stage.update':{const scene=findById(g.scenes,p.sceneId,'Scene');checkpoint(scene.history,sceneSnapshot(scene,g.characters),actor,now);scene.stage=normalizedStage(p.stage,g.characters);subjectId=scene.id;workChanged=true;break;}
     case 'reflection.save':{const memberId=actor.role==='student'?actor.memberId:p.memberId;findById(g.members,memberId,'Student');if(actor.role==='student'&&p.memberId&&p.memberId!==actor.memberId)fail('Write your own reflection.','FORBIDDEN');const reflection={memberId,text:text(p.text,6000),sources:text(p.sources,6000),tests:text(p.tests,6000),updatedAt:now};g.reflections=g.reflections.filter(r=>r.memberId!==memberId);g.reflections.push(reflection);subjectId=memberId;workChanged=true;break;}

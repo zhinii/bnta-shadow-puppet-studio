@@ -1,4 +1,4 @@
-import {normalizeStudioProject,studioId,partTransforms,transformPoint,inverseMatrix,unitsPerMm,neutralProjectBounds,polygonArea,pointInPolygon,distanceToBoundary,selfIntersects,validateStudio,roundedOverlapRadius} from './studio-model.mjs?v=0.8.0';
+import {normalizeStudioProject,studioId,partTransforms,transformPoint,inverseMatrix,unitsPerMm,neutralProjectBounds,polygonArea,pointInPolygon,distanceToBoundary,selfIntersects,validateStudio,roundedOverlapRadius,assertLockedPartsUnchanged} from './studio-model.mjs?v=0.10.0';
 
 const EPS=1e-7;
 // Finite paper-prototype heuristics, not material-strength limits. Broader
@@ -131,6 +131,40 @@ export function setJointOverlapDiameter(project,jointId,diameterMm){
  joint.overlapSizing='custom';
  restorePhysicalScale(p,unitsPerMm(before));
  const normalized=normalizeStudioProject(p);ensureLockedUnchanged(before,normalized);ensureGeometry(normalized);
+ return normalized;
+}
+
+/** Move the two matching pin centres without moving either printed piece.
+ * Both anchors are measured in the current pose, so the whole connected chain
+ * retains its current world transforms, even when this joint is already bent.
+ * A new centre must be supported by both existing pieces (including this pin's
+ * own round tabs). Moving a pin never silently connects to unrelated material.
+ */
+export function repositionJointPivot(project,jointId,worldPoint){
+ const before=normalizeStudioProject(project),p=copy(before),joint=p.joints.find(j=>j.id===jointId);
+ if(!joint)fail('Select an existing joint.','JOINT_NOT_FOUND');
+ if(joint.type==='fixed')fail('Choose a moving joint before moving its pin.','FIXED_CONNECTION');
+ if(!validPoint(worldPoint))fail('Choose a valid position for the joint.','INVALID_JOINT_POINT');
+ const transforms=partTransforms(before),previousCenter=transformPoint(transforms[joint.parentId],joint.parentAnchor);
+ if(distance(previousCenter,worldPoint)<EPS)return before;
+ if(p.parts.some(part=>part.locked&&(part.id===joint.parentId||part.id===joint.childId)))fail('Unlock both connected pieces before moving the joint.','LOCKED_PART');
+ const mm=unitsPerMm(before),web=Math.max(2,before.materialMm*2)*mm;
+ for(const side of ['parent','child']){
+  const part=p.parts.find(piece=>piece.id===joint[side+'Id']),oldAnchor=joint[side+'Anchor'],anchor=transformPoint(inverseMatrix(transforms[part.id]),worldPoint);
+  if(!pointInPolygon(anchor,part.polygon)&&distance(anchor,oldAnchor)>joint.padRadius+EPS)fail('Keep the pin inside the overlap of these two pieces. Move it a little at a time.','PIVOT_OUTSIDE_PAIR');
+  joint[side+'Anchor']=anchor;
+ }
+ // Split-span vectors were centred on the old pin. They do not describe the
+ // unchanged seam after this edit. Keep the student's radius, clear the stale
+ // full-width claim, and let the review expose any corners needing a larger
+ // circle. Repeated moves must not silently inflate the joint diameter.
+ delete joint.overlapSpans;joint.overlapSizing='custom';
+ for(const side of ['parent','child']){
+  const part=p.parts.find(piece=>piece.id===joint[side+'Id']),anchor=joint[side+'Anchor'];
+  if(!pointInPolygon(anchor,part.polygon)&&joint.padRadius-distanceToBoundary(anchor,part.polygon)<web-EPS)fail('This position leaves too little material joining a round end to its piece. Move closer or enlarge the joint first.','WEAK_TAB_ATTACHMENT');
+ }
+ restorePhysicalScale(p,mm);
+ const normalized=normalizeStudioProject(p);assertLockedPartsUnchanged(before,normalized);ensureGeometry(normalized);
  return normalized;
 }
 

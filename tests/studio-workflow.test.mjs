@@ -167,6 +167,7 @@ function browserHarness({classroom=false}={}) {
     setCapabilities(value){capabilities={...capabilities,...value};},
     click:dataset=>rootListeners.get('click')({target:target({dataset})}),
     input:(id,value)=>rootListeners.get('input')({target:target({id,value,dataset:{}})}),
+    repairColorInput:value=>rootListeners.get('input')({target:target({dataset:{repairColor:''},value})}),
     parameterInput:(key,value)=>rootListeners.get('input')({target:target({dataset:{paramField:key},value})}),
     jointInput:(key,value)=>rootListeners.get('input')({target:target({dataset:{jointField:key},value})}),
     reviewInput:value=>rootListeners.get('input')({target:target({dataset:{reviewAngle:''},type:'range',value:String(value)})}),
@@ -185,7 +186,78 @@ function browserHarness({classroom=false}={}) {
   };
 }
 const PNG='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+test('local area correction offers preview, cancel, apply, undo, JSON reopen and independent texture repair',async()=>{
+ const h=browserHarness();
+ try{
+  await h.start('local-area-correction');await h.settle();const project=createStudioProject();
+  project.assets=[{id:'art',name:'Pattern',dataUrl:PNG,width:200,height:200}];project.parts=[{...makePart('Top',[[40,20],[120,20],[120,100],[40,100]],'art'),id:'top'},{...makePart('Leg',[[40,100],[120,100],[120,180],[40,180]],'art'),id:'leg'}];project.joints=[{id:'hip',parentId:'top',childId:'leg',parentAnchor:[80,100],childAnchor:[80,100],padRadius:20,min:-90,max:90,angle:0}];
+  await h.openProject(project);await h.click({action:'select',id:'leg'});const before=structuredClone(h.project());
+  assert.match(h.root.innerHTML,/Correct a color or pattern/);
+  const trace=async()=>{await h.click({action:'repair-area'});for(const [x,y]of [[50,110],[110,110],[110,140],[50,140]])await h.point(x,y,'leg');};
+  await trace();assert.match(h.canvasMarkup(),/repair-selection/);h.repairColorInput('#22aa44');await h.click({action:'repair-color'});
+  assert.equal(h.error(),'');assert.match(h.root.innerHTML,/data-correction-kind="color"/);assert.deepEqual(h.project(),before,'preview is reversible');
+  await h.click({action:'reject'});assert.deepEqual(h.project(),before);
+  await trace();h.repairColorInput('#22aa44');await h.click({action:'repair-color'});await h.click({action:'accept'});
+  const corrected=structuredClone(h.project());assert.equal(corrected.parts[1].artworkPatches[0].color,'#22aa44');assert.deepEqual(corrected.parts[0],before.parts[0]);assert.deepEqual(corrected.joints,before.joints);
+  await h.click({action:'undo'});assert.deepEqual(h.project(),before);await h.click({action:'redo'});assert.deepEqual(h.project(),corrected);
+  await h.click({action:'save-project'});await h.openProject(parseStudioProject(await h.downloads.at(-1).blob.text()));await h.click({action:'select',id:'leg'});assert.deepEqual(h.project().parts,corrected.parts);
+  await trace();await h.click({action:'repair-sample'});assert.match(h.root.innerHTML,/Tap a clean pattern/);await h.point(80,160,'leg');assert.equal(h.error(),'');assert.match(h.root.innerHTML,/data-correction-kind="texture"/);
+  assert.deepEqual(h.project().parts,corrected.parts);await h.click({action:'accept'});assert.equal(h.project().parts[1].artworkPatches.length,2);
+  await h.click({action:'repair-remove'});await h.click({action:'accept'});assert.deepEqual(h.project().parts,corrected.parts);assert.equal(h.requests.length,0,'manual local correction needs no relay or database');
+ }finally{await h.close();}
+});
 // Prepared test geometry enters through the same portable-project opening flow
+test('accepted joints move by tap or drag only after review, preserve pose, and support undo and cancellation',async()=>{
+ const h=browserHarness();
+ try{
+  await h.start('accepted-pivot-move');await h.settle();const project=createStudioProject();
+  project.parts=[{...makePart('Upper',[[40,20],[120,20],[120,100],[40,100]]),id:'upper'},{...makePart('Lower',[[40,100],[120,100],[120,180],[40,180]]),id:'lower'}];project.joints=[{id:'joint',parentId:'upper',childId:'lower',parentAnchor:[80,100],childAnchor:[80,100],padRadius:20,min:-90,max:90,angle:0}];
+  await h.openProject(project);await h.click({action:'select',id:'lower'});const before=structuredClone(h.project());
+  await h.click({action:'move-pivot'});await h.point(84,100);assert.equal(h.error(),'');assert.match(h.root.innerHTML,/id="joint-preview"/);assert.deepEqual(h.project(),before);
+  await h.click({action:'joint-repick'});assert.match(h.root.innerHTML,/nearby position inside both/);await h.point(86,100);await h.click({action:'reject'});assert.deepEqual(h.project(),before);
+  h.pointer('pointerdown',80,100,{jointId:'joint'});h.pointer('pointermove',85,100);h.pointer('pointerup',85,100);assert.equal(h.error(),'');assert.deepEqual(h.project(),before);assert.match(h.root.innerHTML,/id="joint-preview"/);
+  await h.click({action:'accept'});assert.deepEqual(h.project().joints[0].parentAnchor,[85,100]);assert.deepEqual(h.project().joints[0].childAnchor,[85,100]);assert.deepEqual(h.project().parts,before.parts);
+  await h.click({action:'undo'});assert.deepEqual(h.project(),before);
+  h.pointer('pointerdown',80,100,{jointId:'joint'});h.pointer('pointermove',88,100);h.pointer('pointercancel',88,100);assert.deepEqual(h.project(),before);assert.doesNotMatch(h.root.innerHTML,/id="joint-preview"/);
+  await h.click({action:'move-pivot'});await h.point(190,190);assert.match(h.error(),/inside the overlap/);assert.deepEqual(h.project(),before);assert.equal(h.requests.length,0);
+ }finally{await h.close();}
+});
+
+test('five named movement tests record actual slider poses, replay temporarily and survive file reopening',async()=>{
+ const h=browserHarness();
+ try{
+  await h.start('authored-motion-tests');await h.settle();const project=createStudioProject();
+  project.parts=[{...makePart('Body',[[40,20],[120,20],[120,100],[40,100]]),id:'body'},{...makePart('Tentacle',[[40,100],[120,100],[120,180],[40,180]]),id:'tip'}];project.joints=[{id:'joint',parentId:'body',childId:'tip',parentAnchor:[80,100],childAnchor:[80,100],padRadius:20,min:-90,max:90,angle:0}];
+  await h.openProject(project);await h.click({action:'select',id:'tip'});const before=structuredClone(h.project());
+  for(const name of ['raise-hand','wave','nod','step','bend-knee']){
+   assert.match(h.root.innerHTML,new RegExp('data-action="motion-play"[^>]*disabled[^>]*data-motion="'+name+'"'),'unassigned anatomy is never guessed');
+   h.jointInput('angle',-28);await h.change({dataset:{jointField:'angle'},value:'-28'});await h.change({dataset:{motionName:''},value:name});await h.click({action:'motion-assign'});assert.equal(h.error(),'');
+   assert.equal(h.project().motionTests.find(test=>test.name===name).jointId,'joint');assert.equal(h.project().motionTests.find(test=>test.name===name).angle,-28);assert.deepEqual(h.project().joints,before.joints);
+  }
+  const recorded=structuredClone(h.project());await h.click({action:'motion-play',motion:'wave'});await h.settle();assert.deepEqual(h.project(),recorded);await h.click({action:'motion-reset'});const restored=h.canvasMarkup();await h.settle();assert.equal(h.canvasMarkup(),restored,'Restore cancels any remaining animation frames');assert.deepEqual(h.project(),recorded);
+  await h.click({action:'save-project'});await h.openProject(parseStudioProject(await h.downloads.at(-1).blob.text()));assert.deepEqual(h.project().motionTests,recorded.motionTests);
+  await h.click({action:'select',id:'tip'});await h.change({dataset:{motionName:''},value:'wave'});await h.click({action:'motion-remove'});assert.equal(h.project().motionTests.length,4);await h.click({action:'undo'});assert.deepEqual(h.project().motionTests,recorded.motionTests);
+  assert.equal(h.requests.length,0);
+ }finally{await h.close();}
+});
+test('explicit body dragging trials rotate around the existing pin, honor limits and restore or keep deliberately',async()=>{
+ const h=browserHarness();
+ try{
+  await h.start('drag-motion-trial');await h.settle();const project=createStudioProject();
+  project.parts=[{...makePart('Body',[[40,20],[120,20],[120,100],[40,100]]),id:'body'},{...makePart('Moving piece',[[60,100],[100,100],[100,180],[60,180]]),id:'moving'}];project.joints=[{id:'joint',parentId:'body',childId:'moving',parentAnchor:[80,100],childAnchor:[80,100],padRadius:20,min:-45,max:45,angle:0}];
+  await h.openProject(project);await h.click({action:'select',id:'moving'});const before=structuredClone(h.project());
+  h.pointer('pointerdown',80,150,{partId:'moving'});h.pointer('pointermove',30,100);h.pointer('pointerup',30,100);assert.deepEqual(h.project(),before);assert.doesNotMatch(h.root.innerHTML,/data-action="motion-keep"/,'ordinary selection does not rotate pieces');
+  await h.click({action:'motion-drag'});assert.match(h.root.innerHTML,/mode-try-movement/);assert.match(h.root.innerHTML,/Drag the selected piece/);
+  h.pointer('pointerdown',80,150,{partId:'moving'});h.pointer('pointermove',30,100);h.pointer('pointerup',30,100);assert.deepEqual(h.project(),before);assert.equal(h.error(),'');assert.match(h.root.innerHTML,/<output id="angle-output">45°/,'motion clamps to the real joint limit');
+  await h.click({action:'save-project'});assert.deepEqual(parseStudioProject(await h.downloads.at(-1).blob.text()),before,'trial never enters downloaded JSON');
+  await h.click({action:'motion-reset'});assert.match(h.root.innerHTML,/<output id="angle-output">0°/);assert.deepEqual(h.project(),before);
+  h.pointer('pointerdown',80,150,{partId:'moving'});h.pointer('pointermove',120,130);h.pointer('pointercancel',120,130);assert.match(h.root.innerHTML,/<output id="angle-output">0°/);assert.deepEqual(h.project(),before,'pointer cancellation restores the pre-drag trial');
+  h.pointer('pointerdown',80,150,{partId:'moving'});h.pointer('pointermove',30,100);h.pointer('pointerup',30,100);await h.click({action:'motion-done'});assert.match(h.root.innerHTML,/mode-select/);await h.click({action:'motion-keep'});assert.equal(h.project().joints[0].angle,45);assert.deepEqual(h.project().joints[0].parentAnchor,before.joints[0].parentAnchor);assert.deepEqual(h.project().parts,before.parts);await h.click({action:'undo'});assert.deepEqual(h.project(),before);
+  await h.click({action:'select',id:'moving'});await h.click({action:'motion-drag'});h.pointer('pointerdown',80,100,{jointId:'joint'});h.pointer('pointermove',84,100);h.pointer('pointerup',84,100);assert.match(h.root.innerHTML,/id="joint-preview"/,'dragging the dot still proposes pivot movement');await h.click({action:'reject'});assert.deepEqual(h.project(),before);
+  await h.click({action:'select',id:'moving'});await h.click({action:'repair-area'});h.pointer('pointerdown',80,150,{partId:'moving'});h.pointer('pointermove',30,100);h.pointer('pointerup',30,100);assert.doesNotMatch(h.root.innerHTML,/data-action="motion-keep"/);assert.deepEqual(h.project(),before);
+  const locked=structuredClone(before);locked.parts.push({...makePart('Locked tip',[[70,180],[90,180],[90,200],[70,200]]),id:'tip',locked:true});locked.joints.push({id:'tip-joint',parentId:'moving',childId:'tip',parentAnchor:[80,180],childAnchor:[80,180],padRadius:10,min:-30,max:30,angle:0});await h.openProject(locked);await h.click({action:'select',id:'moving'});await h.click({action:'motion-drag'});const protectedProject=structuredClone(h.project());h.pointer('pointerdown',80,150,{partId:'moving'});h.pointer('pointermove',30,100);h.pointer('pointerup',30,100);assert.match(h.error(),/locked part/);assert.deepEqual(h.project(),protectedProject);assert.doesNotMatch(h.root.innerHTML,/data-action="motion-keep"/);
+ }finally{await h.close();}
+});
 // used by saved student work. Templates are no longer student-facing buttons.
 async function openRigFixture(h,kind='figure'){
  const current=h.project(),project=createStarter(kind,{language:current.language});
@@ -223,6 +295,28 @@ test('piece-specific overlap repair previews before acceptance, supports undo, a
   await h.click({action:'accept'});const repaired=h.project();assert.ok(repaired.parts[1].overlapSamples);assert.deepEqual(repaired.parts[0],before.parts[0]);assert.deepEqual(repaired.joints,before.joints);
   const originalCanvas=h.canvasMarkup();await h.click({action:'motion-bend',joint:'hip',direction:'1'});assert.notEqual(h.canvasMarkup(),originalCanvas);assert.deepEqual(h.project(),repaired);await h.click({action:'motion-reset'});assert.deepEqual(h.project(),repaired);
   await h.click({action:'undo'});assert.deepEqual(h.project().parts,before.parts);assert.deepEqual(h.project().joints,before.joints);
+ }finally{await h.close();}
+});
+
+test('movement slider is a reversible trial until kept and cannot leak into a reloaded character',async()=>{
+ const h=browserHarness({classroom:true});
+ try{
+  await h.start('motion-trial');await h.settle();const project=createStudioProject();
+  project.parts=[{...makePart('Body',[[0,0],[80,0],[80,80],[0,80]]),id:'body'},{...makePart('Wing',[[60,60],[100,60],[100,130],[60,130]]),id:'wing'}];
+  project.joints=[{id:'wing-pin',parentId:'body',childId:'wing',parentAnchor:[80,70],childAnchor:[80,70],padRadius:12,min:-60,max:60,angle:12}];
+  h.message({type:'classroom:load',project,step:'refine'});await h.click({action:'select',id:'wing'});
+  const picture=()=>h.canvasMarkup().replace(/studio-\d+-/g,'studio-view-'),before=h.project(),original=picture();
+  h.jointInput('angle','42');await h.change({dataset:{jointField:'angle'},value:'42'});
+  assert.deepEqual(h.project(),before,'slider release does not save a trial');assert.notEqual(picture(),original);
+  assert.ok(h.root.innerHTML.includes('<output id="angle-output">42°</output>'));assert.match(h.root.innerHTML,/data-action="motion-keep"/);
+  await h.click({action:'classroom-save'});assert.deepEqual(h.classroomMessages.at(-1).data.project,before,'trial is not exported to the parent project');
+  await h.click({action:'save-project'});assert.deepEqual(parseStudioProject(await h.downloads.at(-1).blob.text()),before,'trial is not saved in the JSON file');
+  await h.click({action:'motion-reset'});assert.equal(picture(),original);assert.deepEqual(h.project(),before);
+  await h.change({dataset:{jointField:'angle'},value:'999'});assert.ok(h.root.innerHTML.includes('<output id="angle-output">60°</output>'),'trial clamps to actual joint limits');
+  await h.click({action:'motion-keep'});assert.equal(h.project().joints[0].angle,60);await h.click({action:'undo'});assert.deepEqual(h.project(),before,'keeping the trial is one undoable edit');
+  await h.change({dataset:{jointField:'angle'},value:'-35'});h.message({type:'classroom:load',project,step:'refine'});await h.click({action:'select',id:'wing'});assert.equal(picture(),original,'new character session clears the old trial even with identical joint IDs');
+  await h.change({dataset:{jointField:'angle'},value:'40'});await h.point(30,30,'body');await h.click({action:'select',id:'wing'});assert.equal(picture(),original,'changing selected pieces clears the trial before local editing');
+  await h.click({action:'lock'});const locked=h.project();await h.change({dataset:{jointField:'angle'},value:'40'});await h.click({action:'motion-bend',joint:'wing-pin',direction:'1'});assert.deepEqual(h.project(),locked);assert.doesNotMatch(h.root.innerHTML,/data-action="motion-keep"/);
  }finally{await h.close();}
 });
 
@@ -461,7 +555,7 @@ test('fixed connections can move again and AI receives the selected part without
     await h.settle();
     let changed=h.project().joints.find(j=>j.id===joint.id);
     assert.ok(changed.min<0&&changed.max>0,'a restored pivot gets a useful movement range');
-    await h.change({dataset:{jointField:'angle'},value:'35'});
+    await h.change({dataset:{jointField:'angle'},value:'35'});await h.click({action:'motion-keep'});
     await h.settle();
     changed=h.project().joints.find(j=>j.id===joint.id);
     assert.equal(changed.angle,35);
@@ -718,7 +812,7 @@ test('generation-only relay uses the description without hidden presets, reviews
     const revised=structuredClone(h.project()),moving=revised.parts.find(p=>p.id===movingId);
     assert.equal(moving.parameters.length,1.2);assert.equal(moving.parameters.width,1.25);assert.notDeepEqual(moving.artworkMatrix,beforeRevision.parts.find(p=>p.id===movingId).artworkMatrix);assert.deepEqual(revised.parts.filter(p=>p.id!==movingId),beforeRevision.parts.filter(p=>p.id!==movingId));assert.deepEqual(revised.assets,beforeRevision.assets);
     await h.click({action:'undo'});await h.settle();assert.deepEqual(h.project().parts,beforeRevision.parts);assert.deepEqual(h.project().rods,beforeRevision.rods);
-    await h.click({action:'redo'});await h.settle();await h.click({action:'refine-stage',stage:'test'});await h.change({dataset:{jointField:'angle'},value:'30'});await h.settle();
+    await h.click({action:'redo'});await h.settle();await h.click({action:'refine-stage',stage:'test'});await h.change({dataset:{jointField:'angle'},value:'30'});await h.click({action:'motion-keep'});await h.settle();
     built=structuredClone(h.project());assert.equal(built.joints[0].angle,30);assert.equal(built.rods.length,1);
     await h.click({action:'next-stage'});assert.match(h.root.innerHTML,/data-step="make" aria-current="step"/);
     await h.click({action:'view-shadow'});assert.doesNotMatch(h.canvasMarkup(),/<image\b/);await h.click({action:'view-art'});
@@ -801,7 +895,7 @@ test('the simple image route automatically reviews the character and joint plan,
     await h.click({action:'accept'});await h.settle();
     assert.equal(h.project().parts.length,1+plannedCount);assert.equal(h.project().joints.length,plannedCount);
     assert.match(h.root.innerHTML,/data-joint-field="angle"/,'the selected moving part exposes its angle');
-    await h.change({dataset:{jointField:'angle'},value:'25'});await h.settle();
+    await h.change({dataset:{jointField:'angle'},value:'25'});await h.click({action:'motion-keep'});await h.settle();
     assert.equal(h.project().joints[0].angle,25);
     const posed=structuredClone(h.project());
     assert.deepEqual(primaryActions(h.root.innerHTML),['next-stage']);

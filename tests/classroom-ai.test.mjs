@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {classroomAIContext,makeClassroomRequest,parseClassroomHelp,requestClassroomHelp,makeStageImageRequest,requestStageImage} from '../public/classroom-ai.mjs';
+import {classroomAIContext,makeClassroomRequest,parseClassroomHelp,requestClassroomHelp,makeStageImageRequest,requestStageImage,applyStageProposal} from '../public/classroom-ai.mjs';
 import {validateBody} from '../server/api.mjs';
 
 const response=value=>({choices:[{message:{content:JSON.stringify({reply:JSON.stringify(value)})},finish_reason:'stop'}]});
@@ -37,11 +37,107 @@ test('story and scene proposals are bounded structured suggestions and do not mu
 
 test('stage proposals cannot inject HTML, arbitrary image URLs, or unknown characters',()=>{
   const result=parseClassroomHelp('stage',response({proposal:{backgroundPrompt:'A village at dusk',objects:[{type:'image',dataUrl:'javascript:alert(1)'},{type:'character',characterId:'unknown'},{type:'character',characterId:'known',x:100,y:100},{type:'shape',shape:'script',fill:'url(evil)',x:Infinity,width:-20},{type:'text',text:'<script>bad</script>'}]}}),{characters:[{id:'known'}]});
-  assert.equal(result.proposal.objects.length,3);
+  assert.equal(result.proposal.objects.length,2);
   assert.equal(result.proposal.objects[1].shape,'rect');
   assert.equal(result.proposal.objects[1].fill,'#245447');
   assert.equal(result.proposal.objects[1].width,10);
   assert.ok(!JSON.stringify(result.proposal).includes('javascript:'));
+  assert.ok(!JSON.stringify(result.proposal).includes('<script>'));
+});
+
+test('a script revision missing its id targets only a known current scene and does not erase omitted fields',()=>{
+  const context={sceneId:'scene-current',scenes:[{id:'scene-current',title:'Keep this title',setting:'A forest',script:'Old line'},{id:'scene-other',title:'Other',script:'Untouched'}]};
+  const result=parseClassroomHelp('script',response({proposal:{scenes:[{script:'Fox: I found the lantern.'}]}}),context);
+  assert.deepEqual(result.proposal.scenes,[{id:'scene-current',script:'Fox: I found the lantern.'}]);
+  assert.equal(context.scenes[0].script,'Old line');
+  const explicitAdd=parseClassroomHelp('script',response({proposal:{scenes:[{operation:'add',title:'After the forest',script:'Owl: Let us go home.'}]}}),context);
+  assert.equal(explicitAdd.proposal.scenes[0].id,undefined);
+  assert.equal(explicitAdd.proposal.scenes[0].title,'After the forest');
+});
+
+test('ambiguous or invented script revision ids cannot silently create duplicate scenes',()=>{
+  const context={sceneId:'scene-current',scenes:[{id:'scene-current',script:'Keep this'}]};
+  const ambiguous={proposal:{scenes:[{script:'One'},{script:'Two'}]}};
+  assert.throws(()=>parseClassroomHelp('script',response(ambiguous),context),/which scene/);
+  assert.throws(()=>parseClassroomHelp('script',response({proposal:{scenes:[{script:'One'}]}}),{scenes:context.scenes}),/which scene/);
+  assert.throws(()=>parseClassroomHelp('script',response({proposal:{scenes:[{id:'invented',script:'One'}]}}),context),/unknown scene/);
+  assert.throws(()=>parseClassroomHelp('script',response({proposal:{scenes:[{operation:'add',id:'scene-current',script:'One'}]}}),context),/must not reuse/);
+  const additions=parseClassroomHelp('script',response({proposal:{scenes:[{operation:'add',script:'One'},{operation:'add',script:'Two'}]}}),context);
+  assert.equal(additions.proposal.scenes.length,2);
+  assert.ok(additions.proposal.scenes.every(scene=>!scene.id));
+});
+
+test('stage chat updates selected existing scenery without duplicating it or altering nearby work',()=>{
+  const stage={width:960,height:540,background:png,backgroundColor:'#ffffff',objects:[
+    {id:'mountains',type:'image',dataUrl:png,x:0,y:20,width:960,height:300,opacity:1,z:0},
+    {id:'tree',type:'shape',shape:'rect',fill:'#225544',x:700,y:100,width:60,height:240,z:1}
+  ]};
+  const before=structuredClone(stage);
+  const result=parseClassroomHelp('stage',response({reply:'Preview lighter mountains.',proposal:{updates:[{id:'mountains',changes:{opacity:.4,y:10}},{id:'tree',changes:{fill:'#000000'}}]}}),{stage,selectedObjectId:'mountains'});
+  assert.deepEqual(result.proposal.updates,[{id:'mountains',changes:{opacity:.4,y:10}}]);
+  assert.match(result.warnings.join(' '),/unselected/);
+  const preview=applyStageProposal(stage,result.proposal,{selectedObjectId:'mountains'});
+  const applied=applyStageProposal(stage,result.proposal,{selectedObjectId:'mountains'});
+  assert.deepEqual(preview,applied);
+  assert.equal(preview.objects[0].opacity,.4);
+  assert.equal(preview.objects[0].dataUrl,png);
+  assert.equal(preview.background,png);
+  assert.deepEqual(preview.objects[1],stage.objects[1]);
+  assert.deepEqual(stage,before);
+  assert.equal(preview.objects.length,2);
+});
+
+test('stage edits and new elements compose together, and updates preserve original object identity',()=>{
+  const stage={objects:[{id:'tree',type:'shape',shape:'ellipse',fill:'#225544',x:40,y:20,width:60,height:200,z:7}]};
+  const result=parseClassroomHelp('stage',response({proposal:{updates:[{id:'tree',changes:{fill:'#000000',width:80}}],objects:[{type:'shape',shape:'ellipse',fill:'#ffaa00',x:800,y:300,width:40,height:50}]}}),{stage});
+  const next=applyStageProposal(stage,result.proposal,{createId:()=> 'lamp'});
+  assert.equal(next.objects[0].id,'tree');assert.equal(next.objects[0].fill,'#000000');assert.equal(next.objects[0].width,80);
+  assert.equal(next.objects[1].id,'lamp');assert.equal(next.objects[1].z,8);
+  assert.equal(stage.objects.length,1);assert.equal(stage.objects[0].width,60);
+  assert.throws(()=>applyStageProposal(stage,result.proposal,{createId:()=> 'tree'}),/unique id/);
+  assert.throws(()=>applyStageProposal({objects:[]},result.proposal),/no longer exists/);
+});
+
+test('existing ids cannot be duplicated through legacy additions and selected-only scope excludes new elements',()=>{
+  const stage={objects:[{id:'tree',type:'shape',shape:'ellipse',fill:'#225544',x:40,y:20,width:60,height:200,z:1}]};
+  const source={proposal:{objects:[{id:'tree',type:'shape',shape:'rect',x:20},{type:'shape',shape:'ellipse',x:500}],updates:[{id:'tree',changes:{x:100}}]}};
+  const wholeScene=parseClassroomHelp('stage',response(source),{stage});
+  assert.equal(wholeScene.proposal.objects.length,1);
+  assert.equal(applyStageProposal(stage,wholeScene.proposal).objects.length,2);
+  const selected=parseClassroomHelp('stage',response(source),{stage,selectedObjectId:'tree'});
+  assert.equal(selected.proposal.objects.length,0);
+  assert.deepEqual(selected.proposal.updates,[{id:'tree',changes:{x:100}}]);
+  assert.match(selected.warnings.join(' '),/Clear the selection/);
+  assert.throws(()=>applyStageProposal(stage,wholeScene.proposal,{selectedObjectId:'tree'}),/Clear the selection/);
+});
+
+test('stage update contracts reject unknown ids, replacement images, markup, deletion and ambiguous repeats',()=>{
+  const stage={objects:[{id:'tree',type:'shape',shape:'rect',fill:'#225544',x:10},{id:'caption',type:'text',text:'Welcome'}]};
+  const result=parseClassroomHelp('stage',response({proposal:{updates:[{id:'unknown',changes:{x:99}},{id:'tree',changes:{x:1e20,y:-1e20,width:-30,height:1e10,rotation:2000,opacity:40,dataUrl:'javascript:bad',type:'image',fill:'url(https://evil.test/)'}},{id:'caption',changes:{text:'<img src=x onerror=alert(1)>'}}],delete:['caption']}}),{stage});
+  assert.deepEqual(result.proposal.updates,[{id:'tree',changes:{x:1920,y:-540,width:10,height:810,rotation:360,opacity:1}}]);
+  assert.match(result.warnings.join(' '),/Removing stage elements/);
+  const next=applyStageProposal(stage,result.proposal);
+  assert.equal(next.objects.length,2);assert.equal(next.objects[1].text,'Welcome');
+  assert.equal(next.objects[0].fill,'#225544');assert.equal(next.objects[0].type,'shape');
+  assert.equal(next.objects[0].dataUrl,undefined);
+  assert.throws(()=>parseClassroomHelp('stage',response({proposal:{updates:[{id:'tree',changes:{x:20}},{id:'tree',changes:{x:30}}]}}),{stage}),/repeats/);
+  assert.equal(parseClassroomHelp('stage',response({proposal:{updates:[{id:'unknown',changes:{x:99}}]}}),{stage}).proposal,null);
+});
+
+test('background suggestions are separate generation requests and never silently replace image pixels',()=>{
+  const stage={background:png,objects:[{id:'tree-image',type:'image',dataUrl:png,opacity:1}]};
+  const background=parseClassroomHelp('stage',response({proposal:{backgroundPrompt:'Distant mountains at sunset'}}),{stage});
+  assert.deepEqual(background.proposal.backgroundRequest,{kind:'generate-new-backdrop',prompt:'Distant mountains at sunset'});
+  assert.match(background.warnings.join(' '),/separate review/);
+  assert.deepEqual(applyStageProposal(stage,background.proposal),stage);
+  const selected=parseClassroomHelp('stage',response({proposal:{backgroundPrompt:'A black silhouette tree',updates:[{id:'tree-image',changes:{fill:'#000000',dataUrl:png}}]}}),{stage,selectedObjectId:'tree-image'});
+  assert.equal(selected.proposal,null);
+  assert.match(selected.warnings.join(' '),/pixels cannot be selectively edited/);
+  assert.match(selected.warnings.join(' '),/Image pixels were not edited/);
+  const request=JSON.parse(makeClassroomRequest({task:'stage',prompt:'Make only the tree a silhouette',context:{stage,selectedObjectId:'tree-image'}}).messages.at(-1).content);
+  assert.equal(request.scene.classroom.selectedObjectId,'tree-image');
+  assert.match(request.question,/pixels cannot be recolored/);
+  assert.doesNotMatch(JSON.stringify(request.scene.classroom),/base64/);
 });
 
 test('AI assessment only retains known evidence and never accepts numeric scores',()=>{

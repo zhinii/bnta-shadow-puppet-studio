@@ -7,9 +7,9 @@ const root=fileURLToPath(new URL('../',import.meta.url));
 const read=path=>readFile(resolve(root,path),'utf8');
 const exists=path=>access(resolve(root,path)).then(()=>true,()=>false);
 const pages=await read('index.html'),entry=await read('dist/index.html'),portable=await read('START-HERE.html');
-assert.match(pages,/href="\.\/public\/classroom\.css\?v=0\.9\.0"/);
-assert.match(pages,/src="\.\/public\/classroom-app\.mjs\?v=0\.9\.0"/);
-assert.match(entry,/src="\.\/classroom-app\.mjs\?v=0\.9\.0"/);
+assert.match(pages,/href="\.\/public\/classroom\.css\?v=0\.10\.0"/);
+assert.match(pages,/src="\.\/public\/classroom-app\.mjs\?v=0\.10\.0"/);
+assert.match(entry,/src="\.\/classroom-app\.mjs\?v=0\.10\.0"/);
 for(const file of ['classroom-client.mjs','server/index.js','.openai/hosting.json'])assert.equal(await exists('dist/'+file),false,'Static distribution must not contain '+file);
 
 // Walk the actual static import graph, including the embedded puppet editor.
@@ -35,7 +35,7 @@ for(const file of await readdir(resolve(root,'dist'))){
 assert.doesNotMatch(portable,/<script\b[^>]*\bsrc=/i,'Portable puppet studio embeds its module script.');
 assert.doesNotMatch(portable,/<link\b[^>]*href="\.\/studio\.css/i,'Portable puppet studio embeds its stylesheet.');
 assert.match(portable,/function clearStoredStudioSession/);
-assert.match(portable,/https:\/\/zhinii\.github\.io\/bnta-shadow-puppet-studio\/public\/legacy\.html\?v=0\.7\.9/);
+assert.match(portable,/https:\/\/zhinii\.github\.io\/bnta-shadow-puppet-studio\/public\/legacy\.html\?v=0\.10\.0/);
 assert.doesNotMatch(portable,/new URL\('\.\/legacy\.html/);
 assert.match(await read('dist/studio.html'),/studio-app\.mjs/);
 console.log('Static smoke check passed: GitHub entry, '+seen.size+' browser modules, JSON workflow assets and portable puppet editor; no classroom service or database dependencies.');

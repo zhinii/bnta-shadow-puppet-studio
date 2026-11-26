@@ -70,6 +70,23 @@ test('stage exposes obvious background selection, AI prompt limit, object adjust
  assert.match(html,/data-form="stage-object"/);assert.match(html,/name="width"/);assert.match(html,/data-action="preview-stage"/);
 });
 
+test('image and character inspectors do not offer text or fill edits that cannot change artwork',()=>{
+ for(const type of ['image','character']){
+  const state=makeState({tab:'stage',selectedObjectId:'chosen'}),stage=state.classroom.groups[0].scenes[0].stage;
+  stage.objects=[{id:'chosen',type,characterId:'c1',dataUrl:image,x:10,y:20,width:80,height:90,z:0}];
+  const html=renderStudentWorkspace(state),form=html.match(/<form data-form="stage-object"[\s\S]*?<\/form>/)?.[0];
+  assert.ok(form);assert.doesNotMatch(form,/name="(?:text|shape|fill)"/);assert.match(form,/name="width"/);assert.match(form,/name="rotation"/);
+  assert.match(html,/data-action="clear-selection"/);assert.match(html,/Add another text or shape/);
+ }
+});
+
+test('AI advice has no pretend apply action and a new backdrop exposes its brief before generation',()=>{
+ const advice=renderStudentWorkspace(makeState({aiProposal:{target:'story',reply:'Discuss this idea.',proposal:null,warnings:['No editable proposal was returned.']}}));
+ assert.match(advice,/No editable proposal was returned/);assert.doesNotMatch(advice,/data-action="ai-apply"/);
+ const backdrop=renderStudentWorkspace(makeState({tab:'stage',aiProposal:{target:'stage',reply:'A new background.',proposal:{objects:[],updates:[],backgroundRequest:{kind:'generate-new-backdrop',prompt:'A moonlit courtyard <with lanterns>'}}}}));
+ assert.match(backdrop,/A moonlit courtyard &lt;with lanterns&gt;/);assert.match(backdrop,/data-action="generate-ai-backdrop"/);assert.doesNotMatch(backdrop,/data-action="ai-apply"/);
+});
+
 test('AI changes show a proposal with explicit acceptance and rejection before applying',()=>{
  const html=renderStudentWorkspace(makeState({tab:'script',aiProposal:{target:'script',reply:'Try a shorter exchange.',proposal:{script:'Traveller: Hello.'}}}));
  assert.match(html,/Traveller: Hello\./);assert.match(html,/data-action="ai-apply"/);assert.match(html,/data-action="ai-reject"/);

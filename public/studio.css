@@ -171,6 +171,9 @@ summary { min-height: 44px; padding: 10px 0; cursor: pointer; font-size: 14px; f
 .mode-draw #puppet-canvas [data-part-id], .mode-joint #puppet-canvas [data-part-id], .mode-rod #puppet-canvas [data-part-id], .mode-split #puppet-canvas [data-part-id], .mode-axis #puppet-canvas [data-part-id] { cursor: crosshair; }
 .mode-pan #puppet-canvas { cursor: grab; touch-action: none; }
 .mode-pan #puppet-canvas:active { cursor: grabbing; }
+.mode-try-movement #puppet-canvas { touch-action: none; }
+.mode-try-movement #puppet-canvas .studio-part.is-selected { cursor: grab; }
+.mode-try-movement #puppet-canvas .studio-part.is-selected:active { cursor: grabbing; }
 .mode-pan #puppet-canvas [data-part-id] { cursor: inherit; }
 .mode-vertices #puppet-canvas { touch-action: none; }
 .empty-canvas { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; padding: 30px; text-align: center; pointer-events: none; }

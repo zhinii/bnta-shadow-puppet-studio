@@ -1,4 +1,4 @@
-import {normalizeCharacter,PART_IDS} from './model.mjs';
+import {normalizeCharacter,PART_IDS} from './model.mjs?v=0.10.0';
 // Reused transport from zhinii/bnta-robotics/six-axis-agent/agent.mjs.
 // This is the protected Kimi-hosted relay, not a browser-held API key.
 export const RELAY='https://6ilmssim2bz2s.kimi.site/api/puppet';

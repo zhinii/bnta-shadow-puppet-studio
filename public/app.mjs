@@ -1,6 +1,6 @@
-import {createProject,createCharacter,normalizeProject,clone,PARTS,PART_IDS,PALETTES,escapeXml as e,applyDesign,designChanges,applySelectedChanges,physicalScale,uid,pose,transforms,partBounds} from './model.mjs';
-import {fullSvg,puppet,partPreview,printPages,inspection,accessoryArt,propPrintPages} from './render.mjs';
-import {askAssistant,generateStudioImage,RELAY} from './agent.mjs';
+import {createProject,createCharacter,normalizeProject,clone,PARTS,PART_IDS,PALETTES,escapeXml as e,applyDesign,designChanges,applySelectedChanges,physicalScale,uid,pose,transforms,partBounds} from './model.mjs?v=0.10.0';
+import {fullSvg,puppet,partPreview,printPages,inspection,accessoryArt,propPrintPages} from './render.mjs?v=0.10.0';
+import {askAssistant,generateStudioImage,RELAY} from './agent.mjs?v=0.10.0';
 const $=s=>document.querySelector(s),root=$('#app'),storageKey='bnta-shadow-studio-v1';
 let project=createProject(),step='shape',selectedPart=null,view='color',showJoints=true,selectedAccessory=null,playing=false,motion='wave',frame=0,chat=[],proposal=null,proposalBase='',proposalTarget=null,busy=false,controller=null,imageBusy=false,imageController=null,endpoint=RELAY,undoStack=[],redoStack=[],toastTimer,dirty=false,connectionState='unverified',sketching=false,aiOpen=false,versionsOpen=false,showParts=false,changeSelection=[],castSelection=[];
 // Projects stay in this open session. Remove only the former classic autosave.

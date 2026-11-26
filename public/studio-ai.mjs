@@ -1,5 +1,5 @@
-import {applyStudioProposal,normalizeStudioProject} from './studio-model.mjs?v=0.8.0';
-import {readArtworkFile,validateArtworkBytes} from './studio-storage.mjs';
+import {applyStudioProposal,normalizeStudioProject} from './studio-model.mjs?v=0.10.0';
+import {readArtworkFile,validateArtworkBytes} from './studio-storage.mjs?v=0.10.0';
 // Browser transport contains no provider credential. Pixel services are optional
 // capabilities of a protected server; the existing relay can provide drawing plans.
 export const STUDIO_RELAY = 'https://6ilmssim2bz2s.kimi.site/api/studio';

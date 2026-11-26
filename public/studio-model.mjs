@@ -58,7 +58,19 @@ function normalizePart(raw) {
     return {jointId:id(sample.jointId,false),center:point(sample.center),size:sample.size};
   });
   if(new Set(overlapSamples.map(s=>s.jointId)).size!==overlapSamples.length)fail('Choose one pattern per piece and joint.','INVALID_ASSET');
-  return {id:id(raw.id),name:cleanText(raw.name,100)||'Untitled part',polygon:points,assetId:raw.assetId==null?null:id(raw.assetId,false),fill:color(raw.fill),x:number(raw.x,0),y:number(raw.y,0),rotation:number(raw.rotation,0,-360,360),locked:raw.locked===true,z:number(raw.z,0,-1000,1000),artworkMatrix,...(overlapSamples.length?{overlapSamples}:{}),parameters:{width:number(parameters?.width,1,.25,4),length:number(parameters?.length,1,.25,4),axisAngle:number(parameters?.axisAngle,0,-180,180),origin:parameters?.origin===undefined?[box.x+box.width/2,box.y+box.height/2]:point(parameters.origin)}};
+  // Local corrections live in source coordinates, so the print, mask and
+  // correction follow the same resize/mirror without altering the shared image.
+  const artworkPatches=list(raw.artworkPatches,32,'local corrections').map(patch=>{
+    if(!record(patch)||!['color','texture'].includes(patch.kind))fail('Choose a color or a sampled pattern for the correction.','INVALID_ASSET');
+    const region=polygon(patch.polygon);
+    if(region.length>128||selfIntersects(region))fail('Trace a simple correction area with at most 128 points.','INVALID_GEOMETRY');
+    const result={id:id(patch.id),kind:patch.kind,polygon:region};
+    if(patch.kind==='color')result.color=color(patch.color);
+    else {if(!record(patch.sample)||typeof patch.sample.size!=='number')fail('Choose a pattern sample.','INVALID_ASSET');result.sample={center:point(patch.sample.center),size:number(patch.sample.size,0,1,8192)};}
+    return result;
+  });
+  distinct(artworkPatches,'local correction');
+  return {id:id(raw.id),name:cleanText(raw.name,100)||'Untitled part',polygon:points,assetId:raw.assetId==null?null:id(raw.assetId,false),fill:color(raw.fill),x:number(raw.x,0),y:number(raw.y,0),rotation:number(raw.rotation,0,-360,360),locked:raw.locked===true,z:number(raw.z,0,-1000,1000),artworkMatrix,...(overlapSamples.length?{overlapSamples}:{}),...(artworkPatches.length?{artworkPatches}:{}),parameters:{width:number(parameters?.width,1,.25,4),length:number(parameters?.length,1,.25,4),axisAngle:number(parameters?.axisAngle,0,-180,180),origin:parameters?.origin===undefined?[box.x+box.width/2,box.y+box.height/2]:point(parameters.origin)}};
 }
 function normalizeJoint(raw) {
   if(!record(raw))fail('Invalid connection.');
@@ -99,6 +111,12 @@ export function normalizeStudioProject(raw) {
   if(p.conceptAssetId&&!assetIds.has(p.conceptAssetId))fail('The concept image is missing.','INVALID_ASSET');
   p.parts=list(raw.parts,80,'parts').map(normalizePart);const partIds=distinct(p.parts,'part');
   for(const part of p.parts)if(part.assetId&&!assetIds.has(part.assetId))fail('Artwork for '+part.name+' is missing.','INVALID_ASSET');
+  for(const part of p.parts)for(const patch of part.artworkPatches||[])if(patch.kind==='texture'){
+    const asset=p.assets.find(a=>a.id===part.assetId),[x,y]=patch.sample.center,half=patch.sample.size/2;
+    // A later split can retain a sample from the original piece, but it must
+    // always remain within the embedded artwork, never an external resource.
+    if(!asset||x-half<0||y-half<0||x+half>asset.width||y+half>asset.height)fail('The local pattern sample must be inside the artwork.','INVALID_ASSET');
+  }
   p.joints=list(raw.joints,79,'connections').map(normalizeJoint);distinct(p.joints,'connection');
   for(const part of p.parts)if(part.overlapSamples){
     const asset=p.assets.find(a=>a.id===part.assetId),inv=inverseMatrix(part.artworkMatrix),source=part.polygon.map(p=>transformPoint(inv,p));
@@ -115,6 +133,12 @@ export function normalizeStudioProject(raw) {
     incoming.set(joint.childId,joint.parentId);
   }
   for(const part of p.parts){const visited=new Set([part.id]);let parent=incoming.get(part.id);while(parent){if(visited.has(parent))fail('Connections cannot form a cycle.','CONNECTION_CYCLE');visited.add(parent);parent=incoming.get(parent);}}
+  const motionTests=list(raw.motionTests,5,'movement tests').map(test=>{
+    if(!record(test)||!['raise-hand','wave','nod','step','bend-knee'].includes(test.name)||typeof test.angle!=='number')fail('Choose a named movement and a valid joint angle.','INVALID_CONNECTION');
+    return {name:test.name,jointId:id(test.jointId,false),angle:number(test.angle,0,-180,180)};
+  });
+  if(new Set(motionTests.map(test=>test.name)).size!==motionTests.length)fail('Save one joint movement per test.','INVALID_CONNECTION');
+  const retainedTests=motionTests.filter(test=>p.joints.some(j=>j.id===test.jointId));if(retainedTests.length)p.motionTests=retainedTests;
   p.rods=list(raw.rods,80,'control rods').map(rawRod=>{
     if(!record(rawRod)||!partIds.has(rawRod.partId))fail('A control rod must belong to an existing part.','INVALID_CONNECTION');
     return {id:id(rawRod.id),partId:id(rawRod.partId,false),point:point(rawRod.point)};
@@ -124,8 +148,8 @@ export function normalizeStudioProject(raw) {
     if(!record(r))fail('Invalid saved version.');
     const out={id:id(r.id),label:cleanText(r.label,160),createdAt:cleanText(r.createdAt||r.at,50)};
     if(record(r.snapshot)){
-      const snap=normalizeStudioProject({...p,...r.snapshot,assets:p.assets,revisions:[]});
-      out.snapshot={title:snap.title,brief:snap.brief,parts:snap.parts,joints:snap.joints,rods:snap.rods,conceptAssetId:snap.conceptAssetId,heightMm:snap.heightMm,holeMm:snap.holeMm,materialMm:snap.materialMm,canvas:snap.canvas};
+      const snap=normalizeStudioProject({...p,...r.snapshot,assets:p.assets,motionTests:r.snapshot.motionTests||[],revisions:[]});
+      out.snapshot={title:snap.title,brief:snap.brief,parts:snap.parts,joints:snap.joints,rods:snap.rods,conceptAssetId:snap.conceptAssetId,heightMm:snap.heightMm,holeMm:snap.holeMm,materialMm:snap.materialMm,canvas:snap.canvas,...(snap.motionTests?{motionTests:snap.motionTests}:{})};
     }
     return out;
   });
@@ -392,7 +416,7 @@ export function assertLockedPartsUnchanged(before,after){
  const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
  for(const old of before.parts.filter(p=>p.locked)){
   const next=after.parts.find(p=>p.id===old.id);
-   if(!next||!same(old.polygon,next.polygon)||!same(old.artworkMatrix||paramIdentity,next.artworkMatrix||paramIdentity)||!same(old.overlapSamples||[],next.overlapSamples||[])||old.assetId!==next.assetId||old.fill!==next.fill||old.z!==next.z||old.locked!==next.locked||!oldTransforms[old.id].every((n,i)=>paramClose(n,newTransforms[old.id][i])))throw paramFailure('This change would alter or move the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
+   if(!next||!same(old.polygon,next.polygon)||!same(old.artworkMatrix||paramIdentity,next.artworkMatrix||paramIdentity)||!same(old.overlapSamples||[],next.overlapSamples||[])||!same(old.artworkPatches||[],next.artworkPatches||[])||old.assetId!==next.assetId||old.fill!==next.fill||old.z!==next.z||old.locked!==next.locked||!oldTransforms[old.id].every((n,i)=>paramClose(n,newTransforms[old.id][i])))throw paramFailure('This change would alter or move the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
   const pads=project=>project.joints.filter(j=>j.parentId===old.id||j.childId===old.id).map(j=>({id:j.id,type:j.type,anchor:j.parentId===old.id?j.parentAnchor:j.childAnchor,radius:j.padRadius}));
   if(!same(pads(before),pads(after)))throw paramFailure('This change would resize a joint on the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
   if(old.assetId){

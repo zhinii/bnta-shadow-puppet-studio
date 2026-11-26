@@ -1,5 +1,5 @@
-import {getJointArtworkPlan,jointArtworkMapping} from './studio-joint-artwork.mjs?v=0.8.0';
-import {partTransforms, transformPoint, neutralProjectBounds, unitsPerMm, validateStudio, inverseMatrix} from './studio-model.mjs?v=0.8.0';
+import {getJointArtworkPlan,jointArtworkMapping} from './studio-joint-artwork.mjs?v=0.10.0';
+import {partTransforms, transformPoint, neutralProjectBounds, unitsPerMm, validateStudio, inverseMatrix} from './studio-model.mjs?v=0.10.0';
 
 // Artwork, cut geometry and joints are independent. All geometry is in artwork
 // units until the last print transform, where one SVG unit is one millimetre.
@@ -152,6 +152,23 @@ function jointPrintMarkup(project,part,geometry,{prefix,token,plans}){
  return {defs,markup,baseMask:' mask="url(#'+token+'-without-joint-print)"'};
 }
 
+function localCorrectionMarkup(part,asset,{prefix,token}){
+ const patches=part.artworkPatches||[];if(!patches.length)return {defs:'',markup:''};
+ const source='#'+prefix+'-joint-source-'+safeToken(part.assetId);
+ let defs=asset?`<mask id="${token}-correction-alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="${f(asset.width)}" height="${f(asset.height)}" style="mask-type:alpha"><use href="${source}"/></mask>`:'';
+ const paths=patches.map(patch=>{
+  let fill=color(patch.color||'#bd6a43');
+  if(patch.kind==='texture'){
+   if(!asset)return '';
+   const sample=patch.sample,id=token+'-patch-'+safeToken(patch.id),x=sample.center[0]-sample.size/2,y=sample.center[1]-sample.size/2;
+   defs+=`<pattern id="${id}" patternUnits="userSpaceOnUse" x="${f(x)}" y="${f(y)}" width="${f(sample.size)}" height="${f(sample.size)}" viewBox="${[x,y,sample.size,sample.size].map(f).join(' ')}" preserveAspectRatio="none" overflow="hidden"><use href="${source}"/></pattern>`;
+   fill='url(#'+id+')';
+  }
+  return `<path data-artwork-correction="${esc(patch.id)}" data-correction-kind="${esc(patch.kind)}" d="${polygonPath(patch.polygon)}" fill="${fill}"/>`;
+ }).join('');
+ return {defs,markup:`<g data-correction-piece="${esc(part.id)}" clip-path="url(#${token}-artwork)"><g transform="matrix(${artworkMatrixOf(part).map(f).join(' ')})"${asset?` mask="url(#${token}-correction-alpha)"`:''}>${paths}</g></g>`};
+}
+
 function partMarkup(project,part,geometry,{prefix,showArt=true,cutOnly=false,selected=false,interactive=false,strokeWidth=1.5,jointPlans=new Map()}={}) {
  const token=prefix+'-'+String(part.id).replace(/[^\w-]/g,'_'),asset=raster((project.assets||[]).find(a=>a.id===part.assetId));
  const fill=showArt?color(part.fill):'#25252a';
@@ -159,7 +176,8 @@ function partMarkup(project,part,geometry,{prefix,showArt=true,cutOnly=false,sel
  // Piece pixels remain bounded; both round ends receive a shared copied print.
  const jointPrint=showArt&&!cutOnly?jointPrintMarkup(project,part,geometry,{prefix,token,plans:jointPlans}):{defs:'',markup:'',baseMask:''};
  const artwork=showArt&&asset?`<g clip-path="url(#${token}-artwork)"${jointPrint.baseMask}><use data-part-artwork="${esc(part.id)}" href="#${prefix}-joint-source-${safeToken(asset.id)}" transform="matrix(${artworkMatrixOf(part).map(f).join(' ')})"/></g>`:'';
- const contents=cutOnly?`<path d="${geometry.path}" fill="none" stroke="#000" stroke-width="${f(strokeWidth)}" fill-rule="evenodd" data-cut="outline-and-holes"/>`:`<defs><clipPath id="${token}"><path d="${geometry.outer}" clip-rule="nonzero"/></clipPath>${artwork?`<clipPath id="${token}-artwork"><path d="${polygonPath(pointsOf(part))}" clip-rule="nonzero"/></clipPath>`:''}${mask}${jointPrint.defs}</defs><g clip-path="url(#${token})" mask="url(#${token}-holes)"><path d="${geometry.outer}" fill="${fill}" data-piece-backing="${esc(part.id)}"${jointPrint.baseMask}/>${artwork}${jointPrint.markup}</g><path d="${geometry.path}" fill="none" stroke="${selected?'#bd492f':showArt?'#644a3b':'#25252a'}" stroke-width="${f(selected?strokeWidth*2:strokeWidth)}" fill-rule="evenodd"/>`;
+ const correction=showArt&&!cutOnly?localCorrectionMarkup(part,asset,{prefix,token}):{defs:'',markup:''};
+ const contents=cutOnly?`<path d="${geometry.path}" fill="none" stroke="#000" stroke-width="${f(strokeWidth)}" fill-rule="evenodd" data-cut="outline-and-holes"/>`:`<defs><clipPath id="${token}"><path d="${geometry.outer}" clip-rule="nonzero"/></clipPath>${artwork||correction.markup?`<clipPath id="${token}-artwork"><path d="${polygonPath(pointsOf(part))}" clip-rule="nonzero"/></clipPath>`:''}${mask}${jointPrint.defs}${correction.defs}</defs><g clip-path="url(#${token})" mask="url(#${token}-holes)"><path d="${geometry.outer}" fill="${fill}" data-piece-backing="${esc(part.id)}"${jointPrint.baseMask}/>${artwork}${jointPrint.markup}${correction.markup}</g><path d="${geometry.path}" fill="none" stroke="${selected?'#bd492f':showArt?'#644a3b':'#25252a'}" stroke-width="${f(selected?strokeWidth*2:strokeWidth)}" fill-rule="evenodd"/>`;
  return `<g data-part-id="${esc(part.id)}"${interactive?` role="button" tabindex="0" aria-pressed="${selected}" aria-label="${esc(part.name||'Part')}"`:''} class="studio-part${selected?' is-selected':''}">${contents}<title>${esc(part.name||'Part')}</title></g>`;
 }
 

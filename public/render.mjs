@@ -1,4 +1,4 @@
-import {PARTS,escapeXml as e,transforms,anchors,partBounds,layoutPrint,physicalScale} from './model.mjs';
+import {PARTS,escapeXml as e,transforms,anchors,partBounds,layoutPrint,physicalScale} from './model.mjs?v=0.10.0';
 const round=n=>Math.round(n*100)/100;
 function baseContour(c,id){
  const part=PARTS.find(p=>p.id===id),L=part.length;

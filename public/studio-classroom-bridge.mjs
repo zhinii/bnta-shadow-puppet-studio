@@ -1,4 +1,4 @@
-import {createStudioProject,normalizeStudioProject} from './studio-model.mjs?v=0.8.0';
+import {createStudioProject,normalizeStudioProject} from './studio-model.mjs?v=0.10.0';
 
 export function isTrustedClassroomMessage(event,{origin,parent,enabled}){
  return enabled===true&&origin!=='null'&&!!parent&&event.source===parent&&event.origin===origin&&event.data&&typeof event.data==='object'&&['classroom:load','classroom:request-save'].includes(event.data.type);

@@ -32,7 +32,7 @@ for(const file of files)await copyFile(resolve(root,'public',file),resolve(outpu
 await writeFile(resolve(output,'.nojekyll'),'');
 console.log('Built static distribution with '+files.length+' browser assets; no database or application server required.');
 const app=await bundle(['public/studio-app.mjs']);check(app.source);
-const portableScript=app.source.replace("new URL('./legacy.html?v=0.7.9',import.meta.url).href","'https://zhinii.github.io/bnta-shadow-puppet-studio/public/legacy.html?v=0.7.9'");
+const portableScript=app.source.replace("new URL('./legacy.html?v=0.10.0',import.meta.url).href","'https://zhinii.github.io/bnta-shadow-puppet-studio/public/legacy.html?v=0.10.0'");
 const offline=assets['/studio.html'].replace(/<link rel="stylesheet" href="\.\/studio\.css(?:[?#][^"]*)?">/,()=>'<style>'+assets['/studio.css']+'</style>').replace(/<script type="module" src="\.\/studio-app\.mjs(?:[?#][^"]*)?"><\/script>/,()=>'<script type="module">'+portableScript.replace(/<\/script/gi,'<\\/script')+'</script>');
 await writeFile(resolve(root,'START-HERE.html'),offline);
 const pages=assets['/index.html'].replace('href="./classroom.css','href="./public/classroom.css').replace('src="./classroom-app.mjs','src="./public/classroom-app.mjs');
