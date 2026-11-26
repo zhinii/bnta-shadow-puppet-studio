@@ -1,114 +1,88 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createClassroomController,exportWorkspaceFile,importWorkspaceFile} from '../public/classroom-app.mjs';
-import {createClassroomClient} from '../public/classroom-client.mjs';
-import {createClassroom,applyClassroomAction,exportClassroom,importClassroom,exportScoresCsv} from '../public/classroom-model.mjs';
-import {createStudioProject,makePart} from '../public/studio-model.mjs';
-import {handleClassroomApi} from '../server/classroom-api.mjs';
-import {createMemoryClassroomStore} from '../server/classroom-store.mjs';
+import {createClassroom,applyClassroomAction,exportClassroom} from '../public/classroom-model.mjs';
+import {createStudioProject,makePart,normalizeStudioProject} from '../public/studio-model.mjs';
 
-const teacher={role:'teacher',name:'Teacher'};
+const author={role:'teacher',name:'Author'};
+const PNG='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
 const action=(type,payload={},groupId='group-a')=>({type,payload,groupId});
-const change=(c,type,payload={},groupId='group-a')=>applyClassroomAction(c,action(type,payload,groupId),teacher);
-function fixture(){return change(createClassroom({title:'Grade 8'}),'group.add',{id:'group-a',name:'Our group'});}
-function deferred(){let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};}
-const nextTick=()=>new Promise(resolve=>setImmediate(resolve));
-const noNetwork={clearSession(){},capabilities:async()=>({available:false})};
+const change=(c,type,payload={},groupId='group-a')=>applyClassroomAction(c,action(type,payload,groupId),author);
+function fixture(){return change(createClassroom({title:'My puppet story'}),'group.add',{id:'group-a',name:'Our project'});}
+function puppetFixture(){const p=createStudioProject();p.title='Panda';p.assets=[{id:'art',name:'Panda artwork',dataUrl:PNG,width:200,height:200}];p.parts=[{...makePart('Body',[[40,20],[120,20],[120,100],[40,100]],'art'),id:'body'},{...makePart('Leg',[[40,100],[120,100],[120,180],[40,180]],'art'),id:'leg'}];p.joints=[{id:'hip',parentId:'body',childId:'leg',parentAnchor:[80,100],childAnchor:[80,100],padRadius:25,min:-90,max:90,angle:0}];return normalizeStudioProject(p);}
 
-test('local classroom controller completes story, puppet, stage, submission, assessment and reopen',async()=>{
-  const controller=createClassroomController({client:noNetwork});controller.open(fixture());
-  await controller.dispatch(action('member.add',{id:'student-a',name:'Student A'}));
-  controller.set({actor:{role:'student',memberId:'student-a',groupId:'group-a',name:'Student A'},screen:'workspace'});
-  await controller.dispatch(action('story.update',{title:'A new beginning',time:'Today',place:'Our town',characters:'Panda',plot:'Panda learns to help a friend.'}));
-  await controller.dispatch(action('character.add',{id:'panda',name:'Panda',brief:'A panda with a red scarf'}));
-  const puppet=createStudioProject();puppet.title='Panda';puppet.parts=[makePart('Body',[[0,0],[120,0],[120,200],[0,200]])];
-  await controller.dispatch(action('character.update',{characterId:'panda',project:puppet}));
-  await controller.dispatch(action('scene.add',{id:'opening',title:'At home',setting:'A courtyard',script:'Panda: How can I help?'}));
-  await controller.dispatch(action('stage.update',{sceneId:'opening',stage:{objects:[{id:'performer',type:'character',characterId:'panda',x:100,y:80,width:150,height:220}]}}));
-  await controller.dispatch(action('reflection.save',{text:'I designed the scarf.',sources:'My drawing',tests:'Tested a paper outline against a lamp.'}));
-  await controller.dispatch(action('submission.submit'));
-  const snapshot=structuredClone(controller.group().submission);
-  controller.set({actor:teacher,screen:'teacher'});
-  const scores=Object.fromEntries(controller.state.classroom.rubric.map(r=>[r.id,3]));
-  await controller.dispatch(action('assessment.save',{memberId:'student-a',scores,comment:'Explain the change after your next paper test.',evidence:['Student recorded a lamp test.'],confirmed:true}));
-  assert.ok(exportScoresCsv(controller.state.classroom).includes('Student A'));
-  const saved=exportClassroom(controller.state.classroom);controller.reset();assert.equal(controller.state.classroom,null);controller.open(importClassroom(saved));
-  assert.deepEqual(controller.group().submission.snapshot,snapshot.snapshot);assert.deepEqual(controller.group().characters[0].project,puppet);assert.equal(controller.group().scenes[0].stage.objects[0].characterId,'panda');assert.equal(controller.group().assessments[0].confirmed,true);
+test('a file project opens directly into an editable author workspace',()=>{
+ const controller=createClassroomController();controller.open(fixture());
+ assert.equal(controller.state.screen,'workspace');assert.equal(controller.state.actor.role,'teacher');
+ assert.ok(controller.state.actor.memberId);assert.ok(controller.group().members.some(m=>m.id===controller.state.actor.memberId));
+ assert.equal(controller.client,undefined);
 });
 
-test('queued shared mutations use the latest committed revision and preserve both edits',async()=>{
-  let remote=fixture();const revisions=[],client={...noNetwork,action:async(id,revision,operation)=>{revisions.push(revision);assert.equal(revision,remote.revision);await nextTick();remote=applyClassroomAction(remote,operation,teacher);return {classroom:remote};}};
-  const controller=createClassroomController({client});controller.open(remote,{storageMode:'shared'});const initial=remote.revision;
-  await Promise.all([controller.dispatch(action('story.update',{plot:'First idea'})),controller.dispatch(action('scene.add',{id:'scene',title:'Our scene'}))]);
-  assert.deepEqual(revisions,[initial,initial+1]);assert.equal(controller.group().story.plot,'First idea');assert.equal(controller.group().scenes[0].title,'Our scene');
+test('file project preserves story, rig, embedded artwork, stage and reflection after closing and opening',async()=>{
+ const controller=createClassroomController();controller.open(fixture());const memberId=controller.state.actor.memberId;
+ await controller.dispatch(action('story.update',{title:'A new beginning',time:'Today',place:'Our town',characters:'Panda',plot:'Panda learns to help a friend.'}));
+ await controller.dispatch(action('character.add',{id:'panda',name:'Panda',brief:'A panda with a red scarf',ownerId:memberId}));
+ const puppet=puppetFixture();await controller.dispatch(action('character.update',{characterId:'panda',project:puppet}));
+ await controller.dispatch(action('scene.add',{id:'opening',title:'At home',setting:'A courtyard',script:'Panda: How can I help?'}));
+ await controller.dispatch(action('stage.update',{sceneId:'opening',stage:{background:PNG,objects:[{id:'performer',type:'character',characterId:'panda',x:100,y:80,width:150,height:220}]}}));
+ await controller.dispatch(action('reflection.save',{memberId,text:'I designed the scarf.',sources:'My drawing',tests:'Tested a paper outline against a lamp.'}));
+ const before=structuredClone(controller.state.classroom),saved=exportWorkspaceFile(before,[],{groupId:'group-a',tab:'stage',selectedSceneId:'opening'});
+ controller.reset();assert.equal(controller.state.classroom,null);assert.equal(controller.state.screen,'welcome');
+ const restored=importWorkspaceFile(saved);controller.open(restored.classroom,{groupId:restored.view.groupId});
+ assert.deepEqual(controller.group().characters[0].project,puppet);assert.equal(controller.group().characters[0].project.joints[0].padRadius,25);
+ assert.equal(controller.group().story.plot,before.groups[0].story.plot);assert.equal(controller.group().scenes[0].script,'Panda: How can I help?');
+ assert.equal(controller.group().scenes[0].stage.background,PNG);assert.equal(controller.group().scenes[0].stage.objects[0].characterId,'panda');
+ assert.deepEqual(controller.group().reflections,before.groups[0].reflections);assert.equal(restored.view.tab,'stage');
 });
 
-test('revision conflict preserves open work and does not poison the next queued save',async()=>{
-  let remote=fixture(),conflict=true;const client={...noNetwork,action:async(id,revision,operation)=>{if(conflict)throw Object.assign(new Error('Revision conflict'),{status:409});remote=applyClassroomAction(remote,operation,teacher);return {classroom:remote};}};
-  const controller=createClassroomController({client});controller.open(remote,{storageMode:'shared'});controller.set({dirty:true});const original=exportClassroom(controller.state.classroom);
-  await assert.rejects(controller.dispatch(action('story.update',{plot:'Student draft'})),{status:409});assert.equal(exportClassroom(controller.state.classroom),original);assert.equal(controller.state.dirty,true);
-  conflict=false;await controller.dispatch(action('story.update',{plot:'Retried draft'}));assert.equal(controller.group().story.plot,'Retried draft');
+test('queued local changes retain both edits and a rejected edit does not poison the next change',async()=>{
+ const controller=createClassroomController();controller.open(fixture());
+ await Promise.all([controller.dispatch(action('story.update',{plot:'First idea'})),controller.dispatch(action('scene.add',{id:'scene',title:'Our scene'}))]);
+ assert.equal(controller.group().story.plot,'First idea');assert.equal(controller.group().scenes[0].title,'Our scene');
+ const previous=exportClassroom(controller.state.classroom);await assert.rejects(controller.dispatch(action('character.update',{characterId:'missing',name:'Invalid edit'})));
+ assert.equal(exportClassroom(controller.state.classroom),previous);
+ await controller.dispatch(action('story.update',{plot:'Next idea'}));assert.equal(controller.group().story.plot,'Next idea');
 });
 
-test('background refresh waits for unsaved draft review before adopting newer work',async()=>{
-  const initial=fixture(),newer=change(initial,'story.update',{plot:'Remote idea'});const controller=createClassroomController({client:{...noNetwork,get:async()=>({classroom:newer})}});controller.open(initial,{storageMode:'shared'});controller.set({dirty:true});
-  assert.equal(await controller.refresh(),false);assert.equal(controller.state.pendingUpdate,true);assert.equal(controller.group().story.plot,'');
-  assert.equal(await controller.refresh({force:true}),true);assert.equal(controller.group().story.plot,'Remote idea');
+test('closing or replacing a project prevents queued work from being applied to a different session',async()=>{
+ for(const replace of [false,true]){const controller=createClassroomController();controller.open(fixture());
+  const pending=controller.dispatch(action('story.update',{plot:'Old project change'}));
+  if(replace)controller.open(createClassroom({title:'New project'}));else controller.reset();
+  await assert.rejects(pending,/changed|closed|previous/i);
+  if(replace){assert.equal(controller.state.classroom.title,'New project');assert.ok(!JSON.stringify(controller.state.classroom).includes('Old project change'));}
+  else assert.equal(controller.state.classroom,null);
+ }
 });
 
-test('slow refresh cannot roll back a later successful save',async()=>{
-  const initial=fixture(),older=change(initial,'story.update',{plot:'Older remote'}),latest=change(older,'story.update',{plot:'Latest accepted save'}),pending=deferred();
-  const controller=createClassroomController({client:{...noNetwork,get:()=>pending.promise}});controller.open(initial,{storageMode:'shared'});const refresh=controller.refresh();controller.set({classroom:latest});pending.resolve({classroom:older});
-  assert.equal(await refresh,false);assert.equal(controller.state.classroom.revision,latest.revision);assert.equal(controller.group().story.plot,'Latest accepted save');
+test('explicit workspace download preserves typed drafts separately from accepted project work',()=>{
+ const c=fixture(),key=c.id+':group-a:story.update::::::',drafts=[[key,{title:'Uncommitted title',plot:'Typed but not saved'}]],view={groupId:'group-a',tab:'story',selectedCharacterId:null,selectedSceneId:null,selectedObjectId:null};
+ const restored=importWorkspaceFile(exportWorkspaceFile(c,drafts,view));assert.equal(restored.classroom.groups[0].story.title,'');assert.equal(restored.classroom.groups[0].story.plot,'');assert.deepEqual(restored.drafts,drafts);assert.equal(restored.view.tab,'story');assert.equal(c.groups[0].story.plot,'');
 });
 
-test('responses from a previous class cannot replace a newly opened classroom',async()=>{
-  const initial=fixture(),other=createClassroom({title:'Another class'}),pending=deferred();const controller=createClassroomController({client:{...noNetwork,get:()=>pending.promise}});controller.open(initial,{storageMode:'shared'});const request=controller.refresh();controller.open(other);
-  pending.resolve({classroom:change(initial,'story.update',{plot:'Late old response'})});await request;assert.equal(controller.state.classroom.id,other.id);assert.equal(controller.state.storageMode,'local');
+test('workspace export works without optional view state and imports legacy class files without dropping groups',()=>{
+ let c=fixture();c=change(c,'group.add',{id:'group-b',name:'Other legacy group'});c=change(c,'story.update',{plot:'Legacy second-group work'},'group-b');
+ const defaults=importWorkspaceFile(exportWorkspaceFile(c));assert.deepEqual(defaults.classroom,c);assert.deepEqual(defaults.drafts,[]);
+ for(const source of [JSON.stringify(c),exportClassroom(c)]){const restored=importWorkspaceFile(source);assert.deepEqual(restored.classroom,c);assert.deepEqual(restored.drafts,[]);assert.deepEqual(restored.view,{authorByGroup:{}});}
 });
 
-test('reset prevents an in-flight save from resurrecting the closed session',async()=>{
-  const initial=fixture(),pending=deferred();let cleared=0;const controller=createClassroomController({client:{clearSession(){cleared++;},action:()=>pending.promise}});controller.open(initial,{storageMode:'shared'});const request=controller.dispatch(action('story.update',{plot:'In flight'}));await nextTick();controller.reset();pending.resolve({classroom:change(initial,'story.update',{plot:'In flight'})});await assert.rejects(request,/previous class|changed|closed/i);
-  assert.equal(controller.state.classroom,null);assert.equal(controller.state.screen,'welcome');assert.equal(cleared,1);
+test('downloaded projects preserve each section author and discard invalid author references',()=>{
+ let c=fixture();c=change(c,'member.add',{id:'alice',name:'Alice'});c=change(c,'member.add',{id:'bob',name:'Bob'});
+ c=change(c,'group.add',{id:'group-b',name:'Second section'});c=change(c,'member.add',{id:'chen',name:'Chen'},'group-b');
+ const authors={'group-a':'bob','group-b':'chen','missing-group':'alice'};
+ const restored=importWorkspaceFile(exportWorkspaceFile(c,[],{groupId:'group-a',actor:{memberId:'bob'},authorByGroup:authors}));
+ assert.deepEqual(restored.view.authorByGroup,{'group-a':'bob','group-b':'chen'});
+ const controller=createClassroomController();controller.open(restored.classroom,{groupId:restored.view.groupId,actor:{memberId:restored.view.memberId},authorByGroup:restored.view.authorByGroup});
+ assert.equal(controller.state.actor.memberId,'bob');assert.equal(controller.state.actor.name,'Bob');assert.deepEqual(controller.state.authorByGroup,{'group-a':'bob','group-b':'chen'});
+ const invalid=importWorkspaceFile(exportWorkspaceFile(c,[],{authorByGroup:{'group-a':'chen','group-b':'missing-member'}}));assert.deepEqual(invalid.view.authorByGroup,{});
 });
 
-test('shared actor changes move the student workspace to their new authorised group',async()=>{
-  let initial=fixture();initial=change(initial,'member.add',{id:'student-a',name:'Student A'});initial=change(initial,'group.add',{id:'group-b',name:'New group'});const moved=change(initial,'member.move',{memberId:'student-a',targetGroupId:'group-b'});moved.groups=moved.groups.filter(g=>g.id==='group-b');
-  const actor={role:'student',memberId:'student-a',groupId:'group-a',name:'Student A'},newActor={...actor,groupId:'group-b'};const controller=createClassroomController({client:{...noNetwork,get:async()=>({classroom:moved,actor:newActor})}});controller.open(initial,{storageMode:'shared',actor});await controller.refresh();
-  assert.equal(controller.state.actor.groupId,'group-b');assert.equal(controller.state.groupId,'group-b');assert.equal(controller.group().name,'New group');
+test('workspace files exclude legacy credential fields in both directions',()=>{
+ const c=fixture(),key=c.id+':group-a:story.update::::::',values={plot:'Keep this draft',password:'never-export-password',passphrase:'never-export-passphrase',token:'never-export-token'},view={groupId:'group-a',tab:'story',selectedCharacterId:null,selectedSceneId:null,selectedObjectId:null};
+ const exported=exportWorkspaceFile(c,[[key,values]],view);assert.ok(!exported.includes('never-export'));assert.deepEqual(importWorkspaceFile(exported).drafts,[[key,{plot:'Keep this draft'}]]);
+ const incoming=JSON.stringify({...c,workspaceDrafts:[[key,values]],workspaceView:view});assert.deepEqual(importWorkspaceFile(incoming).drafts,[[key,{plot:'Keep this draft'}]]);
 });
 
-test('real client and API keep simultaneous students isolated and expose confirmed feedback only',async()=>{
-  const store=createMemoryClassroomStore(),env={CLASSROOM_TRUST_HOST_IDENTITY:'1'};
-  const fetcher=isTeacher=>async(url,init={})=>{const headers=new Headers(init.headers);if(isTeacher)headers.set('oai-authenticated-user-id','teacher-test');return handleClassroomApi(new Request(url,{...init,headers}),env,{store});};
-  const makeClient=isTeacher=>createClassroomClient({base:'https://classroom.test/api/classroom',fetcher:fetcher(isTeacher)}),teacherClient=makeClient(true),created=await teacherClient.create({title:'Classroom integration'}),tc=createClassroomController({client:teacherClient});tc.open(created.classroom,{storageMode:'shared'});
-  await tc.dispatch(action('group.add',{id:'group-a',name:'Our group'}));await tc.dispatch(action('group.add',{id:'group-b',name:'Other group'}));
-  const aClient=makeClient(false),bClient=makeClient(false),joinA=await aClient.join({code:created.joinCode,groupId:'group-a',name:'Student A',passphrase:'my-secret-one'}),joinB=await bClient.join({code:created.joinCode,groupId:'group-b',name:'Student B',passphrase:'my-secret-two'}),a=createClassroomController({client:aClient}),b=createClassroomController({client:bClient});
-  a.open(joinA.classroom,{storageMode:'shared',actor:joinA.actor});b.open(joinB.classroom,{storageMode:'shared',actor:joinB.actor});await a.refresh();
-  await a.dispatch(action('story.update',{plot:'Our private group story'}));assert.equal(a.state.classroom.groups.length,1);assert.equal(b.state.classroom.groups.length,1);
-  await assert.rejects(a.dispatch(action('story.update',{plot:'Cannot alter this'},'group-b')),{status:403});
-  await a.dispatch(action('submission.submit'));await tc.refresh();const scores=Object.fromEntries(tc.state.classroom.rubric.map(r=>[r.id,2]));await tc.dispatch(action('assessment.save',{memberId:joinA.actor.memberId,scores,comment:'Private teacher draft',confirmed:false}));await a.refresh();assert.equal(a.group().assessments.length,0);
-  await tc.dispatch(action('assessment.save',{memberId:joinA.actor.memberId,scores,comment:'Confirmed student feedback',confirmed:true}));await a.refresh();assert.equal(a.group().assessments[0].comment,'Confirmed student feedback');await b.refresh();assert.ok(!JSON.stringify(b.state.classroom).includes('Confirmed student feedback'));
-  const classId=tc.state.classroom.id;a.reset();await assert.rejects(aClient.get(classId),e=>e.status===401||e.status===404);
-});
-
-test('explicit workspace download preserves typed drafts separately from accepted classroom work',()=>{
-  const c=fixture(),key=c.id+':group-a:story.update::::::',drafts=[[key,{title:'Uncommitted title',plot:'Typed but not saved'}]],view={groupId:'group-a',tab:'story',selectedCharacterId:null,selectedSceneId:null,selectedObjectId:null};
-  const restored=importWorkspaceFile(exportWorkspaceFile(c,drafts,view));assert.equal(restored.classroom.groups[0].story.title,'');assert.equal(restored.classroom.groups[0].story.plot,'');assert.deepEqual(restored.drafts,drafts);assert.equal(restored.view.tab,'story');assert.equal(c.groups[0].story.plot,'');
-});
-
-test('workspace export works without optional view state and imports legacy class files',()=>{
-  const c=fixture();const defaults=importWorkspaceFile(exportWorkspaceFile(c));assert.deepEqual(defaults.classroom,c);assert.deepEqual(defaults.drafts,[]);
-  for(const source of [JSON.stringify(c),exportClassroom(c)]){const restored=importWorkspaceFile(source);assert.deepEqual(restored.classroom,c);assert.deepEqual(restored.drafts,[]);assert.deepEqual(restored.view,{});}
-});
-
-test('workspace files exclude password, passphrase and token fields in both directions',()=>{
-  const c=fixture(),key=c.id+':group-a:story.update::::::',values={plot:'Keep this draft',password:'never-export-password',passphrase:'never-export-passphrase',token:'never-export-token'},view={groupId:'group-a',tab:'story',selectedCharacterId:null,selectedSceneId:null,selectedObjectId:null};
-  const exported=exportWorkspaceFile(c,[[key,values]],view);assert.ok(!exported.includes('never-export'));assert.deepEqual(importWorkspaceFile(exported).drafts,[[key,{plot:'Keep this draft'}]]);
-  const incoming=JSON.stringify({...c,workspaceDrafts:[[key,values]],workspaceView:view});assert.deepEqual(importWorkspaceFile(incoming).drafts,[[key,{plot:'Keep this draft'}]]);
-});
-
-test('workspace imports reject malformed and prototype-bearing data and ignore another class drafts',()=>{
-  const c=fixture();for(const source of ['not json','null','[]','{"version":1,"__proto__":{"polluted":true}}',JSON.stringify({...c,workspaceDrafts:JSON.parse('[["'+c.id+':story",{"constructor":{"prototype":{"polluted":true}}}]]')})])assert.throws(()=>importWorkspaceFile(source));
-  const restored=importWorkspaceFile(JSON.stringify({...c,workspaceDrafts:[['another-class:story',{plot:'Wrong project'}]]}));assert.deepEqual(restored.drafts,[]);assert.equal({}.polluted,undefined);
+test('workspace imports reject malformed and prototype-bearing data and ignore another project drafts',()=>{
+ const c=fixture();for(const source of ['not json','null','[]','{"version":1,"__proto__":{"polluted":true}}',JSON.stringify({...c,workspaceDrafts:JSON.parse('[["'+c.id+':story",{"constructor":{"prototype":{"polluted":true}}}]]')})])assert.throws(()=>importWorkspaceFile(source));
+ const restored=importWorkspaceFile(JSON.stringify({...c,workspaceDrafts:[['another-class:story',{plot:'Wrong project'}]]}));assert.deepEqual(restored.drafts,[]);assert.equal({}.polluted,undefined);
 });

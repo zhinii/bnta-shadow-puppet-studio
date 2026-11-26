@@ -1,47 +1,40 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {renderClassroom,renderStudentWorkspace,renderJoin,renderStageCanvas} from '../public/classroom-views.mjs';
+import {renderClassroom,renderStudentWorkspace,renderStageCanvas} from '../public/classroom-views.mjs';
 
 const image='data:image/png;base64,iVBORw0KGgo=';
 const makeState=(overrides={})=>({screen:'workspace',tab:'story',language:'en',storageMode:'local',actor:{role:'student',memberId:'m1',name:'Lin'},groupId:'g1',selectedSceneId:'s1',classroom:{id:'class',title:'Grade 8',rubric:[{id:'testing',title:'Testing',maxScore:4}],groups:[{id:'g1',name:'Our group',members:[{id:'m1',name:'Lin'},{id:'m2',name:'Bo'}],story:{title:'The journey',time:'Today',place:'Our town',characters:'A student',plot:'A student solves a problem.',relay:[],history:[]},characters:[{id:'c1',name:'Traveller',brief:'A student with a backpack.',ownerId:'m1',project:null,history:[]},{id:'c2',name:'Guide',brief:'A guide.',ownerId:'m2',project:null,history:[]}],scenes:[{id:'s1',title:'The crossroads',setting:'A town path',script:'Traveller: Which way?',history:[],stage:{width:960,height:540,background:null,backgroundColor:'#f4eddc',objects:[]}}],reflections:[],assessments:[],submission:null}]},...overrides});
 
-test('welcome offers class, local project, saved project and quick puppet routes without a sample story',()=>{
+test('welcome starts a new project or opens a JSON file without any classroom or account steps',()=>{
  const html=renderClassroom({screen:'welcome',language:'en'});
- for(const action of ['show-join','new-local-classroom','open-classroom','show-teacher','quick-studio'])assert.ok(html.includes(`data-action="${action}"`));
- assert.match(html,/starts fresh when you close or reload/);
+ for(const action of ['new-local-classroom','open-classroom','quick-studio'])assert.ok(html.includes(`data-action="${action}"`));
+ assert.match(html,/Closing or reloading starts fresh/);assert.match(html,/project JSON file/);assert.match(html,/Keep the JSON file and open it next time/);
+ assert.doesNotMatch(html,/class code|password|sign.in|show-join|show-teacher|Teacher workspace/i);
  assert.doesNotMatch(html,/Moonlit Legend|Searching for Moonlight|Mountain and Sea/);
 });
 
-test('student join separates class lookup from group identity and password',()=>{
- const initial=renderJoin({language:'en'});
- assert.match(initial,/data-form="lookup-class"/);assert.doesNotMatch(initial,/data-form="join-class"/);
- const found=renderJoin({language:'en',joinCode:'ABCD',groupChoices:[{id:'g1',name:'Group one'}]});
- assert.match(found,/data-form="join-class"/);assert.match(found,/name="passphrase"[^>]*type="password"/);
- assert.match(found,/minlength="8"/);assert.match(found,/same name and password/);
+test('old join navigation safely returns to file entry instead of showing a class-code gate',()=>{
+ const html=renderClassroom({screen:'join',language:'en',joinCode:'ABCD',capabilities:{available:true}});
+ assert.match(html,/data-action="new-local-classroom"/);assert.match(html,/data-action="open-classroom"/);
+ assert.doesNotMatch(html,/lookup-class|join-class|passphrase|ABCD/);
 });
 
-test('a known unavailable shared service offers working local routes instead of a failing sign-in form',()=>{
- const html=renderJoin({language:'en',capabilities:{available:false},groupChoices:[{id:'stale',name:'Old group'}]});
- assert.match(html,/Shared classes are not connected/);assert.match(html,/data-action="new-local-classroom"/);assert.match(html,/data-action="open-classroom"/);
- assert.doesNotMatch(html,/data-form="lookup-class"|data-form="join-class"/);
-});
-
-test('story, character assignment and script remain available without a mandatory waiting gate',()=>{
+test('story, characters and script stay directly editable without assignment or relay controls',()=>{
  const state=makeState();
- const story=renderStudentWorkspace(state);assert.match(story,/data-form="story.update"/);assert.match(story,/data-form="story.handoff"/);assert.match(story,/data-form="ai-story"/);
- assert.match(story,/Everyone can contribute without waiting/);assert.doesNotMatch(story,/Enter Script · Locked/);
+ const story=renderStudentWorkspace(state);assert.match(story,/data-form="story.update"/);assert.match(story,/data-form="ai-story"/);
+ assert.doesNotMatch(story,/story.handoff|Who starts this part|Enter Script · Locked/);
  const script=renderStudentWorkspace({...state,tab:'script'});assert.match(script,/data-form="scene.update"/);assert.match(script,/data-form="ai-script"/);
  const cards=renderStudentWorkspace({...state,tab:'characters'});assert.match(cards,/data-form="character.add"/);assert.match(cards,/data-action="open-designer" data-id="c1"/);
- assert.match(cards,/View character/);assert.doesNotMatch(cards,/data-action="remove-character" data-id="c2"/);
+ assert.match(cards,/data-action="open-designer" data-id="c2"/);assert.match(cards,/data-action="remove-character" data-id="c2"/);
+ assert.doesNotMatch(cards,/name="ownerId"|claim-character|Not assigned/);
 });
 
-test('other students characters use a read-only preview route and never advertise an editing action',()=>{
+test('imported character ownership never blocks a student from editing their local file',()=>{
  const state=makeState({tab:'characters'}),cards=renderStudentWorkspace(state);
- assert.match(cards,/data-action="select-character" data-id="c2" data-tab="design"/);
- assert.doesNotMatch(cards,/data-action="open-designer" data-id="c2"/);
+ assert.match(cards,/data-action="open-designer" data-id="c2"/);
  const design=renderStudentWorkspace({...state,tab:'design',selectedCharacterId:'c2'});
- assert.match(design,/its designer can edit it/);assert.doesNotMatch(design,/data-action="open-designer"/);
+ assert.match(design,/data-action="open-designer" data-id="c2"/);assert.doesNotMatch(design,/teammate|its designer|Not assigned/);
 });
 
 test('home allows resuming an already-open project',()=>{
@@ -96,32 +89,41 @@ test('stage AI proposal previews additions without changing the accepted stage',
  assert.match(html,/cr-ai-stage-preview/);assert.match(html,/Proposed words/);assert.deepEqual(state,before);
 });
 
-test('shared conflicts expose refresh and preserve a clear teacher return route',()=>{
+test('legacy network state never reintroduces synchronization or account controls',()=>{
  const html=renderStudentWorkspace(makeState({storageMode:'shared',pendingUpdate:true,actor:{role:'teacher'}}));
- assert.match(html,/data-action="refresh-classroom"/);assert.match(html,/typed draft is still here/);assert.match(html,/data-action="show-teacher"/);
+ assert.doesNotMatch(html,/refresh-classroom|show-teacher|choose-member|Sign in|newer version/);
+ assert.match(html,/data-action="download-classroom"/);assert.match(html,/data-action="open-classroom"/);
 });
 
-test('make workflow keeps physical fabrication and reflection visible and hides unconfirmed grades',()=>{
+test('make workflow keeps fabrication and reflection then downloads a complete file instead of submitting online',()=>{
  const state=makeState({tab:'make'}),g=state.classroom.groups[0];
  g.assessments=[{memberId:'m1',confirmed:false,comment:'Private draft',scores:{testing:1}},{memberId:'m2',confirmed:true,comment:'Another student grade',scores:{testing:4}},{memberId:'m1',confirmed:true,comment:'Use your test evidence.',scores:{testing:3}}];
  const html=renderStudentWorkspace(state);
  assert.match(html,/calibration ruler/);assert.match(html,/Overlap the rounded ends/);assert.match(html,/control rods/);assert.match(html,/data-form="reflection.save"/);
- assert.match(html,/data-action="submit-project"/);assert.match(html,/Use your test evidence/);assert.doesNotMatch(html,/Private draft|Another student grade/);
+ assert.match(html,/Download one JSON file with your story, puppets, script, stage and reflection/);
+ assert.match(html,/choose Open project and select this file/);assert.match(html,/data-action="download-classroom"/);
+ assert.doesNotMatch(html,/submit-project|reopen-submission|Private draft|Another student grade|Use your test evidence|Teacher feedback/);
  assert.match(html,/References, traditions and help you used/);
 });
 
-test('teacher reflection requires choosing a student and cannot invent a student when the group is empty',()=>{
- const state=makeState({tab:'make',actor:{role:'teacher'}}),html=renderStudentWorkspace(state);
- assert.match(html,/select name="memberId" required/);assert.match(html,/Choose a student/);assert.match(html,/as the teacher/);
- state.classroom.groups[0].members=[];
- const empty=renderStudentWorkspace(state);assert.doesNotMatch(empty,/data-form="reflection.save"/);assert.match(empty,/Add group members/);
+test('reflection belongs to the local author without a roster or teacher selection',()=>{
+ const state=makeState({tab:'make',actor:{role:'teacher',memberId:'m1'}}),html=renderStudentWorkspace(state);
+ assert.match(html,/type="hidden" name="memberId" value="m1"/);assert.match(html,/data-form="reflection.save"/);
+ assert.doesNotMatch(html,/select name="memberId"|Choose a student|teacher workspace|Add group members/i);
 });
 
-test('saved classroom and temporary workspace messages are distinct in both languages',()=>{
- const shared=renderStudentWorkspace(makeState({storageMode:'shared',language:'zh'}));
- assert.match(shared,/班级项目会保存/);assert.doesNotMatch(shared,/关闭或刷新后将开启新的工作区/);
- assert.match(shared,/故事/);assert.match(shared,/角色/);assert.match(shared,/制作与分享/);
- const local=renderStudentWorkspace(makeState());assert.match(local,/starts fresh/);assert.match(local,/data-action="choose-member"/);
+test('both languages clearly explain downloading and reopening a JSON project',()=>{
+ const zh=renderStudentWorkspace(makeState({language:'zh'}));
+ assert.match(zh,/JSON文件/);assert.match(zh,/以后在这里打开该文件即可继续/);assert.match(zh,/故事/);assert.match(zh,/角色/);assert.match(zh,/制作与保存/);
+ assert.doesNotMatch(zh,/班级代码|登录|教师工作区/);
+ const en=renderStudentWorkspace(makeState());assert.match(en,/starts fresh/);assert.match(en,/Open that file here to continue later/);
+});
+
+test('legacy multi-workspace files expose every imported project without showing group administration',()=>{
+ const state=makeState();assert.doesNotMatch(renderStudentWorkspace(state),/data-form="choose-workspace"/);
+ state.classroom.groups.push({...structuredClone(state.classroom.groups[0]),id:'g2',name:'Another imported work'});
+ const html=renderStudentWorkspace(state);assert.match(html,/data-form="choose-workspace"/);assert.match(html,/value="g2"/);assert.match(html,/Another imported work/);
+ assert.doesNotMatch(html,/group members|Teacher workspace|Add group/);
 });
 
 test('responsive styles provide single-column mobile workspace, readable inputs and visible keyboard focus',async()=>{

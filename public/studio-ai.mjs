@@ -5,14 +5,11 @@ import {readArtworkFile,validateArtworkBytes} from './studio-storage.mjs';
 export const STUDIO_RELAY = 'https://6ilmssim2bz2s.kimi.site/api/studio';
 export const PLAN_RELAY = 'https://6ilmssim2bz2s.kimi.site/api/puppet';
 export const IMAGE_RELAY = PLAN_RELAY + '/image';
-// Hosted classroom pages use their own protected server, avoiding cross-origin
-// relay calls. GitHub Pages and downloaded files retain the known Kimi service.
-export function relayServerOrigin(page=globalThis.location) {
-  if(!page||!['http:','https:'].includes(page.protocol)||/(^|\.)github\.io$/i.test(page.hostname||''))return null;
-  try{return new URL(page.href||page.origin).origin;}catch{return null;}
-}
-export function planRelayEndpoint(page=globalThis.location) {return relayServerOrigin(page)?relayServerOrigin(page)+'/api/puppet':PLAN_RELAY;}
-export function imageRelayEndpoint(page=globalThis.location) {return relayServerOrigin(page)?relayServerOrigin(page)+'/api/puppet/image':IMAGE_RELAY;}
+// The static studio uses the existing protected AI relay directly. Hosting the
+// HTML on GitHub, another static host, or a local server never creates an API
+// dependency on that host. Project saving is entirely file based.
+export function planRelayEndpoint() {return PLAN_RELAY;}
+export function imageRelayEndpoint() {return IMAGE_RELAY;}
 export const MAX_STUDIO_PROMPT = 4000;
 // Match the existing classic image client's budget. The legacy image route is
 // independent of the v2 studio's 4,000-character student-input contract.
@@ -43,7 +40,6 @@ const plainObject = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const boundedString = (v, n) => typeof v === 'string' ? v.slice(0, n) : '';
 const finitePoint = p => Array.isArray(p) && p.length === 2 && p.every(n => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= 20000);
 export function studioEndpoint() {
-  if (relayServerOrigin()) return relayServerOrigin() + '/api/studio';
   return STUDIO_RELAY;
 }
 export function validProtectedEndpoint(value) {
@@ -241,8 +237,7 @@ async function requestKimiImage(project,args,caps,{fetcher,signal,artworkReader}
 export async function getStudioCapabilities({endpoint=studioEndpoint(),fetcher=fetch,signal}={}) {
   if(!validProtectedEndpoint(endpoint))throw Error('Use an HTTPS protected relay URL.');
   const endpointHost=new URL(endpoint).hostname;
-  const hostedOrigin=relayServerOrigin(),sameServer=hostedOrigin&&endpoint===hostedOrigin+'/api/studio';
-  const compatibilityAllowed=[STUDIO_RELAY,PLAN_RELAY,IMAGE_RELAY].includes(endpoint)||sameServer||(['localhost','127.0.0.1'].includes(endpointHost)&&new URL(endpoint).pathname==='/api/studio');
+  const compatibilityAllowed=[STUDIO_RELAY,PLAN_RELAY,IMAGE_RELAY].includes(endpoint)||(['localhost','127.0.0.1'].includes(endpointHost)&&new URL(endpoint).pathname==='/api/studio');
   let configuredStatus;
   try {
     const r=await fetcher(statusUrl(endpoint),{signal:timeoutSignal(signal,9000),headers:{Accept:'application/json'}}),v=await responseJson(r);
@@ -251,8 +246,8 @@ export async function getStudioCapabilities({endpoint=studioEndpoint(),fetcher=f
   // Only the known existing relay is a safe automatic compatibility fallback.
   if(!compatibilityAllowed)return {version:2,text:false,vision:false,imageGeneration:false,imageEditing:false,endpoint,mode:'unavailable',status:'The studio relay is unavailable.'};
   try {
-    const r=await fetcher(sameServer?hostedOrigin+'/api/puppet/status':'https://6ilmssim2bz2s.kimi.site/api/status',{signal:timeoutSignal(signal,9000)}),v=await responseJson(r);
-    if(r.ok&&v?.service==='Shadow Puppet Studio'&&v.configured)return {version:1,text:true,vision:false,imageGeneration:true,imageEditing:false,imageEndpoint:sameServer?hostedOrigin+'/api/puppet/image':IMAGE_RELAY,drawingPlans:'limited',endpoint:sameServer?hostedOrigin+'/api/puppet':PLAN_RELAY,mode:'drawing-plan',status:'Image generation and the text assistant are connected. Image editing and automatic visual analysis are not connected; use local tools to extract and split generated artwork.'};
+    const r=await fetcher('https://6ilmssim2bz2s.kimi.site/api/status',{signal:timeoutSignal(signal,9000)}),v=await responseJson(r);
+    if(r.ok&&v?.service==='Shadow Puppet Studio'&&v.configured)return {version:1,text:true,vision:false,imageGeneration:true,imageEditing:false,imageEndpoint:IMAGE_RELAY,drawingPlans:'limited',endpoint:PLAN_RELAY,mode:'drawing-plan',status:'Image generation and the text assistant are connected. Image editing and automatic visual analysis are not connected; use local tools to extract and split generated artwork.'};
   }catch(error){if(signal?.aborted)throw error;}
   return configuredStatus||{version:0,text:false,vision:false,imageGeneration:false,imageEditing:false,endpoint,mode:'unavailable',status:'AI connection unavailable. Import an image or draw parts to continue.'};
 }

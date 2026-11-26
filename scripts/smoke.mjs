@@ -1,29 +1,41 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
-import worker from '../dist/server/index.js';
-for(const [path,type] of [['/','text/html'],['/legacy.html','text/html'],['/app.mjs','text/javascript'],['/model.mjs','text/javascript'],['/render.mjs','text/javascript'],['/agent.mjs','text/javascript'],['/style.css','text/css'],['/studio-app.mjs','text/javascript'],['/studio-model.mjs','text/javascript'],['/studio-render.mjs','text/javascript'],['/studio-ai.mjs','text/javascript'],['/studio-storage.mjs','text/javascript'],['/studio-starters.mjs','text/javascript'],['/studio.css','text/css'],['/studio-parametric.mjs','text/javascript'],['/studio-image-tools.mjs','text/javascript'],['/studio-construction.mjs','text/javascript'],['/studio-joint-plan.mjs','text/javascript'],['/studio-joint-ai.mjs','text/javascript'],['/studio-joint-markers.mjs','text/javascript'],['/studio-joint-artwork.mjs','text/javascript']]){
- const response=await worker.fetch(new Request('https://studio.test'+path),{});
- assert.equal(response.status,200,path);assert.ok(response.headers.get('content-type').startsWith(type));assert.ok((await response.text()).length>100);
+import {readFile,readdir,access} from 'node:fs/promises';
+import {dirname,resolve,relative} from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+const root=fileURLToPath(new URL('../',import.meta.url));
+const read=path=>readFile(resolve(root,path),'utf8');
+const exists=path=>access(resolve(root,path)).then(()=>true,()=>false);
+const pages=await read('index.html'),entry=await read('dist/index.html'),portable=await read('START-HERE.html');
+assert.match(pages,/href="\.\/public\/classroom\.css\?v=0\.9\.0"/);
+assert.match(pages,/src="\.\/public\/classroom-app\.mjs\?v=0\.9\.0"/);
+assert.match(entry,/src="\.\/classroom-app\.mjs\?v=0\.9\.0"/);
+for(const file of ['classroom-client.mjs','server/index.js','.openai/hosting.json'])assert.equal(await exists('dist/'+file),false,'Static distribution must not contain '+file);
+
+// Walk the actual static import graph, including the embedded puppet editor.
+// Missing assets or accidental server imports would break GitHub Pages startup.
+const seen=new Set();
+async function walk(path){
+  path=resolve(root,path);if(seen.has(path))return;seen.add(path);
+  const source=await readFile(path,'utf8');
+  assert.ok(source.length>0,relative(root,path));
+  for(const match of source.matchAll(/^\s*import\s+[^;\n]+from\s*['"]([^'"]+)['"]/gm)){
+    assert.ok(match[1].startsWith('.'),'Static modules must use local browser imports: '+match[1]);
+    const dependency=resolve(dirname(path),match[1].split(/[?#]/,1)[0]);
+    assert.ok(dependency.startsWith(resolve(root,'dist')),'Browser module imported outside static distribution');
+    await walk(dependency);
+  }
 }
-assert.equal((await worker.fetch(new Request('https://studio.test/not-found'),{})).status,404);
-const status=await(await worker.fetch(new Request('https://studio.test/api/status'),{})).json();
-assert.equal(status.relay,true);assert.equal(status.configured,false);
-const studioStatus=await(await worker.fetch(new Request('https://studio.test/api/studio/status'),{})).json();
-assert.equal(studioStatus.version,2);assert.equal(studioStatus.text,false);assert.equal(studioStatus.imageGeneration,false);
-const preflight=await worker.fetch(new Request('https://studio.test/api/studio',{method:'OPTIONS',headers:{Origin:'https://zhinii.github.io'}}),{});assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),'https://zhinii.github.io');
-assert.equal((await worker.fetch(new Request('https://studio.test/api/studio',{method:'POST',headers:{Origin:'https://untrusted.test'}}),{})).status,403);
-const viewport=await worker.fetch(new Request('https://studio.test/studio-viewport.mjs'),{});assert.equal(viewport.status,200);assert.match(await viewport.text(),/zoomViewBox/);
-const uiState=await worker.fetch(new Request('https://studio.test/studio-ui-state.mjs'),{});assert.equal(uiState.status,200);assert.match(await uiState.text(),/captureUIState/);
-for(const path of ['/studio-app.mjs?v=0.7.9','/studio-storage.mjs?v=0.7.9','/studio-render.mjs?v=0.7.9','/studio.css?v=0.7.9'])assert.equal((await worker.fetch(new Request('https://studio.test'+path),{})).status,200,path);
-const portable=await readFile(new URL('../START-HERE.html',import.meta.url),'utf8'),pages=await readFile(new URL('../index.html',import.meta.url),'utf8'),legacy=await readFile(new URL('../public/legacy.html',import.meta.url),'utf8');
-assert.doesNotMatch(portable,/<script\b[^>]*\bsrc=/i,'Portable studio must embed its module script even when the source URL has a version query.');
-assert.doesNotMatch(portable,/<link\b[^>]*href="\.\/studio\.css/i,'Portable studio must embed its stylesheet.');
-assert.match(portable,/function clearStoredStudioSession/,'Versioned storage import must be linked into the portable app.');
+await walk('dist/classroom-app.mjs');await walk('dist/studio-app.mjs');
+for(const file of await readdir(resolve(root,'dist'))){
+  if(!/\.(html|mjs|css)$/.test(file))continue;
+  const source=await read('dist/'+file);
+  assert.doesNotMatch(source,/bnta-shadow-puppet-studio\.zhinii\.chatgpt\.site|\/api\/classroom|signin-with-chatgpt/,'Static asset retained shared-service dependency: '+file);
+}
+assert.doesNotMatch(portable,/<script\b[^>]*\bsrc=/i,'Portable puppet studio embeds its module script.');
+assert.doesNotMatch(portable,/<link\b[^>]*href="\.\/studio\.css/i,'Portable puppet studio embeds its stylesheet.');
+assert.match(portable,/function clearStoredStudioSession/);
 assert.match(portable,/https:\/\/zhinii\.github\.io\/bnta-shadow-puppet-studio\/public\/legacy\.html\?v=0\.7\.9/);
-assert.doesNotMatch(portable,/new URL\('\.\/legacy\.html/,'Portable classic-editor navigation must not depend on import.meta.url.');
-assert.match(pages,/href="\.\/public\/classroom\.css\?v=0\.8\.0"/);
-assert.match(pages,/src="\.\/public\/classroom-app\.mjs\?v=0\.8\.1"/);
-for(const path of ['/classroom-app.mjs','/classroom-model.mjs','/classroom-views.mjs','/classroom-client.mjs','/classroom-teacher.mjs','/classroom-ai.mjs','/classroom.css','/studio.html','/studio-classroom-bridge.mjs','/studio-image-repair.mjs'])assert.equal((await worker.fetch(new Request('https://studio.test'+path),{})).status,200,path);
-const classCapabilities=await(await worker.fetch(new Request('https://studio.test/api/classroom/capabilities'),{})).json();assert.equal(classCapabilities.available,false,'Missing storage must not pretend to save shared work');
-assert.match(legacy,/src="\.\/app\.mjs\?v=0\.7\.9"/);
-console.log('Built Worker smoke test passed: classroom and puppet assets, versioned entries, portable puppet HTML, API availability, CORS and missing route.');
+assert.doesNotMatch(portable,/new URL\('\.\/legacy\.html/);
+assert.match(await read('dist/studio.html'),/studio-app\.mjs/);
+console.log('Static smoke check passed: GitHub entry, '+seen.size+' browser modules, JSON workflow assets and portable puppet editor; no classroom service or database dependencies.');

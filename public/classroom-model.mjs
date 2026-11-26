@@ -1,8 +1,8 @@
 import {normalizeStudioProject} from './studio-model.mjs';
 import {packClassroomBundle,unpackClassroomBundle} from './classroom-bundle.mjs';
 
-// Shared validation and permissions run in the browser and again on the server.
-// Sessions are separate from explicitly saved classroom work.
+// Browser-only project validation. The original classroom-shaped schema remains
+// readable so earlier downloaded files retain their artwork and project history.
 export const CLASSROOM_VERSION = 1;
 export const CLASSROOM_MAX_BYTES = 100 * 1024 * 1024;
 const HISTORY_LIMIT = 5, EVENT_LIMIT = 300;

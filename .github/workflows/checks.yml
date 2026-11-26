@@ -15,5 +15,4 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
-      - run: node --check dist/server/index.js
       - run: node scripts/smoke.mjs

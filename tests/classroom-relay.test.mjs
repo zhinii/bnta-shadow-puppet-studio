@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {handleApi} from '../server/api.mjs';
-import {PLAN_RELAY,IMAGE_RELAY,planRelayEndpoint,imageRelayEndpoint,studioEndpoint,getStudioCapabilities} from '../public/studio-ai.mjs';
+import {STUDIO_RELAY,PLAN_RELAY,IMAGE_RELAY,planRelayEndpoint,imageRelayEndpoint,studioEndpoint,getStudioCapabilities} from '../public/studio-ai.mjs';
 import {requestClassroomHelp,requestStageImage} from '../public/classroom-ai.mjs';
 const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN8cAAAAASUVORK5CYII=';
 const imageRequest=(body={},headers={})=>new Request('https://classroom.test/api/puppet/image',{method:'POST',headers:{'Content-Type':'application/json','cf-connecting-ip':crypto.randomUUID(),...headers},body:JSON.stringify({application:'shadow-puppet-studio',kind:'reference',prompt:'A quiet mountain stage',...body})});
@@ -37,16 +37,14 @@ test('hosted status proxy retains configuration boundary without inventing image
   const unavailable=await handleApi(new Request('https://classroom.test/api/puppet/status'),{},async()=>Response.json({error:'down'},{status:503}));assert.equal(unavailable.status,502);
 });
 
-test('endpoint selection preserves GitHub/file relay access and uses same-origin hosted routes',async()=>{
-  for(const page of [new URL('https://zhinii.github.io/bnta-shadow-puppet-studio/'),new URL('file:///C:/START-HERE.html')]){assert.equal(planRelayEndpoint(page),PLAN_RELAY);assert.equal(imageRelayEndpoint(page),IMAGE_RELAY);}
-  assert.equal(planRelayEndpoint(new URL('https://classroom.test/')),'https://classroom.test/api/puppet');
-  assert.equal(imageRelayEndpoint(new URL('http://127.0.0.1:4237/')),'http://127.0.0.1:4237/api/puppet/image');
+test('static studio uses the protected AI relay without any classroom host or database dependency',async()=>{
+  for(const page of [new URL('https://zhinii.github.io/bnta-shadow-puppet-studio/'),new URL('file:///C:/START-HERE.html'),new URL('https://classroom.test/'),new URL('http://127.0.0.1:4237/')]){assert.equal(planRelayEndpoint(page),PLAN_RELAY);assert.equal(imageRelayEndpoint(page),IMAGE_RELAY);}
   const previous=globalThis.location;globalThis.location=new URL('https://classroom.test/');
   try{
-    assert.equal(studioEndpoint(),'https://classroom.test/api/studio');const calls=[];
+    assert.equal(studioEndpoint(),STUDIO_RELAY);const calls=[];
     const caps=await getStudioCapabilities({fetcher:async url=>{calls.push(url);return url.endsWith('/api/studio/status')?Response.json({version:2,text:false,vision:false,imageGeneration:false,imageEditing:false}):Response.json({service:'Shadow Puppet Studio',configured:true});}});
-    assert.deepEqual(calls,['https://classroom.test/api/studio/status','https://classroom.test/api/puppet/status']);assert.equal(caps.endpoint,'https://classroom.test/api/puppet');assert.equal(caps.imageEndpoint,'https://classroom.test/api/puppet/image');assert.equal(caps.vision,false);
-    await requestClassroomHelp({task:'story',prompt:'A student story'},{fetcher:async url=>{assert.equal(url,'https://classroom.test/api/puppet');return Response.json({choices:[{message:{content:JSON.stringify({reply:JSON.stringify({reply:'Review',proposal:{story:{plot:'A student story'}}})})}}]});}});
-    await requestStageImage({prompt:'A mountain stage'},{fetcher:async url=>{assert.equal(url,'https://classroom.test/api/puppet/image');return Response.json({dataUrl:png});},artworkReader:async()=>({id:'test',name:'test',mime:'image/png',dataUrl:png,width:1,height:1})});
+    assert.deepEqual(calls,[STUDIO_RELAY+'/status','https://6ilmssim2bz2s.kimi.site/api/status']);assert.equal(caps.endpoint,PLAN_RELAY);assert.equal(caps.imageEndpoint,IMAGE_RELAY);assert.equal(caps.vision,false);
+    await requestClassroomHelp({task:'story',prompt:'A student story'},{fetcher:async url=>{assert.equal(url,PLAN_RELAY);return Response.json({choices:[{message:{content:JSON.stringify({reply:JSON.stringify({reply:'Review',proposal:{story:{plot:'A student story'}}})})}}]});}});
+    await requestStageImage({prompt:'A mountain stage'},{fetcher:async url=>{assert.equal(url,IMAGE_RELAY);return Response.json({dataUrl:png});},artworkReader:async()=>({id:'test',name:'test',mime:'image/png',dataUrl:png,width:1,height:1})});
   }finally{if(previous===undefined)delete globalThis.location;else globalThis.location=previous;}
 });

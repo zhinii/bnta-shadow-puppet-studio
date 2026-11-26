@@ -1,9 +1,9 @@
 {
   "name": "bnta-shadow-puppet-studio",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
-  "description": "Bilingual classroom shadow-puppet storytelling, design, performance and assessment platform",
+  "description": "Bilingual shadow-puppet storytelling, design and performance studio with portable JSON projects",
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
     "build": "node scripts/build.mjs",

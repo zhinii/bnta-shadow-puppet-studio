@@ -1,4 +1,4 @@
-import {readFile,mkdir,writeFile,copyFile,readdir} from 'node:fs/promises';
+import {readFile,mkdir,writeFile,copyFile,readdir,rm} from 'node:fs/promises';
 import {resolve,dirname,relative,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
@@ -6,7 +6,7 @@ const root=fileURLToPath(new URL('../',import.meta.url));
 const files=(await readdir(resolve(root,'public'))).filter(f=>/\.(html|mjs|css)$/.test(f));
 const assets={};for(const file of files)assets['/'+file]=await readFile(resolve(root,'public',file),'utf8');
 
-// Small static linker: keep module scopes separate in the portable HTML/Worker.
+// Small static linker: keep module scopes separate in the portable puppet HTML.
 // All imports are our checked-in local named ES modules. No runtime eval/imports.
 async function bundle(entries){
  const modules=new Map(),chunks=[];
@@ -23,12 +23,14 @@ async function bundle(entries){
  const names=[];for(const entry of entries)names.push(await visit(entry));return {source:chunks.join('\n'),names};
 }
 function check(source){const result=spawnSync(process.execPath,['--check','--input-type=module'],{input:source,encoding:'utf8'});if(result.status!==0)throw Error(result.stderr||'Bundle syntax check failed.');}
-const server=await bundle(['server/api.mjs','server/studio-api.mjs','server/classroom-api.mjs']);
-const code=server.source+'\nconst ASSETS='+JSON.stringify(assets)+';\n'+`export default {async fetch(request,env){const url=new URL(request.url);if(url.pathname.startsWith('/api/classroom'))return ${server.names[2]}.handleClassroomApi(request,env);if(url.pathname.startsWith('/api/studio'))return ${server.names[1]}.handleStudioApi(request,env);if(url.pathname.startsWith('/api/'))return ${server.names[0]}.handleApi(request,env);if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405});const path=url.pathname==='/'?'/index.html':url.pathname,body=ASSETS[path];if(body===undefined)return new Response('Not found',{status:404});return new Response(request.method==='HEAD'?null:body,{headers:{'Content-Type':path.endsWith('.html')?'text/html; charset=utf-8':path.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8','X-Content-Type-Options':'nosniff','Cache-Control':'no-cache','Referrer-Policy':'strict-origin-when-cross-origin'}});}};`;
-check(code);
-await mkdir(resolve(root,'dist/server'),{recursive:true});await mkdir(resolve(root,'dist/.openai'),{recursive:true});
-await writeFile(resolve(root,'dist/server/index.js'),code);await copyFile(resolve(root,'.openai/hosting.json'),resolve(root,'dist/.openai/hosting.json'));
-console.log('Built dependency-free Worker and '+files.length+' embedded assets.');
+// The shipped platform is static. Rebuilding cannot leave an old server bundle
+// or database declaration behind in the distributable directory.
+const output=resolve(root,'dist');
+if(output!==resolve(root)+sep+'dist')throw Error('Invalid build output directory.');
+await rm(output,{recursive:true,force:true});await mkdir(output,{recursive:true});
+for(const file of files)await copyFile(resolve(root,'public',file),resolve(output,file));
+await writeFile(resolve(output,'.nojekyll'),'');
+console.log('Built static distribution with '+files.length+' browser assets; no database or application server required.');
 const app=await bundle(['public/studio-app.mjs']);check(app.source);
 const portableScript=app.source.replace("new URL('./legacy.html?v=0.7.9',import.meta.url).href","'https://zhinii.github.io/bnta-shadow-puppet-studio/public/legacy.html?v=0.7.9'");
 const offline=assets['/studio.html'].replace(/<link rel="stylesheet" href="\.\/studio\.css(?:[?#][^"]*)?">/,()=>'<style>'+assets['/studio.css']+'</style>').replace(/<script type="module" src="\.\/studio-app\.mjs(?:[?#][^"]*)?"><\/script>/,()=>'<script type="module">'+portableScript.replace(/<\/script/gi,'<\\/script')+'</script>');

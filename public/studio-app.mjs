@@ -1,7 +1,7 @@
 import {createStudioProject,normalizeStudioProject,makePart,addConnection,partTransforms,transformPoint,applyStudioProposal,validateStudio,projectBounds,unitsPerMm,pointInPolygon,inverseMatrix} from './studio-model.mjs?v=0.8.0';
 import {renderStudioSvg,exportSheetSvg,exportPrintHtml,getFabricationMetrics} from './studio-render.mjs?v=0.8.0';
 import {clearStoredStudioSession,serializeStudioProject,parseStudioProject,readArtworkFile} from './studio-storage.mjs?v=0.8.0';
-import {requestStudioAI,getStudioCapabilities,getKimiImagePromptLimit} from './studio-ai.mjs?v=0.8.0';
+import {requestStudioAI,getStudioCapabilities,getKimiImagePromptLimit} from './studio-ai.mjs?v=0.9.0';
 import {resizePart,setPartParameterAxis,getPartParameters,preservePhysicalScale,assertLockedPartsUnchanged} from './studio-parametric.mjs?v=0.8.0';
 import {isolateImageSubject,removeConnectedBackground,removeTappedBackground,selectImageRegion,extractImageSilhouette,decodeArtwork,assetFromImageData} from './studio-image-tools.mjs?v=0.8.0';
 import {splitPart,suggestConnection,suggestJointAt,setJointOverlapDiameter,getJointOverlapLimits,inspectJointOverlap} from './studio-construction.mjs?v=0.8.0';
@@ -98,7 +98,7 @@ function sendClassroomProject(exit=false){
  window.parent.postMessage({type:'classroom:project',project,previewSvg,exit},classroomOrigin);
  toast(t('Character sent to your group workspace.','角色已发送到小组工作区。'));
 }
-function classroomBar(){return classroomMode?`<div class="classroom-editor-bar"><div><strong>${esc(state.project.title||t('Your character','你的角色'))}</strong><span>${t('Save your character before returning to the group.','返回小组前请保存角色。')}</span></div><div>${btn(t('Back to group','返回小组'),'classroom-back','secondary',state.busy||!!state.proposal)}${btn(t('Save character','保存角色'),'classroom-save','primary',state.busy||!!state.proposal)}</div></div>`:'';}
+function classroomBar(){return classroomMode?`<div class="classroom-editor-bar"><div><strong>${esc(state.project.title||t('Your character','你的角色'))}</strong><span>${t('Return to your project, then download its JSON file to keep your work.','返回项目后，下载 JSON 文件以保存作品。')}</span></div><div>${btn(t('Return to project','返回项目'),'classroom-back','secondary',state.busy||!!state.proposal)}${btn(t('Keep character changes','保留角色修改'),'classroom-save','primary',state.busy||!!state.proposal)}</div></div>`:'';}
 function status(){const el=document.querySelector('#save-status');if(el)el.textContent=state.saveStatus==='downloaded'?t('Downloaded · this session only','已下载 · 仅本次会话'):t('This session only · download to keep','仅本次会话 · 请下载保存');}
 
 function toast(message){const el=document.querySelector('#toast');el.textContent=message;el.classList.add('visible');setTimeout(()=>el.classList.remove('visible'),4500);}

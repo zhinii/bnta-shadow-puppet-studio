@@ -1,4 +1,4 @@
-import {planRelayEndpoint,imageRelayEndpoint,readKimiImageResponse,validProtectedEndpoint} from './studio-ai.mjs?v=0.8.0';
+import {planRelayEndpoint,imageRelayEndpoint,readKimiImageResponse,validProtectedEndpoint} from './studio-ai.mjs?v=0.9.0';
 
 export const MAX_CLASSROOM_PROMPT = 4000;
 export const MAX_STAGE_IMAGE_PROMPT = 800;
