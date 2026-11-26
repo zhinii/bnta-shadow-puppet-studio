@@ -43,7 +43,7 @@ This is an implementation and interaction-contract audit. No fresh desktop/mobil
 
 **Cultural grounding.** References and explanations are collected and reflected in the rubric. The software does not certify a design as belonging to a particular regional tradition. Practitioner review and accurate source attribution remain necessary for that claim.
 
-**Hosted access.** The retained hosted Site is owner-private. Student sign-in can only be used after the hosting audience is deliberately enabled for them. The public GitHub Pages version remains a file-based workspace.
+**Hosted access.** The owner enabled student access. The GitHub Pages entry connects to the shared classroom API; teacher management opens the hosted site for sign-in. Students use a class code, name and secret phrase without a ChatGPT account. Local downloaded-project work remains available separately.
 
 ## Next usability acceptance session
 

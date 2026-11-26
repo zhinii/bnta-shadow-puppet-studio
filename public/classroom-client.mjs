@@ -1,6 +1,9 @@
 // Shared classrooms use server authorization and revision checks. Sessions stay in memory.
 import {packClassroomBundle} from './classroom-bundle.mjs?v=0.8.0';
-export function createClassroomClient({base='/api/classroom',fetcher=globalThis.fetch}={}) {
+export const CLASSROOM_HOSTED_URL='https://bnta-shadow-puppet-studio.zhinii.chatgpt.site';
+export function classroomServiceBase(location=globalThis.location){return location?.hostname==='zhinii.github.io'&&location.pathname?.startsWith('/bnta-shadow-puppet-studio')?CLASSROOM_HOSTED_URL+'/api/classroom':'/api/classroom';}
+export function classroomTeacherUrl(location=globalThis.location){return classroomServiceBase(location).startsWith('https:')?CLASSROOM_HOSTED_URL+'/?teacher=1':null;}
+export function createClassroomClient({base=classroomServiceBase(),fetcher=globalThis.fetch}={}) {
   let token='';
   async function request(path,{method='GET',body,signal}={}) {
     const response=await fetcher(base+path,{method,credentials:'same-origin',signal,headers:{Accept:'application/json',...(body?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body.action?packClassroomBundle(body):body)}:{})});

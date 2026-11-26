@@ -1,12 +1,14 @@
 # Shadow Puppet Studio · validation record
 
-## v0.8.0 release validation scope
+## v0.8.1 release validation scope
 
 This release expands the individual puppet editor into classroom story, character, script, stage, submission and teacher-review workflows.
 
-**Integrated release checks:** **415 tests passed, zero failures**. Syntax checks, the production build, and Worker smoke checks also passed. Tests cover different groups saving concurrently, same-group conflicts, recoverable downloaded drafts, classroom permissions, the iframe editor bridge, image deduplication and teacher review of frozen submissions. Browser rendering, a live class pilot and physical puppet assembly remain unverified. Deployment is recorded separately below when confirmed.
+**Integrated release checks:** **417 tests passed, zero failures**. Syntax checks, the production build, and Worker smoke checks also passed. Tests cover different groups saving concurrently, same-group conflicts, recoverable downloaded drafts, classroom permissions, the iframe editor bridge, image deduplication, teacher review of frozen submissions and public-entry routing. Browser rendering, a live class pilot and physical puppet assembly remain unverified.
 
 **Live AI validation:** six real text requests and one real stage-image request completed successfully using synthetic prompts. A dialogue-count problem was corrected and retested; the final script contained six spoken lines. The backdrop was visually inspected, but the provider returned a square image despite a landscape request. The stage now displays the complete image without cropping. See [the request and result record](validation/v080-live-classroom.json).
+
+**Live hosted validation:** seven synthetic checks passed against the deployed classroom service: durable storage, group isolation, concurrent saves by two groups, project/submission retrieval, hidden draft grades, visible confirmed feedback and archiving the validation class. The temporary validation credential was removed. See [the hosted check record](validation/v080-live-hosted.json). This does not replace a real classroom load or browser usability trial.
 
 ## Automated evidence
 
@@ -43,9 +45,9 @@ The final run should include existing puppet geometry, storage, rendering, AI an
 
 ## Production and capability boundaries
 
-- The public GitHub Pages platform can serve the local file workflow. It cannot itself provide durable classroom APIs.
+- The public GitHub Pages platform supports the local file workflow and connects to the hosted classroom API for shared work. The hosted service allows this specific origin; teacher management opens the hosted sign-in page.
 - Shared classrooms require both D1 metadata/identity storage and R2 packed project storage. An unconfigured production route returns an unavailable response; it never silently falls back to an in-memory classroom.
-- The retained hosted Site is owner-private at this checkpoint. Student audience access and live multi-device use have not been established by these tests.
+- The owner explicitly approved public student access on 26 November 2026. Students join with a class code, name and secret phrase without needing a ChatGPT account. Class data remains protected by server-side membership checks.
 - Classroom teacher identity is supplied by the host. Student credentials and sessions are verified server-side; choosing a role in a local file view is not an authenticated classroom session.
 - Shared saves use revision checks and periodic refresh, not real-time collaborative editing or CRDT text merging.
 - AI generation, image editing and visual analysis remain separate capabilities. A working generation endpoint does not validate hidden-layer reconstruction or anatomical segmentation.
@@ -55,7 +57,7 @@ The final run should include existing puppet geometry, storage, rendering, AI an
 
 1. Observe the interface in desktop and phone/tablet browsers, including dragging, focus, keyboard use and print dialogs.
 2. Run a real multi-device class-code join/save/conflict/rejoin session against the deployed backend.
-3. Verify hosted migration, private/allowed audience behavior, saved-work retrieval and teacher/student feedback boundaries on the actual deployment.
+3. Extend the completed hosted storage, group-isolation and feedback checks to a real teacher and student browser session and a full-class load trial.
 4. Test representative human, animal and unusual characters, including custom prompt compliance and wrong-layer patterns.
 5. Print at calibrated scale, cut/assemble rounded overlaps, test pins and rods, and inspect the projected result with a light source.
 6. Review cultural references and construction conventions with a practitioner; the app does not certify authenticity.

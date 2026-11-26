@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-26",
+  "url": "https://bnta-shadow-puppet-studio.zhinii.chatgpt.site",
+  "sourceCommit": "b08cc2a65725b779cbad4405e620560115ee1bac",
+  "syntheticDataOnly": true,
+  "checks": [
+    { "name": "Durable database and object storage available", "passed": true },
+    { "name": "Students isolated to their own group", "passed": true },
+    { "name": "Two groups save concurrently without lost updates", "passed": true },
+    { "name": "Story, script, stage, reflection and submission saved and retrieved", "passed": true },
+    { "name": "Draft grades hidden from students", "passed": true },
+    { "name": "Confirmed intended feedback visible", "passed": true },
+    { "name": "Synthetic validation class archived", "passed": true }
+  ],
+  "temporaryTeacherCredentialRemoved": true,
+  "studentAccess": "Owner explicitly approved public entry; class data requires application sign-in and membership.",
+  "limits": [
+    "Synthetic API requests, not actual students",
+    "Two concurrent groups, not a 30-student load test",
+    "No browser/mobile or physical puppet test"
+  ]
+}

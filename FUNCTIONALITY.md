@@ -1,13 +1,13 @@
 # Shadow Puppet Studio · functionality and acceptance review
 
-Current implementation: **v0.8.0**. The classroom workflow is **Story → Characters → Script → Design → Stage → Make and submit**. Individual puppet design remains **Create → Refine → Make**.
+Current implementation: **v0.8.1**. The classroom workflow is **Story → Characters → Script → Design → Stage → Make and submit**. Individual puppet design remains **Create → Refine → Make**.
 
 The reference is **Shadow Puppet Studio – English.pdf**, 17 pages. Implemented controls and automated checks are distinguished from hosted availability, artistic quality and physical validation.
 
 | Area | Implemented functionality | Practical boundary |
 | --- | --- | --- |
 | Entry and projects | English/Chinese interface, local class-project creation/import/download, direct quick-puppet editor | Local roles are not accounts; closing or reloading does not restore a local project |
-| Shared entry | Teacher-hosted identity, class-code lookup, group choice, student name and 8–128-character secret phrase, rejoining a saved class | Requires configured shared server and permitted hosting audience; the currently retained hosted Site is owner-private |
+| Shared entry | Teacher-hosted identity, class-code lookup, group choice, student name and 8–128-character secret phrase, rejoining a saved class | Public student entry is enabled; class data remains protected by application sign-in and membership checks |
 | Story | Editable time/place/characters/plot, optional relay responsibilities, history and restore, AI draft review | No mandatory handoff or all-members-assigned gate; AI suggestions are not accepted automatically |
 | Character ownership | Add/edit briefs, claim unassigned characters, teacher assignment/reassignment, character versions | Students cannot edit another student's assigned character; authority is enforced on the server |
 | Script | Multiple scenes, setting/dialogue editing, scene versions, bounded AI proposals with accept/reject | Saved-work collaboration, not simultaneous rich-text cursor editing |

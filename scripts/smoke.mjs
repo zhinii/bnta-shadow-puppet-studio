@@ -22,7 +22,7 @@ assert.match(portable,/function clearStoredStudioSession/,'Versioned storage imp
 assert.match(portable,/https:\/\/zhinii\.github\.io\/bnta-shadow-puppet-studio\/public\/legacy\.html\?v=0\.7\.9/);
 assert.doesNotMatch(portable,/new URL\('\.\/legacy\.html/,'Portable classic-editor navigation must not depend on import.meta.url.');
 assert.match(pages,/href="\.\/public\/classroom\.css\?v=0\.8\.0"/);
-assert.match(pages,/src="\.\/public\/classroom-app\.mjs\?v=0\.8\.0"/);
+assert.match(pages,/src="\.\/public\/classroom-app\.mjs\?v=0\.8\.1"/);
 for(const path of ['/classroom-app.mjs','/classroom-model.mjs','/classroom-views.mjs','/classroom-client.mjs','/classroom-teacher.mjs','/classroom-ai.mjs','/classroom.css','/studio.html','/studio-classroom-bridge.mjs','/studio-image-repair.mjs'])assert.equal((await worker.fetch(new Request('https://studio.test'+path),{})).status,200,path);
 const classCapabilities=await(await worker.fetch(new Request('https://studio.test/api/classroom/capabilities'),{})).json();assert.equal(classCapabilities.available,false,'Missing storage must not pretend to save shared work');
 assert.match(legacy,/src="\.\/app\.mjs\?v=0\.7\.9"/);

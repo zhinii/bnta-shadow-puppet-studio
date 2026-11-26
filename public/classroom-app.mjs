@@ -2,7 +2,7 @@ import {createClassroom,normalizeClassroom,applyClassroomAction,exportClassroom,
 import {renderClassroom,renderStudentWorkspace,renderWelcome,renderJoin,escapeClassroomHtml} from './classroom-views.mjs?v=0.8.0';
 import {renderTeacher} from './classroom-teacher.mjs?v=0.8.0';
 import {requestClassroomHelp,requestStageImage,assessmentAIContext} from './classroom-ai.mjs?v=0.8.0';
-import {createClassroomClient} from './classroom-client.mjs?v=0.8.0';
+import {createClassroomClient,classroomTeacherUrl} from './classroom-client.mjs?v=0.8.1';
 import {packClassroomBundle,unpackClassroomBundle} from './classroom-bundle.mjs?v=0.8.0';
 
 const blankState=()=>({screen:'welcome',tab:'story',classroom:null,groupId:null,actor:{role:'teacher'},language:'en',status:'',error:'',busy:false,storageMode:'local',teacherTab:'classes',classes:[],capabilities:null,selectedCharacterId:null,selectedSceneId:null,selectedObjectId:null,aiProposal:null,dirty:false,pendingUpdate:false});
@@ -110,6 +110,8 @@ export function startClassroom() {
   if(a==='use-feedback-draft'){const form=root.querySelector('form[data-form="assessment"]');if(form&&s.aiProposal?.proposal){form.elements.namedItem('comment').value=(s.aiProposal.proposal.observations||[]).map(o=>o.comment+' ['+o.evidenceRefs.join(', ')+']').join('\n');drafts.set(draftKey(form),Object.fromEntries(new FormData(form)));s.dirty=true;}return;}
   if(a==='teacher-tab'){controller.set({teacherTab:button.dataset.tab});return;}
   if(a==='home'){controller.set({screen:'welcome'});return;}
+  if(a==='show-teacher'&&classroomTeacherUrl()&&s.storageMode!=='local'){location.href=classroomTeacherUrl();return;}
+  if(a==='show-teacher'&&classroomTeacherUrl()&&!s.classroom){location.href=classroomTeacherUrl();return;}
   if(a==='resume-project'){controller.set({screen:s.actor.role==='student'?'workspace':'teacher'});return;}
   if(a==='quick-studio'){location.href=new URL('./studio.html',import.meta.url).href;return;}
   if(a==='open-classroom'){fileInput.click();return;}
@@ -197,6 +199,6 @@ export function startClassroom() {
  const poll=setInterval(()=>{if(!designer&&!s.busy&&s.storageMode==='shared'&&!document.hidden)controller.refresh().catch(()=>{s.status=t('Connection interrupted. Your open work is still here.','连接中断，当前作品仍在这里。');});},15000);
  window.addEventListener('pagehide',()=>{clearInterval(poll);aiAbort?.abort();controller.client.clearSession();});
  window.addEventListener('beforeunload',event=>{if(s.dirty||designer){event.preventDefault();event.returnValue='';}});
- render();controller.client.capabilities().then(capabilities=>controller.set({capabilities})).catch(()=>controller.set({capabilities:{available:false,teacherSignedIn:false}}));
+ render();controller.client.capabilities().then(async capabilities=>{controller.set({capabilities});if(new URLSearchParams(location.search).get('teacher')==='1'&&!classroomTeacherUrl()){s.screen='teacher';if(capabilities.available&&capabilities.teacherSignedIn){const r=await controller.client.list();s.classes=r.classes||[];}render();}}).catch(()=>controller.set({capabilities:{available:false,teacherSignedIn:false}}));
  return controller;
 }

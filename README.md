@@ -1,6 +1,6 @@
 # BNTA Shadow Puppet Studio
 
-**Version 0.8.0** expands the studio into a bilingual classroom platform for stories, puppet design, performance preparation and teacher review. The individual puppet editor still uses **Create → Refine → Make**.
+**Version 0.8.1** expands the studio into a bilingual classroom platform for stories, puppet design, performance preparation and teacher review. The individual puppet editor still uses **Create → Refine → Make**.
 
 [Open the public platform](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md) · [Validation](VALIDATION.md)
 
@@ -14,7 +14,7 @@ The source is based on the 17-page **Shadow Puppet Studio – English.pdf** prop
 | **Shared classroom** | A signed-in teacher creates a class and groups. Students enter an eight-character class code, their sign-in name and a secret phrase of 8–128 characters. | Explicit saves are stored on the classroom server. Rejoin the class to continue. Unsaved form drafts and session tokens stay only in the current browser session. |
 | **Quick puppet** | Open the original independent character editor directly. | Download a `.puppet.json` file before closing or reloading. |
 
-The public GitHub Pages address serves the file-based platform. Shared classrooms require the server-backed deployment with D1 and R2 configured. The retained hosted Site is currently owner-private; **student access must be enabled separately before a class can use it**. A class code does not bypass the hosting access policy. An unavailable server is reported explicitly; the app does not pretend that local work is synchronized.
+The public GitHub Pages address supports downloaded projects and shared classrooms through [the hosted classroom service](https://bnta-shadow-puppet-studio.zhinii.chatgpt.site). Student access was explicitly enabled by the owner. Students join with a class code, name and secret phrase; they do not need a ChatGPT account. Teachers sign in on the hosted site to manage their own classes. D1 and R2 provide durable storage. An unavailable server is reported explicitly; the app does not pretend that local work is synchronized.
 
 For a teacher-added roster name, the teacher sets the student's initial secret phrase and shares it privately. Students who register a new permitted name choose their phrase on first join and reuse it afterward. The teacher can reset a forgotten phrase without deleting the student's work.
 
