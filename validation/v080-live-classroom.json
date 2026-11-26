@@ -1,0 +1,184 @@
+{
+  "version": "0.8.0",
+  "testedAt": "2026-11-26T05:05:21.621Z",
+  "source": "Actual requests to the connected protected Kimi relay; all prompts and context were authored synthetic fixtures, no user work or student information.",
+  "scope": "Transport and structured proposal validity; no independent artistic-quality, classroom-usability, or physical-construction verification.",
+  "results": [
+    {
+      "task": "story",
+      "prompt": "Suggest only a revised plot for The Paper Bridge. Preserve Mina and the visiting storyteller. They compare two paper bridges fairly, disagree about the result, and decide on another test. Do not resolve the disagreement for them.",
+      "elapsedMs": 12695,
+      "httpStatus": 200,
+      "success": true,
+      "summary": {
+        "fields": [
+          "title",
+          "time",
+          "place",
+          "characters",
+          "plot"
+        ]
+      },
+      "warnings": [],
+      "attempt": "baseline"
+    },
+    {
+      "task": "script",
+      "prompt": "Revise existing scene test-scene into six short lines of dialogue between Mina and the storyteller. Include one fair-test question and one stage direction. Preserve the scene id; do not create additional scenes.",
+      "elapsedMs": 14232,
+      "httpStatus": 200,
+      "success": true,
+      "summary": {
+        "sceneCount": 1,
+        "sceneIds": [
+          "test-scene"
+        ]
+      },
+      "warnings": [],
+      "attempt": "baseline",
+      "instructionChecks": {
+        "requestedSpokenLines": 6,
+        "actualSpokenLines": 5,
+        "stageDirectionLines": 1,
+        "exactDialogueCountMet": false
+      }
+    },
+    {
+      "task": "stage",
+      "prompt": "Propose two new stage elements: Mina (existing character puppet-mina) at x=200,y=160,width=150,height=300; and one brown rectangular workbench at x=450,y=350,width=300,height=80. Do not generate a background or extra props.",
+      "elapsedMs": 4343,
+      "httpStatus": 200,
+      "success": true,
+      "summary": {
+        "objectCount": 2,
+        "types": [
+          "character",
+          "shape"
+        ],
+        "characterIds": [
+          "puppet-mina"
+        ],
+        "backgroundPromptPresent": false
+      },
+      "warnings": [],
+      "attempt": "baseline"
+    },
+    {
+      "task": "feedback",
+      "prompt": "Give formative feedback for this synthetic learner on construction and testing. Cite exact recorded evidence ids. Distinguish the learner's reported paper trials from independently verified observations. Ask for missing evidence. Do not assign numeric scores or infer effort or teamwork.",
+      "elapsedMs": 8026,
+      "httpStatus": 200,
+      "success": true,
+      "summary": {
+        "observationCount": 2,
+        "evidenceRefs": [
+          "character:puppet-mina",
+          "reflection:test-student"
+        ],
+        "questionCount": 3,
+        "numericScoresPresent": false
+      },
+      "warnings": [],
+      "attempt": "baseline"
+    },
+    {
+      "task": "story",
+      "attempt": "after-refinement",
+      "prompt": "Suggest only a revised plot for The Paper Bridge. Preserve Mina and the visiting storyteller. They compare two paper bridges fairly, disagree about the result, and decide on another test. Do not resolve the disagreement for them.",
+      "elapsedMs": 9785,
+      "httpStatus": 200,
+      "success": true,
+      "summary": {
+        "fields": [
+          "plot"
+        ]
+      },
+      "instructionChecks": {
+        "plotPresent": true,
+        "onlyChangedPlot": true
+      },
+      "warnings": []
+    },
+    {
+      "task": "script",
+      "attempt": "after-refinement",
+      "prompt": "Revise existing scene test-scene into six short lines of dialogue between Mina and the storyteller. Include one fair-test question and one stage direction. Preserve the scene id; do not create additional scenes.",
+      "elapsedMs": 9981,
+      "httpStatus": 200,
+      "success": true,
+      "summary": {
+        "sceneCount": 1,
+        "sceneIds": [
+          "test-scene"
+        ]
+      },
+      "instructionChecks": {
+        "requestedSpokenLines": 6,
+        "actualSpokenLines": 6,
+        "preservedExistingScene": true,
+        "exactDialogueCountMet": true
+      },
+      "warnings": []
+    },
+    {
+      "task": "stage-image",
+      "prompt": "A wide theatrical backdrop for a shadow-puppet classroom performance. A small river and a low paper bridge in the middle distance, distant green hills, warm sunset sky. Leave the lower third mostly open for separate movable puppets. Flat layered paper-cut shapes with clear silhouettes. Landscape scene only: no people, no animals, no standalone character, no words, no decorative border.",
+      "httpStatus": 200,
+      "elapsedMs": 26647,
+      "success": true,
+      "summary": {
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/png"
+      },
+      "visualReview": {
+        "method": "Assistant inspected the actual returned PNG pixels.",
+        "checks": [
+          {
+            "requirement": "River and bridge",
+            "status": "met",
+            "evidence": "A river and a low central bridge are visibly present."
+          },
+          {
+            "requirement": "Green hills and warm sunset",
+            "status": "met",
+            "evidence": "Layered green hills sit beneath an orange and yellow sky."
+          },
+          {
+            "requirement": "Open foreground",
+            "status": "met",
+            "evidence": "The lower portion of the original square image is largely empty."
+          },
+          {
+            "requirement": "No people, animals, words or decorative frame",
+            "status": "met",
+            "evidence": "None of these were visible in the inspected image."
+          },
+          {
+            "requirement": "Wide landscape output",
+            "status": "not_met",
+            "evidence": "The returned PNG is 1024 by 1024 pixels despite requesting a wide landscape."
+          }
+        ],
+        "limitations": [
+          "This is one synthetic sample, not proof of consistent model adherence.",
+          "Cropping a square backdrop to the stage can remove part of the foreground; backdrop fit must preserve the intended composition."
+        ]
+      }
+    }
+  ],
+  "refinements": [
+    "Count spoken dialogue lines separately from stage directions in the AI request.",
+    "Omit unchanged story fields from editable proposals to preserve focused revisions."
+  ],
+  "summary": {
+    "actualTextRequests": 6,
+    "actualImageRequests": 1,
+    "successfulHttpResponses": 7,
+    "structuredTextProposals": 6,
+    "initialInstructionFailure": "One script request produced five spoken dialogue lines plus a stage direction instead of six spoken lines.",
+    "refinedScriptCheck": "After clarifying dialogue-line counting, the retest produced six spoken lines and preserved the existing scene id.",
+    "remainingObservedLimitation": "The stage image provider returned a square image despite a wide landscape request.",
+    "noUserDataSent": true
+  }
+}

@@ -1,6 +1,8 @@
 import {PUPPET_SYSTEM,RELAY} from '../public/agent.mjs';
 const UPSTREAMS=new Set(['https://token-plan.maas.qianwenaiapi.com/compatible-mode/v1','https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1','https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1','https://dashscope.aliyuncs.com/compatible-mode/v1','https://dashscope-intl.aliyuncs.com/compatible-mode/v1']);
 const clients=new Map();let inFlight=0;
+const KIMI_IMAGE_URL='https://6ilmssim2bz2s.kimi.site/api/puppet/image';
+const KIMI_STATUS_URL='https://6ilmssim2bz2s.kimi.site/api/status';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function config(env={}){const key=(env.ALIBABA_API_KEY||env.QIANWEN_API_KEY||env.DASHSCOPE_API_KEY||'').trim(),base=env.ALIBABA_BASE_URL||'https://token-plan.maas.qianwenaiapi.com/compatible-mode/v1',model=env.ALIBABA_MODEL||'qwen3.8-flash';return key&&key.length<=512&&!/\s/.test(key)&&UPSTREAMS.has(base)&&/^[\w.\-]{1,100}$/.test(model)?{key,base,model}:null;}
 export function validateBody(body){
@@ -14,6 +16,8 @@ async function readBounded(request,max=110000){if(Number(request.headers.get('co
 export async function handleApi(request,env={},fetcher=fetch){
  const url=new URL(request.url),configuration=config(env);
  if(url.pathname==='/api/status')return json({service:'Shadow Puppet Studio',configured:!!configuration,relay:true,provider:configuration?'qwen':'protected-kimi',storesPrompts:false});
+ if(url.pathname==='/api/puppet/status')return handleRelayStatus(request,fetcher);
+ if(url.pathname==='/api/puppet/image')return handleRelayImage(request,fetcher);
  if(url.pathname!=='/api/puppet')return json({error:'not_found'},404);
  if(request.method!=='POST')return json({error:'method'},405);
  const origin=request.headers.get('origin');if(origin&&origin!==url.origin)return json({error:'origin'},403);
@@ -35,5 +39,46 @@ export async function handleApi(request,env={},fetcher=fetch){
   if(typeof choice?.message?.content!=='string'||choice.message.content.length>30000)return json({error:'response'},502);
   return json({choices:[{message:{content:choice.message.content},finish_reason:choice.finish_reason}]});
  }catch(error){if(['size','body','request','messages','last_message','task'].includes(error.message))return json({error:error.message},error.message==='size'?413:400);if(error instanceof SyntaxError)return json({error:'invalid_json'},400);return json({error:'connection',kind:error.name==='TimeoutError'?'timeout':'transport'},502);}
+ finally{if(admitted)inFlight--;}
+}
+
+async function handleRelayStatus(request,fetcher){
+ const url=new URL(request.url),origin=request.headers.get('origin');
+ if(request.method!=='GET')return json({error:'method'},405);
+ if(origin&&origin!==url.origin)return json({error:'origin'},403);
+ try{
+  const response=await fetcher(KIMI_STATUS_URL,{headers:{Accept:'application/json'},redirect:'manual',signal:AbortSignal.any([request.signal,AbortSignal.timeout(10000)])});
+  if(!response.ok){await response.body?.cancel();return json({error:'relay_unavailable'},502);}
+  const data=await readBounded(response,20000),configured=data.service==='Shadow Puppet Studio'&&data.configured===true;
+  // This known compatibility service has text and text-to-image generation.
+  // Its status does not establish vision, inpainting, or model output quality.
+  return json({service:'Shadow Puppet Studio',configured,text:configured,imageGeneration:configured,vision:false,imageEditing:false,verification:'relay-configuration-only',storesPrompts:false});
+ }catch(error){return json({error:'relay_unavailable',kind:error.name==='TimeoutError'?'timeout':'transport'},502);}
+}
+function validRelayImage(value){
+ if(typeof value!=='string'||value.length>20000000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value))return false;
+ try{const raw=atob(value.split(',')[1].slice(0,48));return value.startsWith('data:image/png')?raw.startsWith('\x89PNG\r\n\x1a\n'):value.startsWith('data:image/jpeg')?raw.charCodeAt(0)===255&&raw.charCodeAt(1)===216:raw.startsWith('RIFF')&&raw.slice(8,12)==='WEBP';}catch{return false;}
+}
+async function handleRelayImage(request,fetcher){
+ const url=new URL(request.url),origin=request.headers.get('origin');
+ if(request.method!=='POST')return json({error:'method'},405);
+ if(origin&&origin!==url.origin)return json({error:'origin'},403);
+ if(request.headers.get('content-type')?.split(';')[0]!=='application/json')return json({error:'content_type'},400);
+ let admitted=false;
+ try{
+  const body=await readBounded(request,6000);
+  if(body.application!=='shadow-puppet-studio'||body.kind!=='reference'||typeof body.prompt!=='string'||!body.prompt.trim()||body.prompt.length>800)return json({error:'prompt'},400);
+  const minute=Math.floor(Date.now()/60000);for(const [key,item]of clients)if(item.minute!==minute)clients.delete(key);
+  const who=request.headers.get('oai-authenticated-user-id')||request.headers.get('cf-connecting-ip')||'local',key='image:'+who,entry=clients.get(key)||{minute,count:0};
+  if(inFlight>=3||entry.count>=5)return json({error:'rate_limit'},429);
+  entry.count++;clients.set(key,entry);inFlight++;admitted=true;
+  // Forward only the validated public request. Never relay browser credentials,
+  // host identity headers, class membership or user-supplied download addresses.
+  const response=await fetcher(KIMI_IMAGE_URL,{method:'POST',redirect:'manual',headers:{'Content-Type':'application/json'},body:JSON.stringify({application:'shadow-puppet-studio',kind:'reference',prompt:body.prompt}),signal:AbortSignal.any([request.signal,AbortSignal.timeout(230000)])});
+  if(!response.ok){await response.body?.cancel();return json({error:response.status===429?'rate_limit':'provider'},[400,401,403,404,429,503].includes(response.status)?response.status:502);}
+  const data=await readBounded(response,21000000);
+  if(!validRelayImage(data.dataUrl))return json({error:'image_response'},502);
+  return json({dataUrl:data.dataUrl,kind:'reference',...(typeof data.model==='string'&&/^[\w.-]{1,100}$/.test(data.model)?{model:data.model}:{})});
+ }catch(error){if(['size','body'].includes(error.message))return json({error:error.message},error.message==='size'?413:400);if(error instanceof SyntaxError)return json({error:'invalid_json'},400);return json({error:'connection',kind:error.name==='TimeoutError'?'timeout':'transport'},502);}
  finally{if(admitted)inFlight--;}
 }

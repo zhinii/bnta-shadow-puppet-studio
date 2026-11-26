@@ -1,151 +1,95 @@
-# 影作 · BNTA Shadow Puppet Studio
+# BNTA Shadow Puppet Studio
 
-A bilingual student workspace with three processes: **Create → Refine → Make**. Current version: **0.7.11**. Projects stay in the open session; download a project file to keep your work before closing or reloading.
+**Version 0.8.0** expands the studio into a bilingual classroom platform for stories, puppet design, performance preparation and teacher review. The individual puppet editor still uses **Create → Refine → Make**.
 
-[Open the studio](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality list](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md) · [Middle-school usability audit](MIDDLE-SCHOOL-UX-AUDIT.md)
+[Open the public platform](https://zhinii.github.io/bnta-shadow-puppet-studio/) · [Functionality](FUNCTIONALITY.md) · [UI/UX audit](UI-UX-AUDIT.md) · [Validation](VALIDATION.md)
 
-## Design your own character
+The source is based on the 17-page **Shadow Puppet Studio – English.pdf** proposal and the earlier student feedback. No story or character is prewritten for students.
 
-1. **Create:** describe your character, clothing, colours, appearance and desired movement, then choose **Create character**. You can also upload PNG/JPEG/WebP artwork. There are no optional character, setting or style selectors.
-2. **Refine:** check the **Remove the background** preview. If background remains, choose **Tap background to remove** and tap the space around the character. Squares show empty space; the green line shows the cut edge. **Continue to movement** then prepares a plan of numbered movement dots. In **Make it move**, adjust or remove dots, try each joint, then choose **Use these joints** once for the whole plan.
-3. **Make:** set the **print height**, check the geometry, and choose **Print puppet**. Material settings and SVG exports are under **Materials & file options**.
+## Two ways to work
 
-The canvas presents one next action at a time. The default review shows the result; **Compare with original** switches to the original, and **Show result** returns to the proposal. Accept or keep the original before continuing. There is no required four-step Refine submenu or default three-way comparison.
+| Mode | How it works | How work is kept |
+| --- | --- | --- |
+| **Project file** | Start a class project on this device, add groups and members, or open a downloaded project. Local student/teacher views support planning and review on a shared device. | Download a `.shadow-class.json` file. Nothing is automatically restored when the tab closes or reloads. Local role switching is a convenience, not authentication or multi-device collaboration. |
+| **Shared classroom** | A signed-in teacher creates a class and groups. Students enter an eight-character class code, their sign-in name and a secret phrase of 8–128 characters. | Explicit saves are stored on the classroom server. Rejoin the class to continue. Unsaved form drafts and session tokens stay only in the current browser session. |
+| **Quick puppet** | Open the original independent character editor directly. | Download a `.puppet.json` file before closing or reloading. |
 
-The first screen contains no authored character or story. The former decoration module is absent. The four starting-shape buttons have been removed from the student interface. Create from a description or upload an image; manual drawing remains available in Refine.
+The public GitHub Pages address serves the file-based platform. Shared classrooms require the server-backed deployment with D1 and R2 configured. The retained hosted Site is currently owner-private; **student access must be enabled separately before a class can use it**. A class code does not bypass the hosting access policy. An unavailable server is reported explicitly; the app does not pretend that local work is synchronized.
 
-Artwork, cut contours and connections are separate. Imported or generated artwork retains texture and colors inside editable cut contours. Characters are not restricted to ten human body parts: a character can contain up to 80 pieces with arbitrary connection trees.
+For a teacher-added roster name, the teacher sets the student's initial secret phrase and shares it privately. Students who register a new permitted name choose their phrase on first join and reuse it afterward. The teacher can reset a forgotten phrase without deleting the student's work.
 
-**Project** provides New, Open, Download and AI connection settings. Work stays in the open session only. Download before closing or reloading. Live image generation, cleanup and automatic joint review were checked. The final audit fixes have automated regression coverage; live file import, phone/tablet touch, operating-system print-dialog and physical assembly remain unverified; see [the UI/UX implementation audit](UI-UX-AUDIT.md).
+## Student workflow
 
-## Keep the character, then add movement
+1. **Story:** develop the time, place, characters and plot. Optional relay assignments make responsibilities visible without locking everyone behind a handoff. Save versions and restore an earlier idea.
+2. **Characters:** create character briefs and assign ownership. Students can claim an unassigned character; the teacher can reassign responsibility.
+3. **Script:** add scenes, write dialogue and revise it with AI suggestions. Review and accept a draft before it replaces saved text.
+4. **Design:** open a character in the existing puppet editor. Create or upload artwork, remove the background, split pieces, size rounded joints, repair overlap patterns and test movement. Save the character back to the group.
+5. **Stage:** add a background, characters, shapes, images and text. Drag objects or use position, size, rotation and layer controls. Preview scenes in sequence. AI stage layouts and generated backgrounds are proposals to review.
+6. **Make and submit:** open each puppet's print tools, record references and tests, explain individual contributions, and submit a snapshot of the group project.
 
-Uploading artwork into an empty project, or accepting its first generated image, automatically opens the character cleanup review. Existing built pieces are preserved until you deliberately choose **Remove extras** to rebuild them. Cleanup runs locally without an AI request. It removes a connected plain background and proposes keeping the largest connected foreground region. This is a starting selection, not semantic character recognition. A separate hand, prop, foot or intentional ornament may initially be excluded; decoration touching the character may remain attached.
+Groups can develop stories, scripts and character designs in parallel. Saving a new edit after submission marks that submission out of date; the submitted snapshot remains available for review. Resubmitting creates a new snapshot instead of changing the old evidence.
 
-Review the result before accepting:
+## Puppet construction and artwork
 
-- **Tap background to remove:** tap a connected background area inside the picture. Review the checkerboard and green cut outline; **Undo last removal** reverses a wrong tap. **Cancel** returns from placement to the previous review. Separate regions of the same color are retained; connected matching artwork may be removed and must be reviewed.
-- **Keep a missing piece or prop:** tap a separate intentional region to include it.
-- **Choose the character:** tap the region that should be the main subject instead.
-- Use **Compare with original** to check that limbs, costume details and requested props remain.
-- Accept only after the selection is complete. Rebuilding an existing character replaces its pieces, joints and rod points; this is disclosed in the review and can be undone. Locked pieces must be unlocked before rebuilding.
+The design editor preserves the earlier custom-character tools:
 
-If cleanup still looks like a large opaque rectangle, the app pauses before movement and makes background repair the main action. **Is the rectangle intentional? → Keep this whole shape** is available for deliberately rectangular puppets. **Fix background** also appears in invalid or empty joint reviews for image-based designs. Repair stays in a draft until acceptance; continuing rebuilds the outlines and discloses replacement of existing pieces and joints.
+- Description-only image generation, character count, image upload and editable outlines.
+- Local background cleanup with visible cut edges, undo and missing-prop recovery.
+- Suggested movement dots, manual joints, full rounded overlaps on both pieces, aligned holes, front/back order and a visible joint-diameter control.
+- Geometry revisions and mirrors with a real preview, apply/reject and undo.
+- Independent printable pieces, artwork/cut SVGs, tiled A4 pages, scale calibration and assembly guidance.
 
-Accepting the selection creates editable cut outlines. A connected figure may still be one piece; the tool does not identify anatomical limbs or reconstruct hidden artwork.
+**Overlap pattern repair** lets a student choose a patch from the selected piece and use that print on its own rounded joint end. Sample size is adjustable; the connected piece's design, geometry, pivot and hole stay unchanged. Review, undo and reset remain available. The selected print travels with the piece through movement, resizing, mirroring and export.
 
-After cleanup is accepted, the app automatically prepares a **Make it move** review. The local geometry tool finds possible narrow bends. One bounded AI request chooses useful points from those candidates using the student brief and outlines; if that request is unavailable, times out or returns an invalid selection, the app labels its local outline-based suggestions honestly. An existing editable design can start the same review with **Prepare joints**.
+This is a practical correction tool, **not semantic reconstruction of hidden clothing**. Repeating a visible patch cannot recover a concealed motif exactly. Students must review both layers through the bend and may need new artwork or practitioner guidance. The movement buttons bend the actual selected joint and restore the pose; they do not assume every character has human anatomy.
 
-The proposed joints appear as numbered dots. Select a dot and use **Try this joint** to inspect its movement. **Zoom to this joint** shows the overlap detail; **See whole puppet** returns to the full character without resetting the trial angle. Drag a dot, use **Move dot** and tap its new position, or adjust a focused dot with arrow keys; Shift makes a larger nudge. **Add dot** and **Remove dot** let you change the plan. Edits rebuild the proposal from the original character, so moving or removing a dot does not leave abandoned cuts behind. Broad-cut eligibility uses that unchanged source outline; an earlier cut cannot change the area threshold for a later one. These edits and movement tests run locally without another AI request.
+## Teacher workflow and evidence
 
-All unsuitable dots must be moved or removed before **Use these joints** is available. Accepting applies the whole plan in one undo step and retains its original resting pose, not the slider's test angle. **Keep original** discards the plan. With no remaining dots, **Make a still puppet** continues without adding joints. The plan supports up to 12 dots and remains subject to the 80-piece project limit.
+Teachers can manage classes, groups and member names, move students between groups, reset a student's secret phrase, archive a class, review submitted versions and export confirmed results to CSV.
 
-Small round magenta marks inside the retained artwork can seed the plan automatically. Under **About these suggestions**, black-dot detection is available explicitly because eyes, buttons and decorations can resemble joint marks. Every detected mark is still a suggestion to review. Image detection leaves the source pixels intact: embedded colored or black marks remain in the artwork and exported pieces. The numbered editing overlay is separate and is not printed as artwork.
+The starting rubric has five criteria, each with explicit levels from 0 to 4:
 
-Each ready dot creates a shared pivot and rounded overlap material on **both** resulting pieces. The moving piece starts in front of its retained piece. Selecting a ready dot shows the solid blue back-tab outline and dashed orange front-tab outline; **Swap front / back** changes that joint’s layer order and keeps the choice while the plan is rebuilt. Broad sections, fragile slivers, disconnected fragments or nearby existing pins may prevent a proposal. This is geometric construction, not anatomical recognition or hidden-artwork reconstruction.
+- Story and expression.
+- Design and tradition.
+- Construction.
+- Testing and revision.
+- Contribution and reflection.
 
-Manual construction remains available under **More editing tools → Place one joint myself**: tap a narrow section and review a close-up of the joint. The solid blue outline marks the back tab, and the dashed orange outline marks the front tab; **Adjust joint** offers **Swap front / back** and **Choose another spot**. For already separate pieces, **Join two existing pieces** takes one tap on each piece and proposes matching anchors for review. Exact two-point cuts and two-anchor placement remain advanced alternatives.
+Teachers may edit the rubric, draft comments and scores, then confirm them against a submitted snapshot. Students see confirmed group feedback and their own confirmed individual feedback; draft grades and classmates' individual grades remain private.
 
-Both overlap tabs are united with their own piece's outer cut boundary, so cutting does not detach the tabs. The print guide labels the back and front pieces at each connection. Keep both tabs, punch the matching holes, and pass one paper fastener through the layers loosely enough for movement. Existing artwork stays intact; these added material tabs do not reconstruct hidden image content.
+AI provides **formative observations with references to available evidence**, not numerical grades. It must not infer effort, collaboration, physical strength or cultural authenticity from an attractive image. A student's test record is reported as their record, not independently verified physical success.
 
-## Visible change previews
+## Saving and collaboration boundaries
 
-Select a piece, then use **Flip left–right** or **Flip up–down** for an immediate visual proposal. The outline and artwork flip around the incoming pivot; review the result, apply it, or keep the original. Undo remains available. AI revision accepts validated structured edits, retries an unusable response once, and reports clearly when there is no change to preview. It never treats negative width or an ignored attached-piece rotation as a successful edit.
+Shared classrooms use server-side role checks, hashed secret phrases and session tokens, and revision checks. Concurrent saves cannot silently overwrite newer work: a conflict asks the user to load the latest version while keeping open drafts. Background refresh checks for newer saved work every 15 seconds and waits when unsaved forms need attention.
 
-Before refreshing an open session for this update, use **Project → Download project**, then reopen that file afterward.
+This is shared saved-work collaboration, not simultaneous character-canvas editing or live cursor presence. Character ownership prevents one student from changing another student's assigned puppet. Story, script and stage work are shared within the group.
 
-## Rounded overlap joints
+Portable downloads and hosted documents deduplicate identical artwork across current work, histories and submission snapshots. Recent editable histories are bounded; assessed submission snapshots are retained within explicit limits. A large-class fixture checks 30 distinct artwork strings with five repeated histories under 32 MiB; this is a storage regression test, not a real classroom load test.
 
-New splits use complete rounded ends on both pieces, sized to the local section width. The hole remains independent. The visible **Joint size** slider beside the movement control resizes both circles together. Drag toward **Smaller** or **Larger**, or enter a diameter in millimetres. The preview keeps its close-up scale while resizing. The pin hole and pivot stay fixed. A chosen smaller circle can leave shoulders at the original split: test its full motion before cutting. A warning identifies contact with other separate pieces in the current pose; it does not identify unrelated regions within a single outline. Existing downloaded projects retain their saved sizes; manually chosen sizes survive piece resizing and project export. Image-backed rounded ends copy a shared region of the existing printed design onto both layers. Exact artwork from the connected pieces is retained; reflected and repeated nearby print fills added areas. This copies existing pixels rather than inventing hidden details. Plain shapes retain their editable color. Test each bend and the backlit appearance on a paper prototype. These are interim classroom defaults awaiting practitioner and material review; see [joint design and next review](JOINT-DESIGN.md).
+## AI connection
 
-## Optional editing tools
+The app uses the existing protected Kimi relay. Provider credentials are never placed in browser code or project files. Hosted routes proxy only the supported requests to that fixed relay; GitHub Pages and portable puppet files use the existing direct relay transport.
 
-The simple flow leaves detailed controls collapsed:
+- Text story, script, layout and formative-feedback requests: up to 4,000 characters.
+- Character and stage image generation through the legacy image route: up to 800 characters.
+- Stage prompts preserve scenery instructions and do not inherit character-only background rules.
+- New image generation, image editing and visual analysis are separate capabilities. Existing generation access does not establish pixel editing or automatic anatomical recognition.
 
-- **Adjust this piece:** rename or lock it, change Width and Length, edit its outline, choose artwork, change layers, or adjust joint settings. Width/length changes stretch the image, boundary and anchors together; attached pieces follow without stretching. **Set direction on the piece** defines the length axis for diagonal limbs. It preserves the current shape and resets percentages to 100%.
-- **More editing tools:** suggest another joint plan, place a single joint, manually choose a character, find silhouette pieces, select a color region, remove a plain background, draw a piece, draw a two-point cut line, place two joint anchors manually, or add a control rod. Detected shapes can include lettering and decoration; keep only what you need. Manual tools remain available when the simple joint suggestion does not fit.
-- **Ask AI for a change:** request a selected-piece geometry revision and review it before applying. New costume details or hidden surfaces require image editing or new artwork, not a numeric size change.
-- **View tools:** Artwork/Shadow, joint/reference visibility, zoom, Fit, pan and Redo. Outline points support keyboard adjustment as well as dragging.
+## Run and verify
 
-Adding, splitting, resizing or deleting pieces preserves the physical scale of other pieces. Changing the print height deliberately scales the puppet contours; the separately specified pin-hole diameter remains in millimetres.
-
-The joint defaults are starting points for a paper prototype, not universal material standards. Suggested pin joints use a ±60° range, while the batch review tests ±45° around the resting pose. Their overlap radius is based on the pin-hole radius plus the larger of 2 mm or twice the selected material thickness. Material settings and advanced joint controls can be adjusted, but the on-screen range does not establish collision-free or mechanically safe movement.
-
-The design principles follow classroom fabrication guidance: the [Natural History Museum of Los Angeles County](https://nhm.org/learning-resource/make-your-own-dinosaur-shadow-puppet) describes overlapping moving limbs, holes/fasteners and control rods; the [Pitt Rivers Museum activity](https://www.prm.ox.ac.uk/sites/default/files/prm/documents/media/shadow_puppets.pdf) reinforces joint ends and leaves paper fasteners loose enough to move. The app's numeric defaults are implementation choices, not dimensions prescribed by those resources.
-
-The original image cannot supply artwork hidden behind a sleeve or arm. Extend or reconstruct these areas deliberately. Backing color affects tabs and uncovered areas rather than the image pixels. Background cleanup can affect similar-colored clothing touching the background. Interior transparent details remain artwork and are not automatically exported as internal cutouts. Local tools preserve concave outlines and reject boundaries they cannot simplify safely.
-
-## AI capabilities and current deployment
-
-**Image generation is connected to the new editor.** In Create, enter a custom prompt and select **Create character**. Review the image in the main workspace. Accepting it in an empty project opens character cleanup; accepting cleanup prepares the joint plan. Existing pieces keep their original artwork until deliberately replaced or rebuilt.
-
-The browser uses Kimi's protected `/api/puppet/image` route. Its portable image response is decoded, resized to at most 1600 pixels on the longest side and held as a normal project asset in memory. It is included when you explicitly download the project. The adapter makes one generation request and does not silently repeat paid calls after a failure. Earlier verified provider responses identified `wan2.7-image-pro`.
-
-**Prompt limits depend on the route.** The existing Kimi image route accepts an 800-character description; the optional v2 service and text-design route accept up to 4,000 characters. Create shows a live count and confirmed allowance. Saved settings from earlier versions are ignored by AI requests and do not reduce the allowance. While the connection is being checked, creation waits so an early click cannot unexpectedly start a text draft. Upload remains available.
-
-The image adapter preserves the exact description and adds production guidance only when space remains. Oversized requests are stopped before sending, with a message to shorten the description. Errors and progress appear beside Create.
-
-When there is room, image guidance asks for one complete character and only requested props on a plain background, without unrequested text, stars, borders or scenery. Explicitly requested details and legitimate costume motifs remain part of the student's design.
-
-Generation, image editing and vision are separate capabilities. The working Kimi route generates new artwork from text; it does not inspect the current image or automatically identify body parts. **Image editing, image analysis and AI anatomical separation remain unavailable through this route.** Local extraction, manual correction, splitting and parametric controls remain available after acceptance.
-
-A successful image response does not establish prompt accuracy. In live tests, the footballer matched the main requested features, but the six-tentacle scholar had eight visible tentacles. The current review asks students to check limbs, costume and requested props; anatomy and appendage counts still need their judgment. Automatic visual evaluation is not claimed. The v0.5.1 panda verification attempt timed out before an HTTP response, so it produced no fresh image or prompt-quality evidence. The earlier trials do not validate the hotfix or its optional prompt guidance.
-
-**AI-assisted joint planning is separate from image generation.** It sends candidate IDs, the student's brief and measured outlines to the protected text relay. AI may select existing candidates; it cannot replace the artwork or supply unchecked geometry. The current live route does not receive image pixels for this task. One controlled live horse-planning request selected the supplied neck and foreleg candidates in about 8.2 seconds. A later full browser journey selected unrelated regions instead. The final selection prompt emphasizes the requested movements and supplies measured region descriptors; live results for the revised prompt are limited to the synthetic checks below. These trials do not establish visual anatomy recognition or a general success rate. A later live check using newly authored geometric strips passed all three requested outcomes: one lower bend, one left bend and zero joints for a still puppet. A prose-only still response initially triggered fallback; an explicit empty-selection example corrected it on retest. These synthetic cases do not validate anatomical choices on real characters. Reproduce local fixtures with `node scripts/joint-relay-smoke.mjs`; the explicit `--live` option sends only the script’s synthetic shapes to the configured relay. A future vision-capable route can include a reference image only when that capability is advertised.
-
-Text cutting plans still use the older `/api/puppet` assistant in compatibility mode and may need correction. The client validates geometry and makes at most one text-plan repair request before rejecting unusable shapes. This does not apply to paid image generation.
-
-The optional `/api/studio` server implementation supports richer text/vision/edit workflows, but that separate route was still unavailable in the live checks. See [the working image contract and optional v2 handoff](integration/IMAGE-HANDOFF.md). No API key is entered or embedded in the browser; the existing protected relay retains the provider credentials.
-
-## Download, print and start fresh
-
-- Neither the current nor classic editor automatically saves or restores a project. Closing, reloading or reopening starts a fresh session; browser back/forward restoration also restarts it. Project content and undo/chat history remain in memory only.
-- **Project → Download project** exports a portable `.puppet.json` file containing the images, shapes, connections and settings. **Open project file** explicitly imports it later or on another device. Downloaded files are unaffected by a session reset.
-- The former v2 IndexedDB snapshot and classic v1 project autosave are cleared on startup where browser storage permits. Blocked or unavailable storage does not prevent a fresh start. No unrelated browser data is cleared. The protected AI endpoint preference remains available across sessions.
-- Artwork SVG and cut-outline SVG use consistent millimetre scale. The printable pack includes an assembly preview, connection guide, labelled pieces, 50 mm calibration and overlapping A4 tiles for large pieces.
-- Cut outlines combine reinforcement tabs with the part boundary. Invalid or incomplete cutting geometry blocks export.
-- The joint preview is planar. It does not simulate material stiffness, collisions, gravity or rod control. Make a paper prototype and check the 50 mm calibration at 100% print scale before fabrication.
-
-Downloaded version 1 project files remain usable in the [classic editor](https://zhinii.github.io/bnta-shadow-puppet-studio/public/legacy.html), which also starts fresh and offers explicit Download/Open. The new editor rejects v1 files with a clear instruction rather than silently losing drawings or details. Former automatic browser snapshots are no longer a recovery mechanism.
-
-## Run locally
-
-Node.js 22 or later; no npm runtime dependencies.
-
-```sh
-npm start
-```
-
-Open `http://127.0.0.1:4237`. Without local provider configuration the browser checks the existing protected relay. For a standalone protected server, copy `.env.example` to `.env` and configure the existing account and region. Never commit credentials or place them in `public/`.
+Requires Node.js 22 or later.
 
 ```sh
 npm run check
 npm test
 npm run build
 node scripts/smoke.mjs
+npm start
 ```
 
-The build creates a dependency-free Worker at `dist/server/index.js`, a portable manual editor at `START-HERE.html`, and the committed root entry used by GitHub Pages. AI from a local file depends on relay origin policy; hosted/localhost mode is preferred. Fonts fall back to installed fonts without network access.
+Local serving defaults to `http://127.0.0.1:4237`. The dependency-free Worker build is emitted at `dist/server/index.js`; the build also refreshes the GitHub Pages entry and portable puppet editor.
 
-## Source
+For shared hosting, retain the existing Site identity in `.openai/hosting.json` and bind `d1: "DB"` and `r2: "BUCKET"`. Schema-only migrations live in `drizzle/`. Hosted teacher identity comes from the Sites platform, not a role selected in the browser. Standalone teacher-token configuration is for controlled server use; never expose it to students or embed it in a client bundle.
 
-| File | Responsibility |
-| --- | --- |
-| `public/studio-model.mjs` | Arbitrary geometry, transforms, locks and fabrication checks |
-| `public/studio-parametric.mjs` | Width, length, axis and physical-scale controls |
-| `public/studio-image-tools.mjs` | Local background cleanup, region selection and outline extraction |
-| `public/studio-construction.mjs` | One-tap joint suggestions, piece splitting and proposed pivot connections |
-| `public/studio-joint-plan.mjs` | Bounded candidate search and batch rebuilding from original geometry |
-| `public/studio-joint-ai.mjs` | One bounded AI candidate-selection request and honest local fallback |
-| `public/studio-joint-markers.mjs` | Local magenta/optional black mark detection without changing source pixels |
-| `public/studio-render.mjs` | Clipped artwork, united contours, precise holes and print packs |
-| `public/studio-ai.mjs` | Exact prompt transport, capability checks, selected-piece scope, validation and one repair |
-| `public/studio-storage.mjs` | Portable project files, image import and cleanup of former session snapshots |
-| `public/studio-viewport.mjs` | Canvas zoom, pan and screen-scale editing calculations |
-| `public/studio-app.mjs` | Three-stage student workflow and review controls |
-| `server/studio-api.mjs` | Protected text, vision, generation, editing and visual evaluation |
-| `public/legacy.html` | Preserved earlier editor |
-
-[Validation evidence and limits](VALIDATION.md) · [Criteria audit](CRITERIA-AUDIT.md)
-
-GitHub Pages serves **main / (root)**. It cannot host the provider secret or API adapter. The Check studio workflow tests changes independently of the automatic Pages deployment.
+See [VALIDATION.md](VALIDATION.md) for checks and remaining limits. Automated verification does not replace a middle-school usability pilot, a multi-device classroom trial, or a printed puppet and backlight test.

@@ -1,4 +1,4 @@
-import {inverseMatrix,multiplyMatrices,transformPoint} from './studio-model.mjs?v=0.7.9';
+import {inverseMatrix,multiplyMatrices,transformPoint} from './studio-model.mjs?v=0.8.0';
 
 // Source-coordinate recipes stay stable through pose, mirror and proportional
 // edits. They copy the existing print; they do not reconstruct hidden artwork.
@@ -30,8 +30,14 @@ function interiorTile(polygons,anchor,radius){
  }
  if(!best)return null;const {score,...tile}=best;return tile;
 }
-export function getJointArtworkPlan(project,joint){
+export function getJointArtworkPlan(project,joint,partId){
  if(!(joint.padRadius>0))return null;
+ const selectedPart=partId&&project.parts.find(p=>p.id===partId),sample=selectedPart?.overlapSamples?.find(s=>s.jointId===joint.id);
+ if(sample){
+  const asset=project.assets.find(a=>a.id===selectedPart.assetId);if(!asset)return null;
+  const x=sample.center[0]-sample.size/2,y=sample.center[1]-sample.size/2;
+  return {jointId:joint.id,donorId:selectedPart.id,assetId:asset.id,manualSample:true,sourceAnchor:[...sample.center],sourcePolygons:[[[x,y],[x+sample.size,y],[x+sample.size,y+sample.size],[x,y+sample.size]]],reflection:[1,0,0,1,0,0],tile:{x,y,size:sample.size}};
+ }
  const pair=[joint.parentId,joint.childId].map(id=>project.parts.find(p=>p.id===id)),assets=project.assets||[];
  const donor=pair.find(p=>p&&assets.some(a=>a.id===p.assetId&&/^data:image\/(png|jpeg|webp);base64,/.test(a.dataUrl||'')));
  if(!donor)return null;

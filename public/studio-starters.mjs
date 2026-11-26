@@ -1,4 +1,4 @@
-import {createStudioProject,makePart,addConnection,normalizeStudioProject} from './studio-model.mjs?v=0.7.9';
+import {createStudioProject,makePart,addConnection,normalizeStudioProject} from './studio-model.mjs?v=0.8.0';
 
 /** Optional construction templates. These are editable geometry, not AI-generated art. */
 export const STARTERS = Object.freeze([

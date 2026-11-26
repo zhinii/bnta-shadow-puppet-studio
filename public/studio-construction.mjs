@@ -1,4 +1,4 @@
-import {normalizeStudioProject,studioId,partTransforms,transformPoint,inverseMatrix,unitsPerMm,neutralProjectBounds,polygonArea,pointInPolygon,distanceToBoundary,selfIntersects,validateStudio,roundedOverlapRadius} from './studio-model.mjs?v=0.7.9';
+import {normalizeStudioProject,studioId,partTransforms,transformPoint,inverseMatrix,unitsPerMm,neutralProjectBounds,polygonArea,pointInPolygon,distanceToBoundary,selfIntersects,validateStudio,roundedOverlapRadius} from './studio-model.mjs?v=0.8.0';
 
 const EPS=1e-7;
 // Finite paper-prototype heuristics, not material-strength limits. Broader

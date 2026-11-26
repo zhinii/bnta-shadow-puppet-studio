@@ -69,12 +69,13 @@ function jointPlanCandidates(body) {
 
 // This harness verifies event wiring and state persistence; it is not a browser
 // rendering or physical-fabrication test.
-function browserHarness() {
+function browserHarness({classroom=false}={}) {
   const rootListeners = new Map(), documentListeners = new Map(), windowListeners=new Map(), files = new Map();
   const downloads = [], requests = [], records = new Map(), urls = new Map(), focusedSelectors=[];
   const storageOperations=[],preferences=new Map(),scrollRequests=[],captures=[],releases=[];let appModule=null,startCount=0;
   const rasters=new Map();let fixtureRaster=null;
-  const previous = new Map(['document','window','localStorage','indexedDB','fetch','setTimeout','clearTimeout','createImageBitmap'].map(k=>[k,globalThis[k]]));
+  const previous = new Map(['document','window','location','localStorage','indexedDB','fetch','setTimeout','clearTimeout','createImageBitmap'].map(k=>[k,globalThis[k]]));
+  const classroomMessages=[],parent={postMessage(data,origin){classroomMessages.push({data:structuredClone(data),origin});}};
   const originalCreateURL = URL.createObjectURL, originalRevokeURL = URL.revokeObjectURL;
   const nativeTimeout = globalThis.setTimeout;
   const overlapHints=Object.fromEntries(['review','plan','part'].map(scope=>[scope,{textContent:'',hidden:true}]));
@@ -116,7 +117,8 @@ function browserHarness() {
     if(tag==='canvas'){let pixels=null;const canvas={width:0,height:0,getContext(){return {drawImage(decoded){pixels=structuredClone(decoded.raster||fixtureRaster);},getImageData(){return {data:new Uint8ClampedArray(pixels.data)};},createImageData(width,height){return {width,height,data:new Uint8ClampedArray(width*height*4)};},putImageData(image){pixels={width:canvas.width,height:canvas.height,data:new Uint8ClampedArray(image.data)};}};},toDataURL(){if(!pixels)return PNG;const value=fixturePng(pixels);rasters.set(value,structuredClone(pixels));return value;}};return canvas;}
     throw Error('Unexpected DOM element: '+tag);
   }};
-  globalThis.window={addEventListener:(type,fn)=>windowListeners.set(type,fn)};
+  globalThis.window={addEventListener:(type,fn)=>windowListeners.set(type,fn),...(classroom?{parent}:{})};
+  if(classroom)globalThis.location={origin:'https://classroom.example',hostname:'classroom.example',search:'?classroom=1'};
   globalThis.localStorage={getItem(key){storageOperations.push({kind:'local-get',key});return preferences.get(key)||null;},setItem(key,value){storageOperations.push({kind:'local-set',key});preferences.set(key,value);},removeItem(key){storageOperations.push({kind:'local-remove',key});preferences.delete(key);}};
   globalThis.createImageBitmap=async blob=>{let raster=fixtureRaster;if(blob?.arrayBuffer){const key='data:image/png;base64,'+Buffer.from(await blob.arrayBuffer()).toString('base64');raster=rasters.get(key)||raster;}return {width:raster?.width||100,height:raster?.height||100,raster:raster?structuredClone(raster):null,close(){}};};
   globalThis.setTimeout=(fn,ms,...args)=>{let id;id=nativeTimeout(()=>{timers.delete(id);fn(...args);},ms<10000?1:ms);timers.add(id);return id;};
@@ -139,7 +141,8 @@ function browserHarness() {
     return getResponseFactory(url);
   };
   const settle=()=>new Promise(resolve=>nativeTimeout(resolve,25));
-  return {root,status,requests,legacyRecords:records,storageOperations,preferences,downloads,files,settle,rasters,printFrame,promptBudget,focusedSelectors,scrollRequests,captures,releases,
+  return {root,status,requests,legacyRecords:records,storageOperations,preferences,downloads,files,settle,rasters,printFrame,promptBudget,focusedSelectors,scrollRequests,captures,releases,classroomMessages,
+    message(data,{origin='https://classroom.example',source=parent}={}){windowListeners.get('message')?.({data,origin,source});},
     async start(name){appModule=await import(`../public/studio-app.mjs?${name}-${++startCount}`);},
     project:()=>appModule.getSessionSnapshot(),
     canvasMarkup:()=>canvas.innerHTML,
@@ -190,6 +193,38 @@ async function openRigFixture(h,kind='figure'){
  await h.openProject(project);await h.click({action:'select',id:project.parts[0].id});
 }
 function legacyImageStatus(url){return String(url).endsWith('/api/status')?{ok:true,status:200,json:async()=>({service:'Shadow Puppet Studio',configured:true})}:{ok:false,status:404,json:async()=>({error:'not_found'})};}
+
+test('classroom iframe loads a character, ignores foreign messages and returns accepted work',async()=>{
+ const h=browserHarness({classroom:true});
+ try{
+  await h.start('classroom-bridge');await h.settle();assert.equal(h.classroomMessages[0].data.type,'classroom:ready');
+  h.message({type:'classroom:load',characterName:'Bird',brief:'A blue bird',language:'zh'});assert.equal(h.project().title,'Bird');assert.equal(h.project().brief.keywords,'A blue bird');assert.equal(h.project().language,'zh');
+  assert.match(h.root.innerHTML,/data-action="classroom-save"/);const before=h.project();
+  h.message({type:'classroom:load',characterName:'Wrong'},{origin:'https://other.example'});h.message({type:'classroom:load',characterName:'Wrong'},{source:{}});assert.deepEqual(h.project(),before);
+  await h.click({action:'classroom-save'});let saved=h.classroomMessages.at(-1);assert.equal(saved.data.type,'classroom:project');assert.deepEqual(saved.data.project,before);assert.equal(saved.data.exit,false);assert.match(saved.data.previewSvg,/<svg/);assert.equal(saved.origin,'https://classroom.example');
+  await h.click({action:'classroom-back'});assert.equal(h.classroomMessages.at(-1).data.exit,true);
+  const printable=createStudioProject();printable.parts=[makePart('Wing',[[0,0],[100,0],[100,60],[0,60]])];
+  h.message({type:'classroom:load',project:printable,step:'make'});assert.match(h.root.innerHTML,/workspace step-make/);assert.match(h.root.innerHTML,/data-action="print"/);
+  h.message({type:'classroom:request-save',exit:true});assert.equal(h.classroomMessages.at(-1).data.type,'classroom:project');assert.equal(h.classroomMessages.at(-1).data.exit,true);assert.equal(h.classroomMessages.at(-1).data.project.parts.length,1);
+  h.message({type:'classroom:load',project:printable,step:'refine'});assert.match(h.root.innerHTML,/workspace step-refine/);
+  h.message({type:'classroom:load',project:printable,step:'create'});assert.match(h.root.innerHTML,/workspace step-create/);
+  h.message({type:'classroom:load',characterName:'Empty',step:'make'});assert.match(h.root.innerHTML,/workspace step-create/,'An empty character cannot enter printing.');
+  assert.ok(!h.storageOperations.some(o=>o.kind==='local-set'&&o.key!=='bnta-studio-endpoint'));
+ }finally{await h.close();}
+});
+
+test('piece-specific overlap repair previews before acceptance, supports undo, and movement tests keep the saved pose',async()=>{
+ const h=browserHarness();
+ try{
+  await h.start('piece-pattern-repair');await h.settle();const project=createStudioProject();
+  project.assets=[{id:'art',name:'Pattern',dataUrl:PNG,width:200,height:200}];project.parts=[{...makePart('Top',[[40,20],[120,20],[120,100],[40,100]],'art'),id:'top'},{...makePart('Leg',[[40,100],[120,100],[120,180],[40,180]],'art'),id:'leg'}];project.joints=[{id:'hip',parentId:'top',childId:'leg',parentAnchor:[80,100],childAnchor:[80,100],padRadius:42,min:-90,max:90,angle:0}];
+  await h.openProject(project);await h.click({action:'select',id:'leg'});const before=h.project();assert.match(h.root.innerHTML,/Choose pattern on this piece/);
+  await h.click({action:'overlap-sample',joint:'hip'});await h.point(80,145,'leg');assert.equal(h.error(),'');assert.deepEqual(h.project(),before);assert.match(h.root.innerHTML,/data-joint-sample="selected-piece"/);
+  await h.click({action:'accept'});const repaired=h.project();assert.ok(repaired.parts[1].overlapSamples);assert.deepEqual(repaired.parts[0],before.parts[0]);assert.deepEqual(repaired.joints,before.joints);
+  const originalCanvas=h.canvasMarkup();await h.click({action:'motion-bend',joint:'hip',direction:'1'});assert.notEqual(h.canvasMarkup(),originalCanvas);assert.deepEqual(h.project(),repaired);await h.click({action:'motion-reset'});assert.deepEqual(h.project(),repaired);
+  await h.click({action:'undo'});assert.deepEqual(h.project().parts,before.parts);assert.deepEqual(h.project().joints,before.joints);
+ }finally{await h.close();}
+});
 
 test('cold startup waits for known image capabilities without sending a surprise text draft', async () => {
   const h=browserHarness();let releaseStatus;

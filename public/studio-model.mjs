@@ -53,7 +53,12 @@ function normalizePart(raw) {
     const determinant=artworkMatrix[0]*artworkMatrix[3]-artworkMatrix[1]*artworkMatrix[2];
     if(!Number.isFinite(determinant)||Math.abs(determinant)<1e-8)fail('Artwork transform must preserve a non-zero area.','INVALID_PARAMETERS');
   }
-  return {id:id(raw.id),name:cleanText(raw.name,100)||'Untitled part',polygon:points,assetId:raw.assetId==null?null:id(raw.assetId,false),fill:color(raw.fill),x:number(raw.x,0),y:number(raw.y,0),rotation:number(raw.rotation,0,-360,360),locked:raw.locked===true,z:number(raw.z,0,-1000,1000),artworkMatrix,parameters:{width:number(parameters?.width,1,.25,4),length:number(parameters?.length,1,.25,4),axisAngle:number(parameters?.axisAngle,0,-180,180),origin:parameters?.origin===undefined?[box.x+box.width/2,box.y+box.height/2]:point(parameters.origin)}};
+  const overlapSamples=raw.overlapSamples===undefined?[]:list(raw.overlapSamples,79,'overlap samples').map(sample=>{
+    if(!record(sample)||typeof sample.size!=='number'||!Number.isFinite(sample.size)||sample.size<1||sample.size>8192)fail('An overlap pattern needs a valid sample size.','INVALID_ASSET');
+    return {jointId:id(sample.jointId,false),center:point(sample.center),size:sample.size};
+  });
+  if(new Set(overlapSamples.map(s=>s.jointId)).size!==overlapSamples.length)fail('Choose one pattern per piece and joint.','INVALID_ASSET');
+  return {id:id(raw.id),name:cleanText(raw.name,100)||'Untitled part',polygon:points,assetId:raw.assetId==null?null:id(raw.assetId,false),fill:color(raw.fill),x:number(raw.x,0),y:number(raw.y,0),rotation:number(raw.rotation,0,-360,360),locked:raw.locked===true,z:number(raw.z,0,-1000,1000),artworkMatrix,...(overlapSamples.length?{overlapSamples}:{}),parameters:{width:number(parameters?.width,1,.25,4),length:number(parameters?.length,1,.25,4),axisAngle:number(parameters?.axisAngle,0,-180,180),origin:parameters?.origin===undefined?[box.x+box.width/2,box.y+box.height/2]:point(parameters.origin)}};
 }
 function normalizeJoint(raw) {
   if(!record(raw))fail('Invalid connection.');
@@ -95,6 +100,14 @@ export function normalizeStudioProject(raw) {
   p.parts=list(raw.parts,80,'parts').map(normalizePart);const partIds=distinct(p.parts,'part');
   for(const part of p.parts)if(part.assetId&&!assetIds.has(part.assetId))fail('Artwork for '+part.name+' is missing.','INVALID_ASSET');
   p.joints=list(raw.joints,79,'connections').map(normalizeJoint);distinct(p.joints,'connection');
+  for(const part of p.parts)if(part.overlapSamples){
+    const asset=p.assets.find(a=>a.id===part.assetId),inv=inverseMatrix(part.artworkMatrix),source=part.polygon.map(p=>transformPoint(inv,p));
+    part.overlapSamples=part.overlapSamples.filter(sample=>p.joints.some(j=>j.id===sample.jointId&&(j.parentId===part.id||j.childId===part.id)));
+    for(const sample of part.overlapSamples){const [x,y]=sample.center,half=sample.size/2;
+      if(!asset||x-half<0||y-half<0||x+half>asset.width||y+half>asset.height||!pointInPolygon(sample.center,source)||Math.min(...source.map((a,i)=>distanceToSegment(sample.center,a,source[(i+1)%source.length])))+1e-6<half*Math.SQRT2)fail('Choose an overlap sample entirely inside this piece.','INVALID_ASSET');
+    }
+    if(!part.overlapSamples.length)delete part.overlapSamples;
+  }
   const incoming=new Map();
   for(const joint of p.joints){
     if(!partIds.has(joint.parentId)||!partIds.has(joint.childId)||joint.parentId===joint.childId)fail('Connections must join two different existing parts.','INVALID_CONNECTION');
@@ -379,7 +392,7 @@ export function assertLockedPartsUnchanged(before,after){
  const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
  for(const old of before.parts.filter(p=>p.locked)){
   const next=after.parts.find(p=>p.id===old.id);
-  if(!next||!same(old.polygon,next.polygon)||!same(old.artworkMatrix||paramIdentity,next.artworkMatrix||paramIdentity)||old.assetId!==next.assetId||old.fill!==next.fill||old.z!==next.z||old.locked!==next.locked||!oldTransforms[old.id].every((n,i)=>paramClose(n,newTransforms[old.id][i])))throw paramFailure('This change would alter or move the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
+   if(!next||!same(old.polygon,next.polygon)||!same(old.artworkMatrix||paramIdentity,next.artworkMatrix||paramIdentity)||!same(old.overlapSamples||[],next.overlapSamples||[])||old.assetId!==next.assetId||old.fill!==next.fill||old.z!==next.z||old.locked!==next.locked||!oldTransforms[old.id].every((n,i)=>paramClose(n,newTransforms[old.id][i])))throw paramFailure('This change would alter or move the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
   const pads=project=>project.joints.filter(j=>j.parentId===old.id||j.childId===old.id).map(j=>({id:j.id,type:j.type,anchor:j.parentId===old.id?j.parentAnchor:j.childAnchor,radius:j.padRadius}));
   if(!same(pads(before),pads(after)))throw paramFailure('This change would resize a joint on the locked part "'+old.name+'". Unlock that part first.','LOCKED_PART');
   if(old.assetId){

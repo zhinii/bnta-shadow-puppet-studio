@@ -621,3 +621,17 @@ html[lang=zh] .empty-canvas h2 { font-size: 30px; }
  .cleanup-guidance h2 { font-size: 22px; }
  .cleanup-warning { font-size: 14px; }
 }
+/* Classroom editor bridge and piece-specific print repair. */
+.classroom-editor-bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.5rem;background:#e8f0e5;border-bottom:1px solid #b6c6b1;color:#244e41;position:sticky;top:0;z-index:20}
+.classroom-editor-bar>div{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.classroom-editor-bar span{font-size:.875rem}
+.classroom-editor-bar button{min-height:44px}
+.overlap-repair{margin:1rem 0;border:1px solid #c9d2c4;border-radius:.75rem;padding:1rem;background:#f7faf4}
+.overlap-repair summary{font-weight:700;cursor:pointer;min-height:28px}
+.overlap-repair p{font-size:.95rem;line-height:1.5}
+.overlap-repair-joint{display:grid;gap:.5rem;padding:.75rem 0;border-top:1px solid #d5ded0}
+.overlap-repair-joint strong{font-size:.95rem;overflow-wrap:anywhere}
+.motion-test-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin:.75rem 0}
+.motion-test-actions button{min-height:44px}
+.mode-overlap-sample{cursor:crosshair}
+@media(max-width:640px){.classroom-editor-bar{align-items:stretch;flex-direction:column;padding:.75rem 1rem}.classroom-editor-bar>div:last-child{display:grid;grid-template-columns:1fr 1fr}.classroom-editor-bar span{display:none}.motion-test-actions{display:grid;grid-template-columns:1fr 1fr}.motion-test-actions .text-button{grid-column:1/-1}}

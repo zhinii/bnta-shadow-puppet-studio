@@ -1,5 +1,5 @@
-import {getJointArtworkPlan,jointArtworkMapping} from './studio-joint-artwork.mjs?v=0.7.9';
-import {partTransforms, transformPoint, neutralProjectBounds, unitsPerMm, validateStudio, inverseMatrix} from './studio-model.mjs?v=0.7.9';
+import {getJointArtworkPlan,jointArtworkMapping} from './studio-joint-artwork.mjs?v=0.8.0';
+import {partTransforms, transformPoint, neutralProjectBounds, unitsPerMm, validateStudio, inverseMatrix} from './studio-model.mjs?v=0.8.0';
 
 // Artwork, cut geometry and joints are independent. All geometry is in artwork
 // units until the last print transform, where one SVG unit is one millimetre.
@@ -127,13 +127,13 @@ function partGeometry(project,part) {
 }
 
 const safeToken=value=>String(value).replace(/[^\w-]/g,'_');
-function jointPrintPlans(project){return new Map((project.joints||[]).map(j=>[j.id,getJointArtworkPlan(project,j)]).filter(([,plan])=>plan));}
+function jointPrintPlans(project){const plans=new Map();for(const joint of project.joints||[]){const plan=getJointArtworkPlan(project,joint);if(plan)plans.set(joint.id,plan);for(const partId of [joint.parentId,joint.childId])if(project.parts.find(p=>p.id===partId)?.overlapSamples?.some(s=>s.jointId===joint.id)){const own=getJointArtworkPlan(project,joint,partId);if(own)plans.set(joint.id+':'+partId,own);}}return plans;}
 function jointImageDefs(project,prefix,plans,parts=project.parts){
  const ids=[...new Set([...parts.map(p=>p.assetId),...[...plans.values()].map(p=>p.assetId)].filter(Boolean))];
  return ids.length?'<defs>'+ids.map(id=>{const a=raster(project.assets.find(a=>a.id===id));return a?'<image id="'+prefix+'-joint-source-'+safeToken(id)+'" data-joint-image-source="'+esc(id)+'" href="'+esc(a.dataUrl)+'" x="0" y="0" width="'+f(a.width)+'" height="'+f(a.height)+'" preserveAspectRatio="none"/>':'';}).join('')+'</defs>':'';
 }
 function jointPrintMarkup(project,part,geometry,{prefix,token,plans}){
- const pads=padsFor(project,part.id).map(pad=>({...pad,plan:plans.get(pad.joint.id)})).filter(pad=>pad.plan),b=geometry.box;
+ const pads=padsFor(project,part.id).map(pad=>({...pad,plan:plans.get(pad.joint.id+':'+part.id)||plans.get(pad.joint.id)})).filter(pad=>pad.plan),b=geometry.box;
  if(!pads.length)return {defs:'',markup:'',baseMask:''};
  let defs='<mask id="'+token+'-without-joint-print" maskUnits="userSpaceOnUse" x="'+f(b.x-1)+'" y="'+f(b.y-1)+'" width="'+f(b.width+2)+'" height="'+f(b.height+2)+'"><rect x="'+f(b.x-1)+'" y="'+f(b.y-1)+'" width="'+f(b.width+2)+'" height="'+f(b.height+2)+'" fill="white"/>'+pads.map(p=>'<circle cx="'+f(p.anchor[0])+'" cy="'+f(p.anchor[1])+'" r="'+f(p.radius)+'" fill="black"/>').join('')+'</mask>';
  const markup=pads.map(({plan,joint,anchor,radius})=>{
@@ -145,6 +145,7 @@ function jointPrintMarkup(project,part,geometry,{prefix,token,plans}){
   defs+='<mask id="'+id+'-new-material" maskUnits="userSpaceOnUse" '+rect+'><rect '+rect+' fill="white"/><path d="'+path+'" fill="black"/></mask>';
   let fallback='';
   if(plan.tile){const t=plan.tile;defs+='<pattern id="'+id+'-tile" patternUnits="userSpaceOnUse" x="'+f(t.x)+'" y="'+f(t.y)+'" width="'+f(t.size)+'" height="'+f(t.size)+'" viewBox="'+[t.x,t.y,t.size,t.size].map(f).join(' ')+'" preserveAspectRatio="none" overflow="hidden">'+use+'</pattern>';fallback='<rect data-joint-copy="tile" '+rect+' fill="url(#'+id+'-tile)"/>';}
+   if(plan.manualSample)return '<g data-joint-artwork="'+esc(joint.id)+'" data-joint-part="'+esc(part.id)+'" data-joint-donor="'+esc(part.id)+'" data-joint-sample="selected-piece" clip-path="url(#'+id+'-round)"><g data-joint-artwork-mapping="'+esc(joint.id)+'" transform="matrix('+mapping.map(f).join(' ')+')">'+fallback+'</g></g>';
   const original='<g clip-path="url(#'+id+'-source)">'+use+'</g>';
   return '<g data-joint-artwork="'+esc(joint.id)+'" data-joint-part="'+esc(part.id)+'" data-joint-donor="'+esc(plan.donorId)+'" clip-path="url(#'+id+'-round)"><g data-joint-artwork-mapping="'+esc(joint.id)+'" transform="matrix('+mapping.map(f).join(' ')+')"><g mask="url(#'+id+'-new-material)">'+fallback+'<g data-joint-copy="reflected" transform="matrix('+plan.reflection.map(f).join(' ')+')">'+original+'</g></g><g data-joint-copy="original">'+original+'</g></g></g>';
  }).join('');
@@ -235,7 +236,7 @@ export function exportPrintHtml(project) {
   if(cols*rows+pages.length>160)throw Error(t('This print needs more than 160 pages. Reduce the puppet height.','打印需要超过 160 页，请减小皮影高度。'));
   for(let row=0;row<rows;row++)for(let col=0;col<cols;col++) {
    const vx=b.x+(cols===1?-(tileWidth-w)/2:col*(tileWidth-overlap))/scale,vy=b.y+(rows===1?-(tileHeight-h)/2:row*(tileHeight-overlap))/scale,tiled=cols*rows>1;
-   const pagePlans=new Map([...jointPlans].filter(([id])=>project.joints.some(j=>j.id===id&&(j.parentId===part.id||j.childId===part.id))));
+    const pagePlans=new Map([...jointPlans].filter(([,plan])=>project.joints.some(j=>j.id===plan.jointId&&(j.parentId===part.id||j.childId===part.id))));
    const cut=partMarkup(project,part,geometry,{prefix:prefix+'-'+pages.length,jointPlans:pagePlans,showArt:true,strokeWidth:.18/scale});
    const guides=padsFor(project,part.id).map(p=>`<text x="${f(p.anchor[0]+5/scale)}" y="${f(p.anchor[1])}" font-size="${f(3/scale)}" font-family="system-ui,sans-serif" fill="#1b7067">${project.joints.indexOf(p.joint)+1}${p.joint.type==='fixed'?t(' glue',' 粘合'):''}</text>`).join('');
    const rodMarks=(project.rods||[]).filter(r=>r.partId===part.id).map(r=>`<path d="M${f(r.point[0]-2/scale)} ${f(r.point[1])}h${f(4/scale)}m${f(-2/scale)} ${f(-2/scale)}v${f(4/scale)}" fill="none" stroke="#28666a" stroke-width="${f(.2/scale)}"/>`).join('');
